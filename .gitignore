@@ -1,0 +1,31 @@
+# macOS
+.DS_Store
+
+# Xcode / SwiftPM
+.build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+*.xcworkspace/xcshareddata/swiftpm/
+.swiftpm/
+Package.resolved.bak
+
+# Rust / Python / Node（仅用于实验脚本）
+target/
+__pycache__/
+.venv/
+node_modules/
+
+# 本地数据：绝不提交任何采集数据或记忆文件
+data/
+memory/
+*.sqlite
+*.sqlite-*
+*.log
+
+# 编辑器
+.idea/
+.vscode/
+
+docs/references/competitors.md
+docs/private/
