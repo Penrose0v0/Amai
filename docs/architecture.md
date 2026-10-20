@@ -56,13 +56,22 @@
 
 | 模块 | 输入 | 输出 | 职责 |
 |---|---|---|---|
-| ScreenUnderstanding | screenFrame 事件 | `Observation`（文本、应用上下文、画面描述） | 本地 OCR（Apple Vision）得到文本与结构化字段（标题、URL）；按 stride 抽样帧交给本地 VLM 做 1–2 句画面描述（Dayflow 本地路径）；dHash 相同的帧复用上次结果 |
-| AudioUnderstanding | audioChunk 事件 | `Observation`（转录、说话人段、声音事件） | 本地 ASR；可选说话人分离 |
-| InteractionInterpreter | interaction 事件 | `Observation`（活跃 / 空闲、专注切换） | 从活动强度推断在场、空闲、切换频率 |
-| WindowAggregator | 各类 Observation | 时间窗口批次 | 按时间窗口（默认 15 分钟，待校准）和应用切换边界聚合 |
-| ActivityRecognizer | 窗口批次 | `ActivitySegment` | 调用 ModelProvider 生成活动标题、摘要、分类、置信度 |
+| Batcher | PerceptionEvent | `ExtractionBatch` | 处理窗口：目标 15 分钟，相邻截图间隔超过 2 分钟即切开，仍在增长的窗口留到下一轮。窗口只是处理单位，不等于一个活动 |
+| IdleClassifier / 隐私规则 | 窗口 | 规则片段 | 九成帧键鼠空闲超过 60 秒**且**八成帧画面重复才判为离开（只看键鼠会误判看视频）；全为隐私跳过的窗口记为"隐私跳过"。规则片段不调用模型，相邻同类自动合并 |
+| FrameSelector | 窗口内的帧 | 选中帧（默认最多 15） | 首帧、末帧、应用切换帧优先；只丢弃"画面重复、无键鼠输入、同一应用"的帧；超限时均匀采样 |
+| ScreenUnderstanding | 选中帧 | 每帧两条 `Observation` | **事实**：感知元数据 + Apple Vision OCR 文本（落盘前凭据脱敏）；**推断**：本地 VLM 的 1–2 句画面描述。都带证据引用（事件 id、视频分段、帧号）。原始帧已过期时只产出元数据事实 |
+| ActivitySegmenter | 观察时间线 + 上一个片段 | `ActivitySegment`（可多个） | 纯文本调用模型输出 JSON；校验后裁剪到窗口、消除重叠；第一个片段可声明延续上一个片段，沿用其 id 跨窗口合并 |
+| AudioUnderstanding（未实现） | audioChunk 事件 | `Observation` | 本地 ASR；以观察的形式并入同一时间线 |
 | ModelProvider | 提示 / 图像 / 音频 | 模型输出 | 抽象接口；MVP 实现为 mlx-swift-lm 嵌入式本地 VLM（Gemma 4）；外部实现可替换；记录数据外发边界。提示词分 cacheable / dynamic 两段以复用 KV cache（Eira 经验） |
 | WorkingContext | 近期 ActivitySegment | 短期上下文 | 抽取层的短期工作记忆，有容量上限，不持久化为长期记忆 |
+
+流水线（`ExtractionPipeline`）每 60 秒检查一次就绪窗口，每轮最多处理 4 个：
+
+- **增量**：`extracted/state.json` 的水位线记录已处理到的最后事件，重启后从断点继续。
+- **等待**：窗口内有帧所在的视频分段仍在写入时，整窗推迟到下一轮。
+- **失败**：同一窗口失败 3 次后按前台应用连续段写入低置信度兜底片段（`fallback:metadata`），流程不卡住；帧描述在重试间缓存，不重复推理。模型未安装不算失败，流水线停在原地等待。
+- **节流**：电源档位为 saver / paused 时推迟，插电后追赶；手动"立即处理"忽略档位。
+- **存储**：`extracted/YYYY-MM-DD/observations.jsonl` 与 `segments.json`；片段按 id 覆盖更新，`updatedAt` 供记忆层增量读取。
 
 设计约束：
 - 任一模态缺失时流水线仍可运行。
@@ -184,7 +193,7 @@ MemoryEntry（写入 Markdown 的最小单元，见 memory.md）
 实现或评审代码时逐条确认：
 
 - [ ] 感知层没有引入 OCR / 模型 / Markdown 相关依赖。
-- [ ] 抽取层没有直接读写记忆目录。
+- [ ] 抽取层没有直接读写记忆目录，也不依赖感知层（只通过 AmaiCore 的 `PerceptionReading` 读取）。
 - [ ] 记忆层不依赖任何采集或模型实现。
 - [ ] 任何外部网络调用都经过 `ModelProvider` 且受 `PrivacyPolicy` 外发开关控制。
 - [ ] 日志中不存在内容字段。
@@ -203,5 +212,7 @@ MemoryEntry（写入 Markdown 的最小单元，见 memory.md）
 
 ## 10. 后续方向（不在 MVP）
 
+- 连续活动理解：参考无障碍电影自动解说（Audio Description）领域的方法改进时序理解，替代"逐帧描述 + 文本归纳"的两步法。
+- 音频观察并入活动时间线；KV cache 复用降低每帧推理成本。
 - 事件驱动截图 + 辅助功能文本优先（Screenpipe 路线），用于降低冗余采集与 OCR / VLM 成本。
 - 独立采集 daemon（崩溃隔离、登录即启动）。

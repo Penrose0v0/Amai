@@ -45,7 +45,7 @@ public struct PerceptionStatus: Sendable, Equatable {
 /// 感知层的对外入口：装配各采集器，统一启停与状态。
 /// App Shell 只与它交互，不直接触碰采集器内部。
 public actor PerceptionCoordinator {
-    public let spool: RawSpool
+    public nonisolated let spool: RawSpool
     private let capturer: ScreenCapturer
     private let interaction: InteractionMonitor
     private let power: PowerMonitor
@@ -90,6 +90,9 @@ public actor PerceptionCoordinator {
             )
         )
     }
+
+    /// 抽取层据此决定是否推迟重计算（电池 / 过热时）。
+    public nonisolated var currentPowerProfile: PowerProfile { power.currentProfile }
 
     // MARK: - Control
 

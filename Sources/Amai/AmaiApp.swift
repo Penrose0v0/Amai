@@ -1,4 +1,5 @@
 import AmaiCore
+import AmaiExtraction
 import AmaiPerception
 import SwiftUI
 
@@ -12,6 +13,10 @@ struct AmaiApp: App {
             MenuContent(model: model)
         } label: {
             Image(systemName: Self.symbol(for: model.status))
+        }
+
+        Window("活动检查器", id: "inspector") {
+            InspectorView(model: model)
         }
     }
 
@@ -28,6 +33,7 @@ struct AmaiApp: App {
 
 private struct MenuContent: View {
     let model: AppModel
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         if let error = model.startupError {
@@ -42,16 +48,35 @@ private struct MenuContent: View {
             Divider()
         }
 
+        extractionSection
+        Divider()
+
         if let warning = model.configWarning {
             Text(warning)
             Divider()
         }
 
+        Button("打开活动检查器") {
+            openWindow(id: "inspector")
+            NSApp.activate(ignoringOtherApps: true)
+        }
         Button("打开原始数据目录") { model.revealRawFolder() }
         Button("打开配置文件") { model.revealConfig() }
         Divider()
         Button("退出 Amai") { model.quit() }
             .keyboardShortcut("q")
+    }
+
+    @ViewBuilder
+    private var extractionSection: some View {
+        if !model.modelInstalled {
+            Text("本地模型未安装：\(model.modelTag)")
+        }
+        if let s = model.extractionStatus {
+            Text("抽取 · 已处理窗口 \(s.batchesProcessed) · 片段 \(s.segmentsWritten) · 描述帧 \(s.framesDescribed)")
+            ExtractionStatusLine(model: model)
+        }
+        Button("立即处理积压") { model.runExtractionNow() }
     }
 
     @ViewBuilder
@@ -70,10 +95,10 @@ private struct MenuContent: View {
         }
     }
 
+    // 只有"开始 / 暂停 / 继续"：暂停期间监听器保持运行，只是不截图并留占位。
+    // 完全停止只在退出应用时发生。
     @ViewBuilder
     private func controls(_ status: PerceptionStatus) -> some View {
-        // 只有"开始 / 暂停 / 继续"：暂停期间监听器保持运行，只是不截图并留占位。
-        // 完全停止只在退出应用时发生。
         switch status.state {
         case .stopped:
             Button("开始采集") { model.start() }
