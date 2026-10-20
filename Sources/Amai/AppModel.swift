@@ -23,6 +23,7 @@ final class AppModel {
     private(set) var configWarning: String?
     private(set) var modelInstalled = true
     private(set) var memoryStatus: MemorySync.Status?
+    private(set) var consolidationStatus: Consolidator.Status?
     let modelTag: String
     let memoryRoot: URL
 
@@ -32,6 +33,7 @@ final class AppModel {
     let extractionStore: ExtractionStore?
     private let pipeline: ExtractionPipeline?
     private let memorySync: MemorySync?
+    private let consolidator: Consolidator?
     let memoryIndex: MemoryIndex?
     private var pollTask: Task<Void, Never>?
 
@@ -43,6 +45,7 @@ final class AppModel {
         var pipeline: ExtractionPipeline?
         var memorySync: MemorySync?
         var memoryIndex: MemoryIndex?
+        var consolidator: Consolidator?
         var configWarning: String?
         var startupError: String?
         var config = AppConfiguration.default
@@ -60,18 +63,21 @@ final class AppModel {
             reader = spoolReader
             let extractedStore = try ExtractionStore(root: resolved.extracted)
             store = extractedStore
+            // 抽取与记忆整理共用一个本地模型实例，避免重复加载权重。
+            let model = MLXModelProvider(modelTag: config.extraction.modelTag)
+            // 电池低于 40%、低电量模式或过热时推迟推理，插电后追赶。
+            let heavyWorkAllowed: @Sendable () -> Bool = { [perception] in
+                switch perception.currentPowerProfile {
+                case .performance, .balanced: true
+                case .saver, .paused: false
+                }
+            }
             let built = ExtractionPipeline(dependencies: .init(
                 reader: spoolReader,
-                model: MLXModelProvider(modelTag: config.extraction.modelTag),
+                model: model,
                 ocr: VisionTextRecognizer(),
                 store: extractedStore,
-                shouldRun: { [perception] in
-                    // 电池低于 40%、低电量模式或过热时推迟推理，插电后追赶。
-                    switch perception.currentPowerProfile {
-                    case .performance, .balanced: true
-                    case .saver, .paused: false
-                    }
-                }
+                shouldRun: heavyWorkAllowed
             ))
             pipeline = built
 
@@ -87,6 +93,14 @@ final class AppModel {
                 index: index,
                 stateURL: resolved.index.appendingPathComponent("memory-sync.json")
             )
+            consolidator = Consolidator(
+                store: memoryStore,
+                source: ExtractionSegmentSource(store: extractedStore),
+                model: ProviderLanguageModel(provider: model),
+                snapshots: SnapshotStore(root: resolved.root.appendingPathComponent("snapshots", isDirectory: true)),
+                stateURL: resolved.index.appendingPathComponent("consolidation.json"),
+                shouldRun: heavyWorkAllowed
+            )
         } catch {
             startupError = "初始化失败：\(error)"
             AmaiLog.logger("app").error("startup failed: \(String(describing: error), privacy: .public)")
@@ -98,6 +112,7 @@ final class AppModel {
         self.pipeline = pipeline
         self.memorySync = memorySync
         self.memoryIndex = memoryIndex
+        self.consolidator = consolidator
         self.memoryRoot = config.memory.rootURL
         self.configWarning = configWarning
         self.startupError = startupError
@@ -114,8 +129,24 @@ final class AppModel {
         if let memorySync {
             Task { await memorySync.start() }
         }
+        if let consolidator {
+            Task { await consolidator.start() }
+        }
         restoreCaptureState()
         startPolling()
+
+        // 开发用启动参数：open .build/Amai.app --args --consolidate-today [--update-summary]
+        let args = CommandLine.arguments
+        if args.contains("--consolidate-today") || args.contains("--update-summary") {
+            Task { [weak self] in
+                guard let self, let consolidator = self.consolidator, let memorySync = self.memorySync else { return }
+                await memorySync.syncOnce()
+                if args.contains("--consolidate-today") { _ = try? await consolidator.consolidateDay(Date()) }
+                if args.contains("--update-summary") { _ = try? await consolidator.updateSummary() }
+                await memorySync.syncOnce()
+                await self.refresh()
+            }
+        }
     }
 
     // MARK: - Perception actions
@@ -160,6 +191,7 @@ final class AppModel {
     /// 退出前先停止采集，让写入中的视频分段正常收尾。
     func quit() {
         Task {
+            await consolidator?.stop()
             await memorySync?.stop()
             await pipeline?.stop()
             await coordinator?.stop()
@@ -190,6 +222,26 @@ final class AppModel {
     func openMemoryFolder() {
         try? FileManager.default.createDirectory(at: memoryRoot, withIntermediateDirectories: true)
         NSWorkspace.shared.open(memoryRoot)
+    }
+
+    /// 手动整理今天：生成今天的日终摘要并更新 work/ 专题（不影响凌晨的正式整理）。
+    func consolidateToday() {
+        guard let consolidator, let memorySync else { return }
+        Task {
+            await memorySync.syncOnce()
+            _ = try? await consolidator.consolidateDay(Date())
+            await memorySync.syncOnce()
+            await refresh()
+        }
+    }
+
+    func updateSummaryNow() {
+        guard let consolidator, let memorySync else { return }
+        Task {
+            _ = try? await consolidator.updateSummary()
+            await memorySync.syncOnce()
+            await refresh()
+        }
     }
 
     func syncMemoryNow() {
@@ -280,5 +332,6 @@ final class AppModel {
         if let coordinator { status = await coordinator.status() }
         if let pipeline { extractionStatus = await pipeline.status }
         if let memorySync { memoryStatus = await memorySync.status }
+        if let consolidator { consolidationStatus = await consolidator.status }
     }
 }

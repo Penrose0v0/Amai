@@ -60,6 +60,45 @@ public actor MemoryStore {
         return true
     }
 
+    /// 改写某个文件中的一个系统区块（整理任务使用）。写前重读、内容不变不写、
+    /// 有旧内容时先存快照，然后原子写入。返回文件是否发生变化。
+    @discardableResult
+    public func writeBlock(
+        _ block: SystemBlock,
+        body: String,
+        file relativePath: String,
+        newFileTitle: String,
+        heading: String,
+        insertBeforeHeading: String? = nil,
+        snapshots: SnapshotStore?,
+        task: String,
+        itemCount: Int
+    ) throws -> Bool {
+        let url = root.appendingPathComponent(relativePath)
+        let fm = FileManager.default
+        var existing: String?
+        if fm.fileExists(atPath: url.path) {
+            guard let data = try? Data(contentsOf: url), let text = String(data: data, encoding: .utf8) else {
+                throw WriteError.unreadableExisting(relativePath)
+            }
+            existing = text
+        }
+        let updated: String
+        do {
+            updated = try block.splice(
+                body: body, into: existing, newFileTitle: newFileTitle,
+                heading: heading, insertBeforeHeading: insertBeforeHeading
+            )
+        } catch {
+            throw WriteError.malformedBlock(relativePath)
+        }
+        guard updated != existing else { return false }
+        try snapshots?.record(relativePath: relativePath, previous: existing, task: task, itemCount: itemCount)
+        try fm.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data(updated.utf8).write(to: url, options: .atomic)
+        return true
+    }
+
     public func read(_ relativePath: String) -> String? {
         try? String(contentsOf: root.appendingPathComponent(relativePath), encoding: .utf8)
     }

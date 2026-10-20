@@ -15,3 +15,12 @@ struct ExtractionSegmentSource: SegmentSource {
         await store.segments(on: day)
     }
 }
+
+/// 用抽取层的 ModelProvider 为记忆整理提供纯文本生成。
+struct ProviderLanguageModel: MemoryLanguageModel {
+    let provider: any ModelProvider
+
+    func complete(system: String, user: String, maxTokens: Int) async throws -> String {
+        try await provider.generate(ModelRequest(cacheable: system, dynamic: user, maxTokens: maxTokens)).text
+    }
+}

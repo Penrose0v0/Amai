@@ -27,7 +27,7 @@ open .build/Amai.app         # 运行（菜单栏应用）
 
 首次点击菜单栏的"开始采集"后，macOS 会请求屏幕录制权限（系统设置 → 隐私与安全性 → 屏幕录制），允许一次即可。
 
-记忆：`~/.amai/memory/`（可在 `config.json` 的 `memory.root` 修改）。`daily/YYYY-MM-DD.md` 中两条 `amai:timeline` 注释之间由系统维护，区块外可以随意编辑。开发时检索记忆：`swift run amai-memory search <查询>`。
+记忆：`~/.amai/memory/`（可在 `config.json` 的 `memory.root` 修改）。`daily/YYYY-MM-DD.md` 中两条 `amai:timeline` 注释之间由系统维护，区块外可以随意编辑。开发时检索记忆：`swift run amai-memory search <查询>`。立即整理（开发用）：`open .build/Amai.app --args --consolidate-today --update-summary`。
 
 运行时数据：`~/Library/Application Support/Amai/`（`config.json` 可手改；`raw/` 为短期缓冲，截图帧存为按日目录下的 HEVC 分段，默认 72 小时 / 2 GB 上限）。
 

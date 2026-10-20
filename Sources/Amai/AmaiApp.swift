@@ -89,8 +89,18 @@ private struct MenuContent: View {
             }
             if let err = m.lastError { Text(err) }
         }
+        if let c = model.consolidationStatus {
+            if c.running {
+                Text("整理中…")
+            } else if let day = c.lastDailyDay {
+                Text("已整理至 \(day)" + (c.lastSummaryAt.map { " · summary \($0.formatted(date: .abbreviated, time: .omitted))" } ?? ""))
+            }
+            if let err = c.lastError { Text(err) }
+        }
         Button("打开记忆目录") { model.openMemoryFolder() }
         Button("立即同步记忆") { model.syncMemoryNow() }
+        Button("整理今天（摘要与 work 专题）") { model.consolidateToday() }
+        Button("更新长期记忆（summary）") { model.updateSummaryNow() }
     }
 
     @ViewBuilder

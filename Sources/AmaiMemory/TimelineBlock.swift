@@ -17,9 +17,13 @@ import Foundation
 /// - 时间线里的内容都是模型推断，低置信度片段在行首加〔低置信〕标记；
 /// - 空闲与隐私跳过片段不写入。
 public enum TimelineBlock {
-    public static let beginPrefix = "<!-- amai:timeline:begin"
-    public static let endMarker = "<!-- amai:timeline:end -->"
-    public static let beginMarker = "\(beginPrefix) · 由 Amai 根据屏幕活动自动维护，均为模型推断；区块内的修改会被覆盖，需要保留的内容请写在区块外 -->"
+    public static let block = SystemBlock(
+        name: "timeline",
+        note: "由 Amai 根据屏幕活动自动维护，均为模型推断；区块内的修改会被覆盖，需要保留的内容请写在区块外"
+    )
+    public static var beginPrefix: String { block.beginPrefix }
+    public static var endMarker: String { block.endMarker }
+    public static var beginMarker: String { block.beginMarker }
     public static let heading = "## 时间线"
     public static let lowConfidenceTag = "〔低置信〕"
     public static let lowConfidenceThreshold = 0.5
@@ -62,30 +66,11 @@ public enum TimelineBlock {
         return text
     }
 
-    /// 把渲染结果放进文件内容中。
-    /// - 文件为空：生成新文件（标题 + 时间线小节 + 区块）；
-    /// - 有完整标记：只替换标记之间的内容；
-    /// - 没有标记（用户删掉了区块）：在文末追加时间线小节与区块；
-    /// - 标记不完整：抛错，不写入。
+    /// 把渲染结果放进文件内容中（规则见 `SystemBlock.splice`）。
     public static func splice(body: String, into existing: String?, dayTitle: String) throws -> String {
-        let block = [beginMarker, body, endMarker].filter { !$0.isEmpty }.joined(separator: "\n")
-        guard let existing, !existing.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            return "# \(dayTitle)\n\n\(heading)\n\n\(block)\n"
-        }
-
-        let begin = existing.range(of: beginPrefix)
-        let end = existing.range(of: endMarker)
-        switch (begin, end) {
-        case let (b?, e?) where b.lowerBound < e.lowerBound:
-            // 开始标记占据整行：从行首替换到结束标记末尾。
-            let lineStart = existing[..<b.lowerBound].lastIndex(of: "\n").map { existing.index(after: $0) } ?? existing.startIndex
-            var result = existing
-            result.replaceSubrange(lineStart..<e.upperBound, with: block)
-            return result
-        case (nil, nil):
-            let separator = existing.hasSuffix("\n") ? "\n" : "\n\n"
-            return existing + separator + "\(heading)\n\n\(block)\n"
-        default:
+        do {
+            return try block.splice(body: body, into: existing, newFileTitle: dayTitle, heading: heading)
+        } catch {
             throw SpliceError.malformedMarkers
         }
     }

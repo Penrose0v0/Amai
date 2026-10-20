@@ -23,3 +23,4 @@
 |---|---|---|
 | [0001](0001-markdown-memory.md) | 以 Markdown 文件作为长期记忆的主要存储 | Accepted |
 | [0002](0002-tech-stack.md) | macOS MVP 技术栈 | Accepted |
+| [0003](0003-memory-consolidation.md) | 记忆整理（M4）：日终摘要、work 专题与 summary | Accepted |
