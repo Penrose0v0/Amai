@@ -9,6 +9,7 @@ let package = Package(
     platforms: [.macOS(.v15)],
     products: [
         .executable(name: "Amai", targets: ["Amai"]),
+        .executable(name: "amai-memory", targets: ["AmaiMemoryCLI"]),
     ],
     dependencies: [
         // 记忆层派生索引（SQLite + FTS5）。ADR-0002。
@@ -64,6 +65,12 @@ let package = Package(
         .executableTarget(
             name: "Amai",
             dependencies: ["AmaiCore", "AmaiPerception", "AmaiExtraction", "AmaiMemory"]
+        ),
+
+        // 开发用记忆检索命令行：swift run amai-memory search <查询>
+        .executableTarget(
+            name: "AmaiMemoryCLI",
+            dependencies: ["AmaiMemory"]
         ),
 
         .testTarget(name: "AmaiCoreTests", dependencies: ["AmaiCore"]),

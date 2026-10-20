@@ -1,36 +1,39 @@
 import AmaiCore
 import AmaiExtraction
+import AmaiMemory
 import SwiftUI
 
-/// 最小检查器：按天查看活动片段、关联观察与关键帧，支持检索与删除。
+/// 最小检查器：按天查看活动片段、关联观察与关键帧；检索片段或 Markdown 记忆；删除片段或时间段。
 struct InspectorView: View {
     let model: AppModel
 
+    enum SearchMode: String, CaseIterable, Identifiable {
+        case segments = "活动片段"
+        case memory = "记忆"
+        var id: String { rawValue }
+    }
+
     @State private var day = Date()
     @State private var query = ""
+    @State private var mode: SearchMode = .segments
     @State private var segments: [ActivitySegment] = []
+    @State private var memoryHits: [MemoryHit] = []
     @State private var selection: ActivitySegment.ID?
     @State private var searching = false
+    @State private var showErase = false
 
     var body: some View {
         NavigationSplitView {
             VStack(spacing: 0) {
                 controls
                 Divider()
-                List(segments, selection: $selection) { segment in
-                    SegmentRow(segment: segment, showDate: searching)
-                        .tag(segment.id)
-                }
-                .overlay {
-                    if segments.isEmpty {
-                        ContentUnavailableView(
-                            searching ? "没有匹配的片段" : "这一天还没有活动片段",
-                            systemImage: searching ? "magnifyingglass" : "clock"
-                        )
-                    }
+                if searching && mode == .memory {
+                    memoryResults
+                } else {
+                    segmentList
                 }
             }
-            .navigationSplitViewColumnWidth(min: 320, ideal: 380)
+            .navigationSplitViewColumnWidth(min: 340, ideal: 400)
         } detail: {
             if let segment = segments.first(where: { $0.id == selection }) {
                 SegmentDetail(model: model, segment: segment) {
@@ -49,7 +52,44 @@ struct InspectorView: View {
                 if !searching { await reload() }
             }
         }
-        .frame(minWidth: 860, minHeight: 520)
+        .sheet(isPresented: $showErase) {
+            EraseRangeSheet(model: model, day: day) {
+                Task { await reload() }
+            }
+        }
+        .frame(minWidth: 880, minHeight: 540)
+    }
+
+    private var segmentList: some View {
+        List(segments, selection: $selection) { segment in
+            SegmentRow(segment: segment, showDate: searching)
+                .tag(segment.id)
+        }
+        .overlay {
+            if segments.isEmpty {
+                ContentUnavailableView(
+                    searching ? "没有匹配的片段" : "这一天还没有活动片段",
+                    systemImage: searching ? "magnifyingglass" : "clock"
+                )
+            }
+        }
+    }
+
+    private var memoryResults: some View {
+        List(Array(memoryHits.enumerated()), id: \.offset) { _, hit in
+            VStack(alignment: .leading, spacing: 3) {
+                Text(hit.heading.isEmpty ? hit.file : "\(hit.file) · \(hit.heading)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text(hit.excerpt).font(.callout).textSelection(.enabled)
+            }
+            .padding(.vertical, 2)
+        }
+        .overlay {
+            if memoryHits.isEmpty {
+                ContentUnavailableView("记忆中没有匹配的内容", systemImage: "magnifyingglass")
+            }
+        }
     }
 
     private var controls: some View {
@@ -58,11 +98,21 @@ struct InspectorView: View {
                 DatePicker("", selection: $day, displayedComponents: .date)
                     .labelsHidden()
                 Spacer()
+                Button("删除时间段…") { showErase = true }
                 Button("立即处理") { model.runExtractionNow() }
             }
-            TextField("检索最近 7 天（标题、摘要、屏幕文字）", text: $query)
-                .textFieldStyle(.roundedBorder)
-                .onSubmit { Task { await reload() } }
+            HStack {
+                Picker("", selection: $mode) {
+                    ForEach(SearchMode.allCases) { Text($0.rawValue).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .frame(width: 150)
+                TextField(mode == .segments ? "检索最近 7 天（标题、摘要、屏幕文字）" : "检索 Markdown 记忆", text: $query)
+                    .textFieldStyle(.roundedBorder)
+                    .onSubmit { Task { await reload() } }
+            }
+            .onChange(of: mode) { Task { await reload() } }
             ExtractionStatusLine(model: model)
         }
         .padding(10)
@@ -71,10 +121,63 @@ struct InspectorView: View {
     private func reload() async {
         let q = query.trimmingCharacters(in: .whitespaces)
         searching = !q.isEmpty
+        if searching && mode == .memory {
+            memoryHits = await model.searchMemory(q)
+            return
+        }
         segments = searching ? await model.search(q, endingOn: day) : await model.segments(on: day)
         if let selection, !segments.contains(where: { $0.id == selection }) {
             self.selection = nil
         }
+    }
+}
+
+private struct EraseRangeSheet: View {
+    let model: AppModel
+    let onDone: () -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var start: Date
+    @State private var end: Date
+    @State private var result: String?
+    @State private var working = false
+
+    init(model: AppModel, day: Date, onDone: @escaping () -> Void) {
+        self.model = model
+        self.onDone = onDone
+        let now = Date()
+        _end = State(initialValue: Calendar.current.isDate(day, inSameDayAs: now) ? now : day)
+        _start = State(initialValue: (Calendar.current.isDate(day, inSameDayAs: now) ? now : day).addingTimeInterval(-3600))
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("删除时间段内的数据").font(.headline)
+            Text("会删除：这段时间的截图视频与索引、抽取出的观察和活动片段，以及 daily 时间线区块中的对应条目。daily 中区块外你手写的内容不受影响。与时间段有重叠的视频分段会整段删除。")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            DatePicker("开始", selection: $start)
+            DatePicker("结束", selection: $end)
+            if let result { Text(result).font(.callout) }
+            HStack {
+                Spacer()
+                Button(result == nil ? "取消" : "完成") {
+                    onDone()
+                    dismiss()
+                }
+                .keyboardShortcut(.cancelAction)
+                Button("删除", role: .destructive) {
+                    working = true
+                    Task {
+                        result = await model.eraseData(from: start, to: end)
+                        working = false
+                    }
+                }
+                .disabled(working || end <= start || result != nil)
+            }
+        }
+        .padding(20)
+        .frame(width: 460)
     }
 }
 
@@ -200,7 +303,7 @@ private struct SegmentDetail: View {
                 }
             }
         } message: {
-            Text("原始截图不会立即删除，会在保留期结束后自动清理。")
+            Text("daily 时间线中的对应条目会一并移除。原始截图在保留期结束后自动清理；需要立即删除请使用“删除时间段”。")
         }
         .sheet(item: $enlarged) { evidence in
             VStack {
@@ -237,9 +340,10 @@ private struct SegmentDetail: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            Text("推断结果：由模型根据截图生成，可能有误。")
+            Text("推断结果：由模型根据截图生成，可能有误。ID \(segment.id.uuidString)")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
+                .textSelection(.enabled)
         }
     }
 

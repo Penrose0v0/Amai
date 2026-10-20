@@ -270,6 +270,45 @@ struct ExtractionStoreTests {
         #expect(await store.observations(on: at(0)).map(\.id) == [other.id])
     }
 
+    @Test("daysWithUpdates reports days with segments updated after the watermark")
+    func daysWithUpdates() async throws {
+        let dir = try TempDir.make()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let store = try ExtractionStore(root: dir, timeZone: utc)
+        try await store.upsert(ActivitySegment(
+            timeRange: TimeRange(start: at(0), end: at(100)), title: "A", summary: "", category: .work,
+            apps: [], observations: [], confidence: 0.9, provider: "t", updatedAt: at(200)
+        ))
+        let first = await store.daysWithUpdates(after: nil, endingOn: at(0), days: 3)
+        #expect(first.count == 1 && first[0].latestUpdate == at(200))
+        #expect(await store.daysWithUpdates(after: at(200), endingOn: at(0), days: 3).isEmpty)
+    }
+
+    @Test("deleteData removes overlapping segments and observations in range")
+    func deleteData() async throws {
+        let dir = try TempDir.make()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let store = try ExtractionStore(root: dir, timeZone: utc)
+        let inRange = Observation(
+            timeRange: TimeRange(start: at(250), end: at(260)), modality: .screen, kind: .fact,
+            content: "x", confidence: 1, evidence: [], provider: "t"
+        )
+        let outside = Observation(
+            timeRange: TimeRange(start: at(900), end: at(910)), modality: .screen, kind: .fact,
+            content: "y", confidence: 1, evidence: [], provider: "t"
+        )
+        try await store.append([inRange, outside])
+        let overlapping = segment(100, 300, title: "重叠")
+        let kept = segment(800, 950, title: "保留", observations: [outside.id])
+        try await store.upsert(overlapping)
+        try await store.upsert(kept)
+
+        let days = try await store.deleteData(overlapping: TimeRange(start: at(200), end: at(400)))
+        #expect(days.count == 1)
+        #expect(await store.segments(on: at(0)).map(\.title) == ["保留"])
+        #expect(await store.observations(on: at(0)).map(\.id) == [outside.id])
+    }
+
     @Test("state round-trips")
     func state() async throws {
         let dir = try TempDir.make()

@@ -3,7 +3,7 @@ import Foundation
 @testable import AmaiExtraction
 
 let utc = TimeZone(identifier: "UTC")!
-/// 2026-10-20T03:00:00Z
+/// 2026-10-19T03:00:00Z
 let base = Date(timeIntervalSince1970: 1_792_378_800)
 
 func at(_ seconds: TimeInterval) -> Date { base.addingTimeInterval(seconds) }

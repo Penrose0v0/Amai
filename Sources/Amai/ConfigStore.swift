@@ -1,28 +1,33 @@
 import AmaiCore
 import AmaiExtraction
+import AmaiMemory
 import AmaiPerception
 import Foundation
 
-/// `config.json` 的完整内容：感知层字段在顶层（兼容 M1 的文件格式），抽取层在 `extraction` 下。
+/// `config.json` 的完整内容：感知层字段在顶层（兼容 M1 的文件格式），
+/// 抽取层在 `extraction` 下，记忆层在 `memory` 下。
 struct AppConfiguration: Codable, Equatable {
     var perception: PerceptionConfiguration
     var extraction: ExtractionConfiguration
+    var memory: MemoryConfiguration
 
-    static let `default` = AppConfiguration(perception: .default, extraction: .default)
+    static let `default` = AppConfiguration(perception: .default, extraction: .default, memory: .default)
 
-    init(perception: PerceptionConfiguration, extraction: ExtractionConfiguration) {
+    init(perception: PerceptionConfiguration, extraction: ExtractionConfiguration, memory: MemoryConfiguration) {
         self.perception = perception
         self.extraction = extraction
+        self.memory = memory
     }
 
     private enum CodingKeys: String, CodingKey {
-        case screen, exclusions, spool, extraction
+        case screen, exclusions, spool, extraction, memory
     }
 
     init(from decoder: any Decoder) throws {
         perception = try PerceptionConfiguration(from: decoder)
         let c = try decoder.container(keyedBy: CodingKeys.self)
         extraction = try c.decodeIfPresent(ExtractionConfiguration.self, forKey: .extraction) ?? .default
+        memory = try c.decodeIfPresent(MemoryConfiguration.self, forKey: .memory) ?? .default
     }
 
     func encode(to encoder: any Encoder) throws {
@@ -31,11 +36,13 @@ struct AppConfiguration: Codable, Equatable {
         try c.encode(perception.exclusions, forKey: .exclusions)
         try c.encode(perception.spool, forKey: .spool)
         try c.encode(extraction, forKey: .extraction)
+        try c.encode(memory, forKey: .memory)
     }
 
     func validate() throws {
         try perception.validate()
         try extraction.validate()
+        try memory.validate()
     }
 }
 
@@ -94,6 +101,10 @@ enum ConfigStore {
             "每个窗口的帧数 \(v) 必须在 1 到 40 之间"
         case ExtractionConfiguration.ValidationError.emptyModelTag:
             "模型名称不能为空"
+        case MemoryConfiguration.ValidationError.emptyRoot:
+            "记忆目录不能为空"
+        case MemoryConfiguration.ValidationError.relativeRoot(let p):
+            "记忆目录必须是绝对路径或以 ~ 开头：\(p)"
         default:
             String(describing: error)
         }

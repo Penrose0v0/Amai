@@ -50,6 +50,8 @@ private struct MenuContent: View {
 
         extractionSection
         Divider()
+        memorySection
+        Divider()
 
         if let warning = model.configWarning {
             Text(warning)
@@ -77,6 +79,18 @@ private struct MenuContent: View {
             ExtractionStatusLine(model: model)
         }
         Button("立即处理积压") { model.runExtractionNow() }
+    }
+
+    @ViewBuilder
+    private var memorySection: some View {
+        if let m = model.memoryStatus {
+            if let last = m.lastSyncAt {
+                Text("记忆 · 上次同步 \(last.formatted(date: .omitted, time: .shortened)) · 更新文件 \(m.filesChanged)")
+            }
+            if let err = m.lastError { Text(err) }
+        }
+        Button("打开记忆目录") { model.openMemoryFolder() }
+        Button("立即同步记忆") { model.syncMemoryNow() }
     }
 
     @ViewBuilder

@@ -146,6 +146,13 @@ public actor PerceptionCoordinator {
         try await spool.updateLimits(configuration.spool)
     }
 
+    /// 删除时间段内的原始数据。先结束写入中的视频分段，确保它也能被删除。
+    @discardableResult
+    public func erase(from start: Date, to end: Date) async throws -> Int {
+        await capturer.closeSegment()
+        return try await spool.erase(from: start, to: end)
+    }
+
     // MARK: - Status
 
     public func status() async -> PerceptionStatus {

@@ -27,6 +27,8 @@ open .build/Amai.app         # 运行（菜单栏应用）
 
 首次点击菜单栏的"开始采集"后，macOS 会请求屏幕录制权限（系统设置 → 隐私与安全性 → 屏幕录制），允许一次即可。
 
+记忆：`~/.amai/memory/`（可在 `config.json` 的 `memory.root` 修改）。`daily/YYYY-MM-DD.md` 中两条 `amai:timeline` 注释之间由系统维护，区块外可以随意编辑。开发时检索记忆：`swift run amai-memory search <查询>`。
+
 运行时数据：`~/Library/Application Support/Amai/`（`config.json` 可手改；`raw/` 为短期缓冲，截图帧存为按日目录下的 HEVC 分段，默认 72 小时 / 2 GB 上限）。
 
 ## 包结构
@@ -37,7 +39,8 @@ Sources/
 ├── AmaiPerception/   屏幕 / 音频 / 键鼠采集、权限、原始缓冲、隐私策略
 ├── AmaiExtraction/   OCR、ModelProvider（mlx-swift-lm）、时间窗口聚合、活动识别
 ├── AmaiMemory/       Markdown 存储、写入规则、派生索引（GRDB）、检索
-└── Amai/             菜单栏应用
+├── AmaiMemoryCLI/    开发用记忆检索命令行 amai-memory
+└── Amai/             菜单栏应用、检查器，以及各层之间的装配
 Tests/                每个 target 一个测试 target
 scripts/              bundle.sh、build-mlx-metallib.sh
 ```

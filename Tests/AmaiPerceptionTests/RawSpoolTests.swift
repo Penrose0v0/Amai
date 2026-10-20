@@ -92,6 +92,25 @@ struct RawSpoolTests {
         #expect(await second.totalBytes == expected)
     }
 
+    @Test("erase removes index lines in range and every payload they reference")
+    func erase() async throws {
+        let root = try TempDir.make()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let clock = FakeClock()
+        let spool = try RawSpool(root: root, limits: .default, clock: clock, timeZone: TimeZone(identifier: "UTC")!)
+        let t0 = clock.now()
+        let a = try await spool.append(event(at: t0, clock: clock), payload: Data(repeating: 1, count: 100))
+        let b = try await spool.append(event(at: t0.addingTimeInterval(60), clock: clock), payload: Data(repeating: 2, count: 100))
+        let c = try await spool.append(event(at: t0.addingTimeInterval(120), clock: clock), payload: Data(repeating: 3, count: 100))
+
+        let removed = try await spool.erase(from: t0.addingTimeInterval(30), to: t0.addingTimeInterval(90))
+        #expect(removed == 1)
+        #expect(await spool.payloadURL(for: a) != nil)
+        #expect(await spool.payloadURL(for: b) == nil)
+        #expect(await spool.payloadURL(for: c) != nil)
+        #expect(try await spool.events(on: t0).map(\.id) == [a.id, c.id])
+    }
+
     @Test("corrupt index lines are skipped")
     func corruptLines() async throws {
         let root = try TempDir.make()

@@ -91,6 +91,8 @@
 | `delete(timeRange | entryId)` | 删除指定时间段或条目的派生记忆 |
 | `reindex()` | 从 Markdown 重建派生索引 |
 
+M3 实现（`AmaiMemory`）：`MemoryStore` 写 daily 时间线区块；`MemoryIndex` 负责 trigram 全文索引与 `retrieve`；`MemorySync` 每 60 秒以片段 `updatedAt` 为水位线同步有更新的日期并刷新索引。记忆层通过 `SegmentSource` 协议读取片段，由 App 用抽取层的存储实现，记忆层不依赖抽取层。开发用命令行：`swift run amai-memory search <查询>`。
+
 设计约束：
 - Markdown 是唯一真相来源，索引可随时删除重建。
 - 用户外部编辑 Markdown 必须被尊重（文件监听 + 重新索引，而非覆盖）。
@@ -161,10 +163,10 @@ MemoryEntry（写入 Markdown 的最小单元，见 memory.md）
 ├── config.json                 配置
 ├── raw/                        RawSpool：按日目录，events.jsonl + HEVC 分段 / 音频块；72 小时 TTL + 2 GB 容量上限
 ├── extracted/                  抽取结果（Observation / ActivitySegment），结构化存储，可清理
-├── index/                      记忆派生索引（可删除重建）
+├── index/                      记忆派生索引 memory.sqlite（可删除重建）与同步水位线 memory-sync.json
 └── logs/                       结构化日志（不含内容字段）
 
-<用户可见目录，默认 ~/Amai/memory/>    Markdown 长期记忆，用户可直接编辑
+<记忆目录，默认 ~/.amai/memory/，可配置>    Markdown 长期记忆，用户可直接编辑（2026-10-20 用户确认）
 ```
 
 记忆目录与应用内部数据分离，强调"记忆属于用户"。路径可配置。

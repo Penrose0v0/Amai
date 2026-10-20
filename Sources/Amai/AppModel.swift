@@ -5,7 +5,9 @@ import struct AmaiCore.AmaiPaths
 import struct AmaiCore.Evidence
 import enum AmaiCore.FrameAvailability
 import protocol AmaiCore.PerceptionReading
+import struct AmaiCore.TimeRange
 import AmaiExtraction
+import AmaiMemory
 import AmaiPerception
 import AppKit
 import Foundation
@@ -20,13 +22,17 @@ final class AppModel {
     private(set) var startupError: String?
     private(set) var configWarning: String?
     private(set) var modelInstalled = true
+    private(set) var memoryStatus: MemorySync.Status?
     let modelTag: String
+    let memoryRoot: URL
 
     private let paths: AmaiPaths?
     private let coordinator: PerceptionCoordinator?
     let reader: (any PerceptionReading)?
     let extractionStore: ExtractionStore?
     private let pipeline: ExtractionPipeline?
+    private let memorySync: MemorySync?
+    let memoryIndex: MemoryIndex?
     private var pollTask: Task<Void, Never>?
 
     init() {
@@ -35,6 +41,8 @@ final class AppModel {
         var reader: SpoolReader?
         var store: ExtractionStore?
         var pipeline: ExtractionPipeline?
+        var memorySync: MemorySync?
+        var memoryIndex: MemoryIndex?
         var configWarning: String?
         var startupError: String?
         var config = AppConfiguration.default
@@ -66,6 +74,19 @@ final class AppModel {
                 }
             ))
             pipeline = built
+
+            let memoryStore = try MemoryStore(root: config.memory.rootURL)
+            let index = MemoryIndex(
+                root: config.memory.rootURL,
+                database: try MemoryIndexDatabase(path: resolved.index.appendingPathComponent("memory.sqlite").path)
+            )
+            memoryIndex = index
+            memorySync = MemorySync(
+                source: ExtractionSegmentSource(store: extractedStore),
+                store: memoryStore,
+                index: index,
+                stateURL: resolved.index.appendingPathComponent("memory-sync.json")
+            )
         } catch {
             startupError = "初始化失败：\(error)"
             AmaiLog.logger("app").error("startup failed: \(String(describing: error), privacy: .public)")
@@ -75,6 +96,9 @@ final class AppModel {
         self.reader = reader
         self.extractionStore = store
         self.pipeline = pipeline
+        self.memorySync = memorySync
+        self.memoryIndex = memoryIndex
+        self.memoryRoot = config.memory.rootURL
         self.configWarning = configWarning
         self.startupError = startupError
         self.modelTag = config.extraction.modelTag
@@ -87,26 +111,56 @@ final class AppModel {
                 await pipeline.start()
             }
         }
+        if let memorySync {
+            Task { await memorySync.start() }
+        }
+        restoreCaptureState()
         startPolling()
     }
 
     // MARK: - Perception actions
 
+    /// 用户最后一次选择的采集状态。退出应用不改变它，下次启动时恢复：
+    /// 采集始终由用户显式开启，应用只是记住这个选择。
+    private enum CaptureIntent: String {
+        case running, paused
+    }
+
+    private static let captureIntentKey = "amai.captureIntent"
+
+    private var captureIntent: CaptureIntent? {
+        get { UserDefaults.standard.string(forKey: Self.captureIntentKey).flatMap(CaptureIntent.init(rawValue:)) }
+        set { UserDefaults.standard.set(newValue?.rawValue, forKey: Self.captureIntentKey) }
+    }
+
+    private func restoreCaptureState() {
+        guard let coordinator, let intent = captureIntent else { return }
+        Task {
+            await coordinator.start()
+            if intent == .paused { await coordinator.pause() }
+            await refresh()
+        }
+    }
+
     func start() {
+        captureIntent = .running
         Task { await coordinator?.start(); await refresh() }
     }
 
     func pause() {
+        captureIntent = .paused
         Task { await coordinator?.pause(); await refresh() }
     }
 
     func resume() {
+        captureIntent = .running
         Task { await coordinator?.resume(); await refresh() }
     }
 
     /// 退出前先停止采集，让写入中的视频分段正常收尾。
     func quit() {
         Task {
+            await memorySync?.stop()
             await pipeline?.stop()
             await coordinator?.stop()
             NSApplication.shared.terminate(nil)
@@ -131,6 +185,41 @@ final class AppModel {
     func revealConfig() {
         guard let paths else { return }
         NSWorkspace.shared.activateFileViewerSelecting([paths.config])
+    }
+
+    func openMemoryFolder() {
+        try? FileManager.default.createDirectory(at: memoryRoot, withIntermediateDirectories: true)
+        NSWorkspace.shared.open(memoryRoot)
+    }
+
+    func syncMemoryNow() {
+        guard let memorySync else { return }
+        Task {
+            await memorySync.syncOnce()
+            await refresh()
+        }
+    }
+
+    /// 删除时间段内的全部数据：原始截图与索引、抽取结果，以及 daily 中对应的时间线条目。
+    /// 区块外用户手写的内容不受影响。
+    func eraseData(from start: Date, to end: Date) async -> String {
+        guard end > start else { return "结束时间必须晚于开始时间" }
+        var notes: [String] = []
+        do {
+            if let coordinator {
+                let files = try await coordinator.erase(from: start, to: end)
+                notes.append("删除原始视频分段 \(files) 个")
+            }
+            let days = try await extractionStore?.deleteData(overlapping: TimeRange(start: start, end: end)) ?? []
+            notes.append("影响 \(days.count) 天的抽取结果")
+            if let memorySync {
+                for day in days { try await memorySync.rewrite(day: day) }
+                await memorySync.syncOnce()
+            }
+            return notes.joined(separator: "，")
+        } catch {
+            return "删除未完成：\(error)。" + notes.joined(separator: "，")
+        }
     }
 
     // MARK: - Extraction actions
@@ -160,6 +249,12 @@ final class AppModel {
 
     func deleteSegment(_ segment: ActivitySegment) async {
         try? await extractionStore?.deleteSegment(id: segment.id, on: segment.timeRange.start)
+        // 片段删除后立即重渲染当天的时间线区块。
+        try? await memorySync?.rewrite(day: segment.timeRange.start)
+    }
+
+    func searchMemory(_ query: String) async -> [MemoryHit] {
+        (try? await memoryIndex?.retrieve(query, limit: 20)) ?? []
     }
 
     func thumbnail(for evidence: Evidence, maxHeight: Int = 360) async -> NSImage? {
@@ -184,5 +279,6 @@ final class AppModel {
     private func refresh() async {
         if let coordinator { status = await coordinator.status() }
         if let pipeline { extractionStatus = await pipeline.status }
+        if let memorySync { memoryStatus = await memorySync.status }
     }
 }

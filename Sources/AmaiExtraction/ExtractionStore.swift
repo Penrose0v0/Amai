@@ -129,6 +129,52 @@ public actor ExtractionStore {
         try data.write(to: dir.appendingPathComponent("observations.jsonl"), options: .atomic)
     }
 
+    /// 最近 `days` 天内有片段在 `after` 之后更新的日期（当天 00:00）及其中最新的 `updatedAt`。
+    /// 记忆层据此增量同步。
+    public func daysWithUpdates(after: Date?, endingOn date: Date, days: Int) -> [(day: Date, latestUpdate: Date)] {
+        var result: [(Date, Date)] = []
+        for offset in 0..<max(1, days) {
+            guard let day = calendar.date(byAdding: .day, value: -offset, to: date) else { continue }
+            let updates = segments(on: day).map(\.updatedAt).filter { after == nil || $0 > after! }
+            if let latest = updates.max() {
+                result.append((calendar.startOfDay(for: day), latest))
+            }
+        }
+        return result
+    }
+
+    /// 删除与时间段重叠的全部片段及其观察，以及落在时间段内的其余观察。返回受影响的日期（当天 00:00）。
+    @discardableResult
+    public func deleteData(overlapping range: TimeRange) throws -> [Date] {
+        var affected: [Date] = []
+        var day = calendar.startOfDay(for: range.start)
+        let lastDay = calendar.startOfDay(for: range.end)
+        // 片段可能从前一天开始延续进来。
+        if let previous = calendar.date(byAdding: .day, value: -1, to: day) { day = previous }
+        while day <= lastDay {
+            let segs = segments(on: day)
+            let doomed = segs.filter { $0.timeRange.start <= range.end && $0.timeRange.end >= range.start }
+            let obs = observations(on: day)
+            let doomedObs = Set(doomed.flatMap(\.observations))
+                .union(obs.filter { range.contains($0.timeRange.start) }.map(\.id))
+            if !doomed.isEmpty || !doomedObs.isEmpty {
+                let dir = try dayDirectory(dayName(day))
+                let keptSegs = segs.filter { s in !doomed.contains { $0.id == s.id } }
+                try encoder.encode(keptSegs).write(to: dir.appendingPathComponent("segments.json"), options: .atomic)
+                var data = Data()
+                for item in obs where !doomedObs.contains(item.id) {
+                    data.append(try encoder.encode(item))
+                    data.append(0x0A)
+                }
+                try data.write(to: dir.appendingPathComponent("observations.jsonl"), options: .atomic)
+                affected.append(day)
+            }
+            guard let next = calendar.date(byAdding: .day, value: 1, to: day) else { break }
+            day = next
+        }
+        return affected
+    }
+
     /// 在最近若干天的片段中按文字检索：标题、摘要、应用，以及关联观察的内容（含 OCR 文本）。
     public func search(_ query: String, endingOn date: Date, days: Int = 7) -> [ActivitySegment] {
         let q = query.trimmingCharacters(in: .whitespaces).lowercased()

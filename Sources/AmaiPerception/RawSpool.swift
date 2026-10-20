@@ -163,6 +163,45 @@ public actor RawSpool {
         }
     }
 
+    // MARK: - Erase
+
+    /// 删除时间段内的原始数据：时间段内的索引行全部删除；与时间段有重叠的视频分段整段删除
+    ///（分段无法局部裁剪，宁可多删）。写入中的分段（`.part`）由调用方先结束再删。
+    /// 返回删除的 payload 文件数。
+    @discardableResult
+    public func erase(from start: Date, to end: Date) throws -> Int {
+        let fm = FileManager.default
+        var removedFiles = 0
+        for dir in try dayDirectories() {
+            let indexURL = dir.appendingPathComponent("events.jsonl")
+            guard let data = try? Data(contentsOf: indexURL) else { continue }
+            var kept = Data()
+            var doomedRefs = Set<String>()
+            for line in data.split(separator: 0x0A) where !line.isEmpty {
+                guard let event = try? decoder.decode(PerceptionEvent.self, from: line) else {
+                    kept.append(line); kept.append(0x0A); continue
+                }
+                if event.wallTime >= start && event.wallTime <= end {
+                    if let ref = event.payloadRef { doomedRefs.insert(ref) }
+                } else {
+                    kept.append(line); kept.append(0x0A)
+                }
+            }
+            guard kept.count != data.count || !doomedRefs.isEmpty else { continue }
+            try kept.write(to: indexURL, options: .atomic)
+            for ref in doomedRefs {
+                let url = root.appendingPathComponent(ref)
+                if fm.fileExists(atPath: url.path) {
+                    try fm.removeItem(at: url)
+                    removedFiles += 1
+                }
+            }
+        }
+        totalBytes = Self.measure(root)
+        log.info("erase removed \(removedFiles) payload file(s)")
+        return removedFiles
+    }
+
     // MARK: - Helpers
 
     private func dayName(for date: Date) -> String {

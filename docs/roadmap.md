@@ -4,7 +4,7 @@
 
 ## 当前阶段
 
-**M1 感知骨架** — 代码已实现（2026-10-19），等待真机验收（见 M1 验收进度）。
+**M3 Markdown 记忆写入与检索** — 已实现（2026-10-20）。M1 长跑与 M2 三天主观评估仍在进行。下一步：M4 整理与 summary（需先讨论设计）。
 
 ## 里程碑
 
@@ -104,16 +104,23 @@ HEVC 分段实测（2026-10-20 中午，同参数，质量 0.55，1662×1080）�
 
 目标：daily 自动生成，记忆可检索。
 
-- MemoryStore / MemoryWriter：daily 时间线写入，来源标记，外部编辑保护。
-- MemoryIndex：全文索引，增量重建，文件监听。
-- Retrieval 接口（开发用 CLI 或内部接口）。
-- 删除：按时间段删除派生数据。
+决定（2026-10-20 用户确认）：记忆目录 `~/.amai/memory/`（可配置）；daily 使用 HTML 注释管理的系统区块，区块外由用户自由编辑，每个片段保留稳定 ID；正常与低置信度片段写入（后者加标记），空闲与隐私跳过不写入。
+
+实现进度（2026-10-20）：
+- [x] MemoryStore：daily 时间线区块渲染与拼接，写前重读、内容不变不写、原子写入，区块损坏时拒绝写入。
+- [x] MemoryIndex：SQLite FTS5 trigram 分词（中文可检索句中词），短查询子串匹配，范围与日期过滤，按修改时间增量刷新，可全量重建。
+- [x] MemorySync：以片段 `updatedAt` 为水位线增量同步，水位线持久化，重启不重复写入。
+- [x] Retrieval：内部接口 + 检查器"记忆"检索模式 + 开发用命令行 `amai-memory`。
+- [x] 删除：检查器"删除时间段"同时清理 raw / extracted / daily 区块；单个片段删除立即重渲染。
+- [x] 测试 96 个。
+- [ ] 文件变化事件监听（MVP 用 60 秒轮询）。
 
 验收：
-- 从 ActivitySegment 到 daily 文件的 Pipeline Test。
-- 用户手动编辑 daily 后，系统不覆盖。
-- 删除某时间段后，daily / extracted / raw 中相应数据全部消失。
-- `reindex()` 可从零重建索引且检索结果一致。
+- [x] 从 ActivitySegment 到 daily 文件的 Pipeline Test（MemorySync 测试，假片段源）。
+- [x] 用户手动编辑 daily 后，系统不覆盖区块外内容（单元测试）。
+- [x] 删除某时间段后，daily / extracted / raw 中相应数据全部消失（各层单元测试；真机未做）。
+- [x] `rebuild()` 可从零重建索引且检索结果一致（单元测试）。
+- [x] 真机：`~/.amai/memory/daily/2026-10-20.md` 由真实片段生成，命令行检索中文命中。
 
 ### M4 · 整理与 summary
 

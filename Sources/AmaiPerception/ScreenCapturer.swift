@@ -131,6 +131,13 @@ public actor ScreenCapturer {
         }
     }
 
+    /// 结束当前视频分段（删除时间段前调用，让分段可被整段删除）。
+    public func closeSegment() async {
+        lastHash = nil
+        lastFrameEventId = nil
+        await deps.frames.finishSegment()
+    }
+
     public func updateConfiguration(_ configuration: ScreenCaptureConfiguration) throws {
         try configuration.validate()
         config = configuration
