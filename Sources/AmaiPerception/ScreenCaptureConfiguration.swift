@@ -6,8 +6,8 @@ public struct ScreenCaptureConfiguration: Codable, Sendable, Equatable {
     public var interval: TimeInterval
     /// 缩放后的目标高度（像素），按显示器宽高比等比缩放。
     public var targetHeight: Int
-    /// JPEG 质量 0...1。
-    public var jpegQuality: Double
+    /// 视频分段的编码质量 0...1（Dayflow 默认 0.55）。改动后对下一个分段生效。
+    public var encodeQuality: Double
 
     public static let allowedIntervals: [TimeInterval] = [1, 5, 10, 20, 30, 60]
     public static let allowedHeights: [Int] = [720, 1080]
@@ -15,13 +15,27 @@ public struct ScreenCaptureConfiguration: Codable, Sendable, Equatable {
     public static let `default` = ScreenCaptureConfiguration(
         interval: 10,
         targetHeight: 1080,
-        jpegQuality: 0.75
+        encodeQuality: 0.55
     )
 
-    public init(interval: TimeInterval, targetHeight: Int, jpegQuality: Double) {
+    public init(interval: TimeInterval, targetHeight: Int, encodeQuality: Double) {
         self.interval = interval
         self.targetHeight = targetHeight
-        self.jpegQuality = jpegQuality
+        self.encodeQuality = encodeQuality
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case interval, targetHeight, encodeQuality
+    }
+
+    /// 缺失字段用默认值补齐、未知字段忽略，让旧版配置文件可以平滑升级；
+    /// 值是否合法由 `validate()` 单独判断。
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let d = Self.default
+        interval = try c.decodeIfPresent(TimeInterval.self, forKey: .interval) ?? d.interval
+        targetHeight = try c.decodeIfPresent(Int.self, forKey: .targetHeight) ?? d.targetHeight
+        encodeQuality = try c.decodeIfPresent(Double.self, forKey: .encodeQuality) ?? d.encodeQuality
     }
 
     public enum ValidationError: Error, Equatable {
@@ -38,8 +52,8 @@ public struct ScreenCaptureConfiguration: Codable, Sendable, Equatable {
         guard Self.allowedHeights.contains(targetHeight) else {
             throw ValidationError.heightNotAllowed(targetHeight)
         }
-        guard (0...1).contains(jpegQuality) else {
-            throw ValidationError.qualityOutOfRange(jpegQuality)
+        guard (0...1).contains(encodeQuality) else {
+            throw ValidationError.qualityOutOfRange(encodeQuality)
         }
     }
 }

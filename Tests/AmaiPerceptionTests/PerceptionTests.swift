@@ -21,10 +21,40 @@ struct ScreenCaptureConfigurationTests {
     @Test("rejects quality outside 0...1")
     func rejectsBadQuality() {
         var config = ScreenCaptureConfiguration.default
-        config.jpegQuality = 1.5
+        config.encodeQuality = 1.5
         #expect(throws: ScreenCaptureConfiguration.ValidationError.qualityOutOfRange(1.5)) {
             try config.validate()
         }
+    }
+}
+
+@Suite("PerceptionConfiguration decoding")
+struct PerceptionConfigurationDecodingTests {
+    @Test("missing and unknown keys fall back to defaults")
+    func lenientDecoding() throws {
+        let json = """
+        {"screen": {"interval": 20, "jpegQuality": 0.75}, "spool": {"maxAge": 3600}}
+        """
+        let config = try JSONDecoder().decode(PerceptionConfiguration.self, from: Data(json.utf8))
+        #expect(config.screen.interval == 20)
+        #expect(config.screen.encodeQuality == ScreenCaptureConfiguration.default.encodeQuality)
+        #expect(config.screen.targetHeight == 1080)
+        #expect(config.spool.maxAge == 3600)
+        #expect(config.spool.maxBytes == RawSpoolLimits.default.maxBytes)
+        #expect(config.exclusions == .default)
+        try config.validate()
+    }
+
+    @Test("empty object is the default configuration")
+    func emptyObject() throws {
+        let config = try JSONDecoder().decode(PerceptionConfiguration.self, from: Data("{}".utf8))
+        #expect(config == .default)
+    }
+
+    @Test("round-trips through JSON")
+    func roundTrip() throws {
+        let data = try JSONEncoder().encode(PerceptionConfiguration.default)
+        #expect(try JSONDecoder().decode(PerceptionConfiguration.self, from: data) == .default)
     }
 }
 

@@ -4,6 +4,9 @@ import Foundation
 /// 无法确认排除规则已生效时返回 `.skip`。
 public protocol PrivacyPolicy: Sendable {
     func decision(for context: CaptureContext) -> CaptureDecision
+    /// 交给 ScreenCaptureKit 在系统层抠掉的应用（前台应用不在其中时仍要截，
+    /// 但这些应用的窗口会从画面中消失）。
+    var excludedBundleIds: Set<String> { get }
 }
 
 public struct CaptureContext: Sendable, Equatable {

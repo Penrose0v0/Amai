@@ -36,11 +36,12 @@
 
 | 模块 | 输入 | 输出 | 职责 |
 |---|---|---|---|
-| ScreenCapture | 系统屏幕 | `PerceptionEvent(kind: .screenFrame)` | **定时截图**（Dayflow 风格）：ScreenCaptureKit 单帧截图，固定间隔（默认 10 秒，可配置，按电源档位拉长）；上一帧未完成则跳过本次；dHash 判断画面未变化则不落盘只记录占位；活动显示器优先；每帧附前台应用 / 窗口元数据与"距上次输入秒数" |
+| ScreenCapture | 系统屏幕 | `PerceptionEvent(kind: .screenFrame)` | **定时截图**（Dayflow 风格）：ScreenCaptureKit 单帧截图，固定间隔（默认 10 秒，可配置，按电源档位拉长）；鼠标所在显示器优先；每帧附前台应用元数据、"距上次输入秒数"与 dHash；画面与上一帧相同时标记 `duplicateOf` 供抽取层跳过，但帧仍然编码 |
+| FrameStore | 截图帧 | HEVC/MP4 分段 + 帧号 | 所有帧按顺序追加进视频分段（第 N 帧在第 N 秒），每段 600 帧或 600 秒或尺寸变化时轮换；写入中为 `.part`，完成后改名 `.mp4`；相邻相似帧由编码器压缩，磁盘增长约为逐帧 JPEG 的 1/3（Dayflow 实测约 10 MB / 小时） |
 | AudioCapture | 系统音频、麦克风 | `PerceptionEvent(kind: .audioChunk)` | 按语音活动切块；静音跳过；来源标记（system / mic）；两者独立开关 |
 | InteractionCapture | 键鼠事件、焦点变化 | `PerceptionEvent(kind: .interaction)` | 空闲时长（无需权限）、应用 / 窗口切换；可选的活动强度统计（按键次数、鼠标移动、滚动，需输入监控权限）；**不记录按键内容** |
 | PermissionMonitor | 系统权限状态 | 权限状态事件 | 检测屏幕录制、麦克风、辅助功能 / 输入监控权限变化并通知；不信任 preflight 结果，以实际采集成功与否为准 |
-| RawSpool | PerceptionEvent | 落盘的原始缓冲 | 容量 / 时间双上限的缓冲区；供抽取层消费；过期自动删除 |
+| RawSpool | PerceptionEvent | 落盘的原始缓冲 | 按日目录，`events.jsonl` 索引一行一个事件，payload 为视频分段或其他块文件；容量 / 时间双上限；容量清理删最旧的 payload 文件但保留索引行；供抽取层消费 |
 
 设计约束：
 - 不做 OCR、不做语义理解。空闲判定也不在感知层做，只记录"距上次输入秒数"供抽取层使用。
@@ -149,7 +150,7 @@ MemoryEntry（写入 Markdown 的最小单元，见 memory.md）
 ```text
 ~/Library/Application Support/Amai/
 ├── config.json                 配置
-├── raw/                        RawSpool：截图 / 音频块，TTL 自动清理，默认不超过 72 小时
+├── raw/                        RawSpool：按日目录，events.jsonl + HEVC 分段 / 音频块；72 小时 TTL + 2 GB 容量上限
 ├── extracted/                  抽取结果（Observation / ActivitySegment），结构化存储，可清理
 ├── index/                      记忆派生索引（可删除重建）
 └── logs/                       结构化日志（不含内容字段）

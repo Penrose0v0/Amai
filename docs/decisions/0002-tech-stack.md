@@ -37,7 +37,7 @@ AGENTS.md 规定：未经讨论不得擅自确定核心语言、GUI 框架、数
 | 核心语言 | **Swift 6**（严格并发） | 感知层全部依赖 Apple 框架；长期后台运行的能耗与内存表现最好；与 Eira 共享经验与代码模式 |
 | 项目组织 | **单个 Swift Package**，多 library target + 一个 executable target；`scripts/bundle.sh` 组装 `.app` | `AmaiCore`（契约）、`AmaiPerception`、`AmaiExtraction`、`AmaiMemory`、`Amai`（App）；依赖方向在包层面强制；不引入 Xcode 工程，沿用 Eira 的 SwiftPM 工作流 |
 | GUI | SwiftUI 菜单栏应用（`MenuBarExtra`，`LSUIElement`） | MVP UI 极简；原生、低资源 |
-| 屏幕采集 | **Dayflow 风格定时截图**：ScreenCaptureKit `SCScreenshotManager`，固定间隔（默认 10 秒，可配置），`SCContentFilter` 做系统层应用排除；每帧附"距上次输入秒数"元数据；dHash 判断画面未变则不落盘 | 用户确认。实现简单、低侵入、不触发录屏指示器；事件驱动采集作为后续优化方向保留在 architecture.md |
+| 屏幕采集 | **Dayflow 风格定时截图 + 视频分段存储**：ScreenCaptureKit `SCScreenshotManager`，固定间隔（默认 10 秒，可配置），`SCContentFilter` 做系统层应用排除；每帧附"距上次输入秒数"与 dHash 元数据；所有帧追加进 HEVC/MP4 分段（600 帧 / 600 秒一段，质量 0.55），不做落盘前去重 | 用户确认（2026-10-20 明确要求模仿 Dayflow）。实现简单、低侵入、不触发录屏指示器；视频分段把磁盘增长压到逐帧 JPEG 的约 1/3；事件驱动采集作为后续优化方向保留在 architecture.md |
 | 键鼠采集 | `CGEventSource.secondsSinceLastEventType` 读取空闲时长 + `NSWorkspace` 焦点通知；活动强度统计用 `CGEventTap`（listen-only，仅计数，不记内容） | 空闲时长不需要额外权限；活动强度需输入监控权限，可独立关闭 |
 | 音频采集 | ScreenCaptureKit 音频流（系统音频）+ `AVAudioEngine`（麦克风）；M5 阶段实现 | 均为系统 API；麦克风默认关闭 |
 | OCR | Apple Vision（`VNRecognizeTextRequest`） | 本地、免费、快、中英文可用；作为 VLM 的廉价前置与补充 |

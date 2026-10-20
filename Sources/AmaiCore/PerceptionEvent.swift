@@ -67,6 +67,15 @@ public struct PerceptionMetadata: Codable, Sendable, Equatable {
     public var durationMs: Int?
     /// 截图时距上次用户输入的秒数。空闲判定留给抽取层。
     public var idleSeconds: Double?
+    /// `sensitivity == .skipped` 时的原因（userPaused / secureInput / excludedApp ...）。
+    public var skipReason: String?
+    /// 画面与此前某一帧相同（感知哈希判定）时指向该帧。帧仍会编码进视频段，
+    /// 此字段只是给抽取层"可跳过"的提示。
+    public var duplicateOf: UUID?
+    /// 截图帧在视频分段（`payloadRef`）中的帧号。
+    public var frameIndex: Int?
+    /// 截图帧的感知哈希（dHash），十六进制。
+    public var imageHash: String?
 
     public init(
         app: String? = nil,
@@ -74,7 +83,11 @@ public struct PerceptionMetadata: Codable, Sendable, Equatable {
         windowTitle: String? = nil,
         displayId: UInt32? = nil,
         durationMs: Int? = nil,
-        idleSeconds: Double? = nil
+        idleSeconds: Double? = nil,
+        skipReason: String? = nil,
+        duplicateOf: UUID? = nil,
+        frameIndex: Int? = nil,
+        imageHash: String? = nil
     ) {
         self.app = app
         self.bundleId = bundleId
@@ -82,5 +95,9 @@ public struct PerceptionMetadata: Codable, Sendable, Equatable {
         self.displayId = displayId
         self.durationMs = durationMs
         self.idleSeconds = idleSeconds
+        self.skipReason = skipReason
+        self.duplicateOf = duplicateOf
+        self.frameIndex = frameIndex
+        self.imageHash = imageHash
     }
 }
