@@ -197,7 +197,8 @@ MemoryEntry（写入 Markdown 的最小单元，见 memory.md）
 - [ ] 感知层没有引入 OCR / 模型 / Markdown 相关依赖。
 - [ ] 抽取层没有直接读写记忆目录，也不依赖感知层（只通过 AmaiCore 的 `PerceptionReading` 读取）。
 - [ ] 记忆层不依赖任何采集或模型实现。
-- [ ] 任何外部网络调用都经过 `ModelProvider` 且受 `PrivacyPolicy` 外发开关控制。
+- [ ] 任何外部网络调用与外部程序调用（`claude -p`）都只发生在 `AmaiCloud`，只用于记忆整理，且仅在用户在设置中确认开启云端来源后发生（ADR-0004 / ADR-0005）；抽取层没有网络调用。
+- [ ] 不读取、不保存其他程序的凭据（Claude Code、Codex 等）；ChatGPT 令牌只经官方 SIWC 获得并存钥匙串。
 - [ ] 日志中不存在内容字段。
 - [ ] 所有队列 / 缓冲有上限。
 

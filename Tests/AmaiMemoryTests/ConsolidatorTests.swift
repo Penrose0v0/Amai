@@ -5,7 +5,9 @@ import Testing
 
 /// 根据系统提示词区分三种任务，返回脚本化输出。
 final class ScriptedModel: MemoryLanguageModel, @unchecked Sendable {
+    let identifier = "scripted:test"
     private let lock = NSLock()
+    private(set) var schemaNames: [String] = []
     var digest = #"{"summary":"主要在开发 Amai 的抽取层。","highlights":["完成活动切分","修正切分过碎"]}"#
     var topics = #"{"updates":[]}"#
     var summary = #"{"items":[]}"#
@@ -13,9 +15,10 @@ final class ScriptedModel: MemoryLanguageModel, @unchecked Sendable {
     private(set) var lastSummaryPrompt = ""
     private(set) var calls = 0
 
-    func complete(system: String, user: String, maxTokens: Int) async throws -> String {
+    func complete(system: String, user: String, maxTokens: Int, schema: OutputSchema?) async throws -> String {
         lock.withLock {
             calls += 1
+            if let schema { schemaNames.append(schema.name) }
             if system == Prompts.digestSystem { return digest }
             if system == Prompts.topicsSystem { lastTopicsPrompt = user; return topics }
             lastSummaryPrompt = user
@@ -131,6 +134,31 @@ struct ConsolidatorTests {
         #expect(text.firstRange(of: "## 摘要")!.lowerBound < text.firstRange(of: "## 时间线")!.lowerBound)
         #expect(text.contains("## 我的笔记\n今天很累"))
         #expect(await f.consolidator.status.lastDailyDay == "2026-10-19")
+        // 每个任务都带上自己的输出 Schema；改动日志记录所用模型。
+        #expect(f.model.schemaNames == ["daily_digest", "work_topics"])
+        let log = try String(contentsOf: f.snapshots.root.appendingPathComponent("changes.jsonl"), encoding: .utf8)
+        #expect(log.contains(#""model":"scripted:test""#))
+    }
+
+    @Test("output schemas are valid JSON and strict")
+    func schemas() throws {
+        for schema in [Schemas.digest, Schemas.topics, Schemas.summary] {
+            let obj = try #require(try JSONSerialization.jsonObject(with: Data(schema.json.utf8)) as? [String: Any])
+            #expect(obj["additionalProperties"] as? Bool == false)
+            #expect(!(obj["required"] as? [String] ?? []).isEmpty)
+        }
+    }
+
+    @Test("the model can be swapped at runtime")
+    func swapModel() async throws {
+        let f = try Fixture()
+        defer { f.cleanup() }
+        #expect(await f.consolidator.modelIdentifier == "scripted:test")
+        let other = ScriptedModel()
+        await f.consolidator.setModel(other)
+        try await f.seedDay()
+        _ = try await f.consolidator.consolidateDay(f.day)
+        #expect(other.calls == 2 && f.model.calls == 0)
     }
 
     @Test("creates and updates work topics with sources; rejects bad paths; snapshots before rewrite")

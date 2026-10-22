@@ -6,6 +6,7 @@ import struct AmaiCore.Evidence
 import enum AmaiCore.FrameAvailability
 import protocol AmaiCore.PerceptionReading
 import struct AmaiCore.TimeRange
+import AmaiCloud
 import AmaiExtraction
 import AmaiMemory
 import AmaiPerception
@@ -24,6 +25,15 @@ final class AppModel {
     private(set) var modelInstalled = true
     private(set) var memoryStatus: MemorySync.Status?
     private(set) var consolidationStatus: Consolidator.Status?
+    /// 当前整理模型配置。修改通过 `applyConsolidationModel` 进行。
+    private(set) var consolidationModel: ConsolidationModelConfiguration
+    let keychain = KeychainStore()
+    /// ChatGPT 订阅会话（SIWC）。令牌在钥匙串中，由会话自己管理刷新。
+    let chatGPT: ChatGPTSession
+    private(set) var chatGPTStatus: ChatGPTSession.Status?
+    private let claudeWorkdir: URL
+    private var configuration: AppConfiguration
+    private let localModel: MLXModelProvider?
     let modelTag: String
     let memoryRoot: URL
 
@@ -46,6 +56,13 @@ final class AppModel {
         var memorySync: MemorySync?
         var memoryIndex: MemoryIndex?
         var consolidator: Consolidator?
+        var localModel: MLXModelProvider?
+        let keychain = KeychainStore()
+        // 浏览器授权：用系统默认浏览器打开 OpenAI 授权页。
+        let chatGPT = ChatGPTSession(store: keychain, openURL: { url in
+            await MainActor.run { _ = NSWorkspace.shared.open(url) }
+        })
+        var claudeWorkdir = FileManager.default.temporaryDirectory.appendingPathComponent("amai-claude-cli")
         var configWarning: String?
         var startupError: String?
         var config = AppConfiguration.default
@@ -56,6 +73,7 @@ final class AppModel {
             config = loaded.configuration
             configWarning = loaded.error
             paths = resolved
+            claudeWorkdir = resolved.root.appendingPathComponent("claude-cli", isDirectory: true)
 
             let perception = try PerceptionCoordinator(paths: resolved, configuration: config.perception)
             coordinator = perception
@@ -65,6 +83,7 @@ final class AppModel {
             store = extractedStore
             // 抽取与记忆整理共用一个本地模型实例，避免重复加载权重。
             let model = MLXModelProvider(modelTag: config.extraction.modelTag)
+            localModel = model
             // 电池低于 40%、低电量模式或过热时推迟推理，插电后追赶。
             let heavyWorkAllowed: @Sendable () -> Bool = { [perception] in
                 switch perception.currentPowerProfile {
@@ -96,7 +115,10 @@ final class AppModel {
             consolidator = Consolidator(
                 store: memoryStore,
                 source: ExtractionSegmentSource(store: extractedStore),
-                model: ProviderLanguageModel(provider: model),
+                model: ConsolidationModelFactory.make(config.consolidationModel, context: ConsolidationModelContext(
+                    local: model, keychain: keychain, chatGPT: chatGPT,
+                    claudeWorkdir: resolved.root.appendingPathComponent("claude-cli", isDirectory: true)
+                )),
                 snapshots: SnapshotStore(root: resolved.root.appendingPathComponent("snapshots", isDirectory: true)),
                 stateURL: resolved.index.appendingPathComponent("consolidation.json"),
                 shouldRun: heavyWorkAllowed
@@ -113,6 +135,11 @@ final class AppModel {
         self.memorySync = memorySync
         self.memoryIndex = memoryIndex
         self.consolidator = consolidator
+        self.localModel = localModel
+        self.chatGPT = chatGPT
+        self.claudeWorkdir = claudeWorkdir
+        self.configuration = config
+        self.consolidationModel = config.consolidationModel
         self.memoryRoot = config.memory.rootURL
         self.configWarning = configWarning
         self.startupError = startupError
@@ -132,7 +159,13 @@ final class AppModel {
         if let consolidator {
             Task { await consolidator.start() }
         }
-        restoreCaptureState()
+        // 先恢复异常退出残留的分段，再恢复采集，避免新分段被误当成残留处理。
+        if let coordinator {
+            Task {
+                await coordinator.recoverInterruptedSegments()
+                self.restoreCaptureState()
+            }
+        }
         startPolling()
 
         // 开发用启动参数：open .build/Amai.app --args --consolidate-today [--update-summary]
@@ -244,6 +277,119 @@ final class AppModel {
         }
     }
 
+    // MARK: - Consolidation model
+
+    var consolidationModelLabel: String {
+        ConsolidationModelFactory.label(consolidationModel, localIdentifier: localModel?.identifier ?? "本地模型")
+    }
+
+    private var modelContext: ConsolidationModelContext? {
+        guard let localModel else { return nil }
+        return ConsolidationModelContext(local: localModel, keychain: keychain, chatGPT: chatGPT, claudeWorkdir: claudeWorkdir)
+    }
+
+    /// 保存整理模型配置并立即切换。返回错误说明（成功为 nil）。
+    func applyConsolidationModel(_ new: ConsolidationModelConfiguration) async -> String? {
+        guard let paths, let context = modelContext, let consolidator else { return "应用未正确初始化" }
+        var updated = configuration
+        updated.consolidationModel = new
+        do {
+            try ConfigStore.save(updated, to: paths.config)
+        } catch {
+            return "保存配置失败：\(error)"
+        }
+        configuration = updated
+        consolidationModel = new
+        await consolidator.setModel(ConsolidationModelFactory.make(new, context: context))
+        AmaiLog.logger("app").info("consolidation model switched to \(new.mode.rawValue, privacy: .public)")
+        return nil
+    }
+
+    /// 用一个极小的请求测试连接，不发送任何记忆内容。
+    func testConnection(_ config: ConsolidationModelConfiguration, apiKey: String?) async -> String {
+        guard let context = modelContext else { return "应用未正确初始化" }
+        let client: any CloudTextClient
+        if config.mode == .apiKey, let key = apiKey, !key.isEmpty {
+            client = config.apiKeyClient(apiKey: key)
+        } else {
+            switch ConsolidationModelFactory.client(config, context: context) {
+            case .success(let c): client = c
+            case .failure(let error): return "连接失败：\(error.description)"
+            }
+        }
+        do {
+            let response = try await client.generate(CloudRequest(system: "Reply with the single word OK.", user: "ping", maxTokens: 16))
+            return "连接成功：\(response.model)，用量 \(response.inputTokens) / \(response.outputTokens) token"
+        } catch let error as CloudError {
+            return "连接失败：\(error.description)"
+        } catch {
+            return "连接失败：\(error.localizedDescription)"
+        }
+    }
+
+    // MARK: - ChatGPT subscription (SIWC)
+
+    func refreshChatGPTStatus() async {
+        chatGPTStatus = await chatGPT.status
+    }
+
+    /// 浏览器登录。成功返回 nil，失败返回原因。
+    func signInChatGPT() async -> String? {
+        defer { Task { await refreshChatGPTStatus() } }
+        do {
+            try await chatGPT.signIn()
+            return nil
+        } catch let error as CloudError {
+            return error.description
+        } catch {
+            return "登录失败：\(error.localizedDescription)"
+        }
+    }
+
+    /// 退出登录。撤销未确认时返回提示。
+    func signOutChatGPT() async -> String? {
+        let revoked = await chatGPT.signOut()
+        await refreshChatGPTStatus()
+        if consolidationModel.mode == .chatgptPlan { _ = await applyConsolidationModel(consolidationModel) }
+        return revoked ? nil : "未能确认撤销授权，请到 ChatGPT 设置中断开 Amai。本地令牌已清除。"
+    }
+
+    func chatGPTModels() async -> Result<[ChatGPTModel], CloudError> {
+        do {
+            return .success(try await chatGPT.listModels())
+        } catch let error as CloudError {
+            return .failure(error)
+        } catch {
+            return .failure(.network(error.localizedDescription))
+        }
+    }
+
+    func markChatGPTWelcomed() async {
+        try? await chatGPT.markWelcomed()
+        await refreshChatGPTStatus()
+    }
+
+    func openChatGPTUsage() {
+        NSWorkspace.shared.open(chatGPTUsageURL)
+    }
+
+    let chatGPTUsageURL = SIWCConfiguration().manageUsageURL
+
+    // MARK: - Claude subscription (Claude Code CLI)
+
+    func claudeCodeStatus(configuredPath: String) async -> Result<ClaudeCodeStatus, CloudError> {
+        guard let exe = ClaudeCodeLocator.locate(configured: configuredPath) else {
+            return .failure(.toolNotFound(configuredPath.isEmpty ? "未在常见位置找到 claude" : configuredPath))
+        }
+        do {
+            return .success(try await ClaudeCodeClient.status(executable: exe, workingDirectory: claudeWorkdir))
+        } catch let error as CloudError {
+            return .failure(error)
+        } catch {
+            return .failure(.local(error.localizedDescription))
+        }
+    }
+
     func syncMemoryNow() {
         guard let memorySync else { return }
         Task {
@@ -333,5 +479,6 @@ final class AppModel {
         if let pipeline { extractionStatus = await pipeline.status }
         if let memorySync { memoryStatus = await memorySync.status }
         if let consolidator { consolidationStatus = await consolidator.status }
+        chatGPTStatus = await chatGPT.status
     }
 }

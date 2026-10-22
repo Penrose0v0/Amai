@@ -1,9 +1,25 @@
 import AmaiCore
 import Foundation
 
-/// 记忆层使用的纯文本模型接口。由 App 用抽取层的 ModelProvider 适配，记忆层不依赖抽取层。
+/// 记忆层使用的纯文本模型接口。由 App 适配本地模型（抽取层的 ModelProvider）
+/// 或云端 API（AmaiCloud），记忆层不依赖任何具体实现（ADR-0004）。
 public protocol MemoryLanguageModel: Sendable {
-    func complete(system: String, user: String, maxTokens: Int) async throws -> String
+    /// 例如 `mlx:gemma-4-e4b-it-4bit`、`anthropic:claude-opus-5-5`。写入整理日志。
+    var identifier: String { get }
+    /// `schema` 非空时，支持结构化输出的实现应保证返回符合该 Schema 的 JSON；
+    /// 不支持的实现忽略它，由调用方解析。
+    func complete(system: String, user: String, maxTokens: Int, schema: OutputSchema?) async throws -> String
+}
+
+/// 输出 JSON Schema（序列化字符串，便于跨并发域传递）。
+public struct OutputSchema: Sendable, Equatable {
+    public let name: String
+    public let json: String
+
+    public init(name: String, json: String) {
+        self.name = name
+        self.json = json
+    }
 }
 
 /// 记忆整理（ADR-0003，参考 OpenClaw 的 Markdown 记忆）：
@@ -67,7 +83,7 @@ public actor Consolidator {
 
     private let store: MemoryStore
     private let source: any SegmentSource
-    private let model: any MemoryLanguageModel
+    private var model: any MemoryLanguageModel
     private let snapshots: SnapshotStore
     private let stateURL: URL
     private let clock: any AmaiClock
@@ -106,6 +122,13 @@ public actor Consolidator {
         self.status.lastDailyDay = state.lastDailyDay
         self.status.lastSummaryAt = state.lastSummaryAt
     }
+
+    /// 切换整理模型（设置中修改后立即生效）。
+    public func setModel(_ model: any MemoryLanguageModel) {
+        self.model = model
+    }
+
+    public var modelIdentifier: String { model.identifier }
 
     // MARK: - Scheduling
 
@@ -187,7 +210,8 @@ public actor Consolidator {
             let digestRaw = try await model.complete(
                 system: Prompts.digestSystem,
                 user: Prompts.digestUser(day: dayName, stats: stats, daily: context),
-                maxTokens: 700
+                maxTokens: 700,
+                schema: Schemas.digest
             )
             guard let digest = ModelJSON.decode(DigestOutput.self, from: digestRaw) else {
                 throw ConsolidationError.unparsableModelOutput("digest")
@@ -196,7 +220,7 @@ public actor Consolidator {
             report.digestWritten = try await store.writeBlock(
                 Self.digestBlock, body: digestBody, file: file, newFileTitle: dayName,
                 heading: "## 摘要", insertBeforeHeading: TimelineBlock.heading,
-                snapshots: snapshots, task: "daily-digest", itemCount: digest.highlights?.count ?? 0
+                snapshots: snapshots, task: "daily-digest", model: model.identifier, itemCount: digest.highlights?.count ?? 0
             )
 
             // 2. work/ 专题
@@ -204,7 +228,8 @@ public actor Consolidator {
             let topicRaw = try await model.complete(
                 system: Prompts.topicsSystem,
                 user: Prompts.topicsUser(day: dayName, daily: (await store.read(file)).map { String($0.prefix(options.dailyContextChars)) } ?? context, topics: topics),
-                maxTokens: 1600
+                maxTokens: 1600,
+                schema: Schemas.topics
             )
             guard let output = ModelJSON.decode(TopicsOutput.self, from: topicRaw) else {
                 throw ConsolidationError.unparsableModelOutput("topics")
@@ -230,7 +255,7 @@ public actor Consolidator {
                 if try await store.writeBlock(
                     Self.memoryBlock, body: MemoryItems.render(items), file: path,
                     newFileTitle: title, heading: "## 记录",
-                    snapshots: snapshots, task: "work-topic", itemCount: items.count
+                    snapshots: snapshots, task: "work-topic", model: model.identifier, itemCount: items.count
                 ) {
                     report.topicsUpdated.append(path)
                     if existing == nil { created += 1 }
@@ -268,7 +293,8 @@ public actor Consolidator {
             let raw = try await model.complete(
                 system: Prompts.summarySystem,
                 user: Prompts.summaryUser(userWritten: userPart, existing: existing, digests: digests, topics: topics),
-                maxTokens: 1800
+                maxTokens: 1800,
+                schema: Schemas.summary
             )
             guard let output = ModelJSON.decode(SummaryOutput.self, from: raw) else {
                 throw ConsolidationError.unparsableModelOutput("summary")
@@ -285,7 +311,7 @@ public actor Consolidator {
             let changed = try await store.writeBlock(
                 Self.memoryBlock, body: MemoryItems.render(items, sections: Self.summarySections),
                 file: MemoryDirectory.summary, newFileTitle: "用户档案", heading: "## Amai 整理的长期记忆",
-                snapshots: snapshots, task: "summary", itemCount: items.count
+                snapshots: snapshots, task: "summary", model: model.identifier, itemCount: items.count
             )
             state.lastSummaryAt = now
             try saveState()
@@ -554,4 +580,24 @@ enum Prompts {
         }
         return parts.joined(separator: "\n")
     }
+}
+
+// MARK: - Output schemas
+
+/// 三个整理任务的输出 Schema。所有字段必填、不允许额外字段，
+/// 同时满足 Anthropic `output_config.format` 与 OpenAI strict `json_schema` 的要求。
+enum Schemas {
+    private static let item = #"{"type":"object","properties":{"text":{"type":"string"},"sources":{"type":"array","items":{"type":"string"}}},"required":["text","sources"],"additionalProperties":false}"#
+
+    static let digest = OutputSchema(name: "daily_digest", json: #"""
+    {"type":"object","properties":{"summary":{"type":"string"},"highlights":{"type":"array","items":{"type":"string"}}},"required":["summary","highlights"],"additionalProperties":false}
+    """#)
+
+    static let topics = OutputSchema(name: "work_topics", json: #"""
+    {"type":"object","properties":{"updates":{"type":"array","items":{"type":"object","properties":{"file":{"type":"string"},"title":{"type":"string"},"items":{"type":"array","items":\#(item)}},"required":["file","title","items"],"additionalProperties":false}}},"required":["updates"],"additionalProperties":false}
+    """#)
+
+    static let summary = OutputSchema(name: "long_term_summary", json: #"""
+    {"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"section":{"type":"string","enum":["基本背景","工作与研究","习惯与偏好","长期目标","重要关系","其他"]},"text":{"type":"string"},"sources":{"type":"array","items":{"type":"string"}}},"required":["section","text","sources"],"additionalProperties":false}}},"required":["items"],"additionalProperties":false}
+    """#)
 }

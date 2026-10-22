@@ -16,11 +16,13 @@ struct ExtractionSegmentSource: SegmentSource {
     }
 }
 
-/// 用抽取层的 ModelProvider 为记忆整理提供纯文本生成。
-struct ProviderLanguageModel: MemoryLanguageModel {
+/// 本地模式：用抽取层的 ModelProvider 为记忆整理提供文本生成。不支持结构化输出，Schema 被忽略。
+struct LocalLanguageModel: MemoryLanguageModel {
     let provider: any ModelProvider
 
-    func complete(system: String, user: String, maxTokens: Int) async throws -> String {
+    var identifier: String { provider.identifier }
+
+    func complete(system: String, user: String, maxTokens: Int, schema: OutputSchema?) async throws -> String {
         try await provider.generate(ModelRequest(cacheable: system, dynamic: user, maxTokens: maxTokens)).text
     }
 }

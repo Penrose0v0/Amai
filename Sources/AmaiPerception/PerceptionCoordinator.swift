@@ -96,6 +96,13 @@ public actor PerceptionCoordinator {
 
     // MARK: - Control
 
+    /// 恢复上次异常退出留下的视频分段。App 启动时、开始采集之前调用。
+    @discardableResult
+    public func recoverInterruptedSegments() async -> FrameStore.RecoveryReport {
+        guard !started else { return .init() }
+        return await FrameStore.recoverInterruptedSegments(in: spool.root)
+    }
+
     public func start() async {
         guard !started else { return }
         started = true

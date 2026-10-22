@@ -70,6 +70,41 @@ struct FrameStoreTests {
         #expect(await store.activeSegmentPath == nil)
     }
 
+    @Test("an interrupted fragmented segment is recovered; unreadable leftovers are marked broken")
+    func recovery() async throws {
+        let root = try TempDir.make()
+        let crashDir = try TempDir.make()
+        defer {
+            try? FileManager.default.removeItem(at: root)
+            try? FileManager.default.removeItem(at: crashDir)
+        }
+        let clock = FakeClock()
+        var config = FrameStore.Configuration.default
+        config.fragmentInterval = 2
+        config.keyFrameInterval = 2
+        let store = FrameStore(root: root, configuration: config, clock: clock, timeZone: TimeZone(identifier: "UTC")!)
+        var ref: FrameStore.FrameRef?
+        for i in 0..<8 {
+            ref = try await store.append(SyntheticImage.make(seed: i, size: 128), at: clock.now().addingTimeInterval(Double(i)))
+        }
+        // 给写入器一点时间把已完成的片段落盘，然后在不收尾的情况下拷走文件，模拟进程被杀。
+        try await Task.sleep(for: .milliseconds(500))
+        let part = root.appendingPathComponent(ref!.segment + ".part")
+        let dayDir = crashDir.appendingPathComponent("2025-10-09")
+        try FileManager.default.createDirectory(at: dayDir, withIntermediateDirectories: true)
+        try FileManager.default.copyItem(at: part, to: dayDir.appendingPathComponent(part.lastPathComponent))
+        // 再放一个完全无法读取的残留。
+        try Data("garbage".utf8).write(to: dayDir.appendingPathComponent("20251009_000000000.mp4.part"))
+
+        let report = await FrameStore.recoverInterruptedSegments(in: crashDir)
+        #expect(report.recovered == 1 && report.broken == 1)
+        let recovered = dayDir.appendingPathComponent((ref!.segment as NSString).lastPathComponent)
+        let image = try await FrameStore.image(segmentURL: recovered, frameIndex: 0)
+        #expect(image.width == 128)
+        #expect(FileManager.default.fileExists(atPath: dayDir.appendingPathComponent("20251009_000000000.mp4.broken").path))
+        await store.finishSegment()
+    }
+
     @Test("finishSegment without frames is a no-op")
     func emptyFinish() async throws {
         let root = try TempDir.make()

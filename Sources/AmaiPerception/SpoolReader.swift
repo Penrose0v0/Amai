@@ -9,6 +9,9 @@ public struct SpoolReader: PerceptionReading {
     private let calendar: Calendar
     private let log = AmaiLog.logger("perception.reader")
 
+    /// 分段最长 10 分钟、每 60 秒写一个片段；超过 15 分钟未更新即视为残留。
+    static let stalePartAge: TimeInterval = 15 * 60
+
     public init(spool: RawSpool, timeZone: TimeZone = .current) {
         self.spool = spool
         self.root = spool.root
@@ -38,7 +41,11 @@ public struct SpoolReader: PerceptionReading {
         let url = root.appendingPathComponent(payloadRef)
         let fm = FileManager.default
         guard fm.fileExists(atPath: url.path) else {
-            return fm.fileExists(atPath: url.path + ".part") ? .pending : .expired
+            let part = url.path + ".part"
+            guard fm.fileExists(atPath: part) else { return .expired }
+            // 兜底：长时间没有更新的 .part 不是"正在写入"，而是异常退出的残留。
+            let modified = (try? fm.attributesOfItem(atPath: part)[.modificationDate] as? Date) ?? .distantPast
+            return Date().timeIntervalSince(modified) > Self.stalePartAge ? .expired : .pending
         }
         do {
             let image = try await FrameStore.image(segmentURL: url, frameIndex: frameIndex)

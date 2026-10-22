@@ -18,6 +18,11 @@ struct AmaiApp: App {
         Window("活动检查器", id: "inspector") {
             InspectorView(model: model)
         }
+
+        Window("记忆整理模型", id: "model-settings") {
+            ModelSettingsView(model: model)
+        }
+        .windowResizability(.contentSize)
     }
 
     private static func symbol(for status: PerceptionStatus?) -> String {
@@ -96,6 +101,14 @@ private struct MenuContent: View {
                 Text("已整理至 \(day)" + (c.lastSummaryAt.map { " · summary \($0.formatted(date: .abbreviated, time: .omitted))" } ?? ""))
             }
             if let err = c.lastError { Text(err) }
+        }
+        Text("整理模型：\(model.consolidationModelLabel)")
+        if model.consolidationModel.mode == .chatgptPlan {
+            Button("Manage usage") { model.openChatGPTUsage() }
+        }
+        Button("记忆整理模型…") {
+            openWindow(id: "model-settings")
+            NSApp.activate(ignoringOtherApps: true)
         }
         Button("打开记忆目录") { model.openMemoryFolder() }
         Button("立即同步记忆") { model.syncMemoryNow() }

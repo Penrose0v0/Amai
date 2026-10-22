@@ -20,6 +20,9 @@ public actor FrameStore {
         public var keyFrameInterval: Int
         /// 编码器不支持质量模式时的回退码率。
         public var fallbackBitRate: Int
+        /// 分片间隔（媒体时间；第 N 帧在第 N 秒，因此单位是帧）。分片只能从关键帧开始，
+        /// 所以与 `keyFrameInterval` 对齐：崩溃时最多丢失最近 30 帧（约 5 分钟）的画面。
+        public var fragmentInterval: Double = 30
 
         public static let `default` = Configuration(
             maxFrames: 600, maxDuration: 600, quality: 0.55, keyFrameInterval: 30, fallbackBitRate: 2_000_000
@@ -149,6 +152,47 @@ public actor FrameStore {
         await onSegmentFinished(bytes)
     }
 
+    // MARK: - Recovery
+
+    public struct RecoveryReport: Sendable, Equatable {
+        public var recovered = 0
+        public var broken = 0
+    }
+
+    /// 启动时处理上次异常退出留下的 `.part` 分段（必须在开始采集之前调用）：
+    /// 能读出画面的改名为 `.mp4` 继续使用；读不出的改名为 `.mp4.broken`，交给保留策略清理。
+    /// 不处理时，读取方会把这些分段永远当作"仍在写入"，抽取会因此停住。
+    public static func recoverInterruptedSegments(in root: URL) async -> RecoveryReport {
+        var report = RecoveryReport()
+        let fm = FileManager.default
+        guard let enumerator = fm.enumerator(at: root, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]) else {
+            return report
+        }
+        let parts = enumerator.compactMap { $0 as? URL }.filter { $0.lastPathComponent.hasSuffix(".mp4.part") }
+        for part in parts {
+            // AVFoundation 按扩展名识别格式，先改回 .mp4 再尝试读取。
+            let final = part.deletingPathExtension()
+            let broken = final.appendingPathExtension("broken")
+            do {
+                if fm.fileExists(atPath: final.path) { try fm.removeItem(at: final) }
+                try fm.moveItem(at: part, to: final)
+                if (try? await image(segmentURL: final, frameIndex: 0)) != nil {
+                    report.recovered += 1
+                } else {
+                    if fm.fileExists(atPath: broken.path) { try fm.removeItem(at: broken) }
+                    try fm.moveItem(at: final, to: broken)
+                    report.broken += 1
+                }
+            } catch {
+                continue
+            }
+        }
+        if report.recovered + report.broken > 0 {
+            AmaiLog.logger("perception.frames").info("recovered \(report.recovered) interrupted segment(s), \(report.broken) unreadable")
+        }
+        return report
+    }
+
     // MARK: - Read
 
     /// 从已完成的分段读取一帧。供抽取层与检查器使用。
@@ -183,6 +227,8 @@ public actor FrameStore {
         try? FileManager.default.removeItem(at: partURL)
 
         let writer = try AVAssetWriter(outputURL: partURL, fileType: .mp4)
+        // 分片写入：进程被强制结束或崩溃时，已写入的片段仍可读取，启动时可恢复为正式分段。
+        writer.movieFragmentInterval = CMTime(seconds: config.fragmentInterval, preferredTimescale: 1)
         var settings = Self.outputSettings(width: width, height: height, config: config, useQuality: true)
         if !writer.canApply(outputSettings: settings, forMediaType: .video) {
             settings = Self.outputSettings(width: width, height: height, config: config, useQuality: false)

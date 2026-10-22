@@ -12,7 +12,7 @@ public struct SnapshotStore: Sendable {
     }
 
     /// 保存 `relativePath` 的旧内容（文件不存在时只记日志），并记录本次改动。
-    public func record(relativePath: String, previous: String?, task: String, itemCount: Int) throws {
+    public func record(relativePath: String, previous: String?, task: String, model: String? = nil, itemCount: Int) throws {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         let stamp = Self.stamp()
         var snapshot: String?
@@ -26,6 +26,7 @@ public struct SnapshotStore: Sendable {
             "task": task,
             "file": relativePath,
             "items": itemCount,
+            "model": model ?? NSNull(),
             "snapshot": snapshot ?? NSNull(),
         ]
         var line = try JSONSerialization.data(withJSONObject: entry, options: [.sortedKeys])

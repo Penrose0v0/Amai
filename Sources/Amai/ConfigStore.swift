@@ -10,17 +10,26 @@ struct AppConfiguration: Codable, Equatable {
     var perception: PerceptionConfiguration
     var extraction: ExtractionConfiguration
     var memory: MemoryConfiguration
+    var consolidationModel: ConsolidationModelConfiguration
 
-    static let `default` = AppConfiguration(perception: .default, extraction: .default, memory: .default)
+    static let `default` = AppConfiguration(
+        perception: .default, extraction: .default, memory: .default, consolidationModel: .default
+    )
 
-    init(perception: PerceptionConfiguration, extraction: ExtractionConfiguration, memory: MemoryConfiguration) {
+    init(
+        perception: PerceptionConfiguration,
+        extraction: ExtractionConfiguration,
+        memory: MemoryConfiguration,
+        consolidationModel: ConsolidationModelConfiguration
+    ) {
         self.perception = perception
         self.extraction = extraction
         self.memory = memory
+        self.consolidationModel = consolidationModel
     }
 
     private enum CodingKeys: String, CodingKey {
-        case screen, exclusions, spool, extraction, memory
+        case screen, exclusions, spool, extraction, memory, consolidationModel
     }
 
     init(from decoder: any Decoder) throws {
@@ -28,6 +37,7 @@ struct AppConfiguration: Codable, Equatable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         extraction = try c.decodeIfPresent(ExtractionConfiguration.self, forKey: .extraction) ?? .default
         memory = try c.decodeIfPresent(MemoryConfiguration.self, forKey: .memory) ?? .default
+        consolidationModel = try c.decodeIfPresent(ConsolidationModelConfiguration.self, forKey: .consolidationModel) ?? .default
     }
 
     func encode(to encoder: any Encoder) throws {
@@ -37,6 +47,7 @@ struct AppConfiguration: Codable, Equatable {
         try c.encode(perception.spool, forKey: .spool)
         try c.encode(extraction, forKey: .extraction)
         try c.encode(memory, forKey: .memory)
+        try c.encode(consolidationModel, forKey: .consolidationModel)
     }
 
     func validate() throws {

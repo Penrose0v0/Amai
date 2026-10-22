@@ -72,6 +72,7 @@ public actor MemoryStore {
         insertBeforeHeading: String? = nil,
         snapshots: SnapshotStore?,
         task: String,
+        model: String? = nil,
         itemCount: Int
     ) throws -> Bool {
         let url = root.appendingPathComponent(relativePath)
@@ -93,7 +94,7 @@ public actor MemoryStore {
             throw WriteError.malformedBlock(relativePath)
         }
         guard updated != existing else { return false }
-        try snapshots?.record(relativePath: relativePath, previous: existing, task: task, itemCount: itemCount)
+        try snapshots?.record(relativePath: relativePath, previous: existing, task: task, model: model, itemCount: itemCount)
         try fm.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         try Data(updated.utf8).write(to: url, options: .atomic)
         return true

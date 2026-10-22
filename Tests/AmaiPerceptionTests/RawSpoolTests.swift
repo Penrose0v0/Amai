@@ -111,6 +111,23 @@ struct RawSpoolTests {
         #expect(try await spool.events(on: t0).map(\.id) == [a.id, c.id])
     }
 
+    @Test("reader treats a fresh .part as pending and a stale one as expired")
+    func staleParts() async throws {
+        let root = try TempDir.make()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let spool = try RawSpool(root: root, limits: .default, clock: FakeClock(), timeZone: TimeZone(identifier: "UTC")!)
+        let reader = SpoolReader(spool: spool)
+        let day = root.appendingPathComponent("2025-10-09")
+        try FileManager.default.createDirectory(at: day, withIntermediateDirectories: true)
+        let fresh = day.appendingPathComponent("a.mp4.part")
+        let stale = day.appendingPathComponent("b.mp4.part")
+        try Data().write(to: fresh)
+        try Data().write(to: stale)
+        try FileManager.default.setAttributes([.modificationDate: Date().addingTimeInterval(-3600)], ofItemAtPath: stale.path)
+        #expect(await reader.frame(payloadRef: "2025-10-09/a.mp4", frameIndex: 0, maxHeight: 100) == .pending)
+        #expect(await reader.frame(payloadRef: "2025-10-09/b.mp4", frameIndex: 0, maxHeight: 100) == .expired)
+    }
+
     @Test("corrupt index lines are skipped")
     func corruptLines() async throws {
         let root = try TempDir.make()
