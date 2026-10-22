@@ -3,8 +3,23 @@ import AmaiExtraction
 import AmaiMemory
 import SwiftUI
 
-/// 最小检查器：按天查看活动片段、关联观察与关键帧；检索片段或 Markdown 记忆；删除片段或时间段。
+/// 活动检查器：两个标签页——活动记录（片段、观察、关键帧、检索、删除）与运行状态（详细指标）。
 struct InspectorView: View {
+    let model: AppModel
+
+    var body: some View {
+        TabView {
+            ActivityBrowserView(model: model)
+                .tabItem { Label("活动", systemImage: "clock") }
+            RuntimeStatusView(model: model)
+                .tabItem { Label("运行状态", systemImage: "gauge.with.dots.needle.33percent") }
+        }
+        .frame(minWidth: 880, minHeight: 540)
+    }
+}
+
+/// 按天查看活动片段、关联观察与关键帧；检索片段或 Markdown 记忆；删除片段或时间段。
+struct ActivityBrowserView: View {
     let model: AppModel
 
     enum SearchMode: String, CaseIterable, Identifiable {

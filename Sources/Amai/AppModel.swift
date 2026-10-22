@@ -25,6 +25,9 @@ final class AppModel {
     private(set) var modelInstalled = true
     private(set) var memoryStatus: MemorySync.Status?
     private(set) var consolidationStatus: Consolidator.Status?
+    /// 记忆目录中最近一次文件修改的时间（菜单显示"记忆更新于…"）。
+    private(set) var lastMemoryUpdate: Date?
+    private var lastMemoryScan = Date.distantPast
     /// 当前整理模型配置。修改通过 `applyConsolidationModel` 进行。
     private(set) var consolidationModel: ConsolidationModelConfiguration
     let keychain = KeychainStore()
@@ -474,11 +477,105 @@ final class AppModel {
         }
     }
 
+    /// 菜单里的"立即同步"：处理积压的活动，再把结果写入记忆。忽略电源节流。
+    func syncNow() {
+        Task {
+            _ = await pipeline?.runOnce(force: true)
+            await memorySync?.syncOnce()
+            lastMemoryScan = .distantPast
+            await refresh()
+        }
+    }
+
+    /// 只在异常时出现在菜单里的问题，每个都附带建议操作。正常运行时为空。
+    var issues: [AppIssue] {
+        var list: [AppIssue] = []
+        if let startupError {
+            list.append(AppIssue(id: "startup", message: startupError, action: nil))
+            return list
+        }
+        if let warning = configWarning {
+            list.append(AppIssue(id: "config", message: warning, action: .revealConfig))
+        }
+        if let status {
+            switch status.state {
+            case .permissionMissing:
+                list.append(AppIssue(id: "permission", message: "需要屏幕录制权限才能记录", action: .grantScreenRecording))
+            case .error:
+                let detail = status.screen.lastError.map { "（\($0)）" } ?? ""
+                list.append(AppIssue(id: "capture", message: "截图连续失败\(detail)，稍后会自动重试", action: .openInspector))
+            default:
+                break
+            }
+        }
+        if !modelInstalled {
+            list.append(AppIssue(id: "model", message: "本地模型未安装，无法整理屏幕活动", action: .openSettings))
+        } else if let e = extractionStatus {
+            switch e.state {
+            case .modelUnavailable:
+                list.append(AppIssue(id: "model", message: e.lastError ?? "本地模型不可用", action: .openSettings))
+            case .retrying:
+                list.append(AppIssue(id: "extraction", message: "处理屏幕活动时出错，稍后会自动重试", action: .openInspector))
+            default:
+                break
+            }
+        }
+        if let err = memoryStatus?.lastError {
+            list.append(AppIssue(id: "memory", message: err, action: .openInspector))
+        }
+        if let err = consolidationStatus?.lastError {
+            list.append(AppIssue(id: "consolidation", message: err, action: .openSettings))
+        }
+        return list
+    }
+
+    /// 记忆目录中最新的文件修改时间。文件很少，扫描很便宜；每 15 秒最多一次。
+    private func scanMemoryUpdate() {
+        guard Date().timeIntervalSince(lastMemoryScan) > 15 else { return }
+        lastMemoryScan = Date()
+        let root = memoryRoot
+        guard let enumerator = FileManager.default.enumerator(
+            at: root, includingPropertiesForKeys: [.contentModificationDateKey], options: [.skipsHiddenFiles]
+        ) else { return }
+        var newest: Date?
+        for case let url as URL in enumerator where url.pathExtension == "md" {
+            if let d = try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate,
+               newest.map({ d > $0 }) ?? true {
+                newest = d
+            }
+        }
+        lastMemoryUpdate = newest
+    }
+
     private func refresh() async {
+        scanMemoryUpdate()
         if let coordinator { status = await coordinator.status() }
         if let pipeline { extractionStatus = await pipeline.status }
         if let memorySync { memoryStatus = await memorySync.status }
         if let consolidator { consolidationStatus = await consolidator.status }
         chatGPTStatus = await chatGPT.status
     }
+}
+
+/// 菜单中显示的异常及建议操作。
+struct AppIssue: Identifiable, Equatable {
+    enum Action: Equatable {
+        case grantScreenRecording
+        case openSettings
+        case openInspector
+        case revealConfig
+
+        var title: String {
+            switch self {
+            case .grantScreenRecording: "打开屏幕录制设置…"
+            case .openSettings: "打开设置…"
+            case .openInspector: "查看详情…"
+            case .revealConfig: "显示配置文件"
+            }
+        }
+    }
+
+    let id: String
+    let message: String
+    let action: Action?
 }

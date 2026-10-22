@@ -25,9 +25,9 @@ open .build/Amai.app         # 运行（菜单栏应用）
 
 首次在新机器上开发前运行一次 `./scripts/setup-dev-cert.sh`：它创建名为 `Amai Local Dev` 的自签名代码签名证书，`bundle.sh` 检测到后自动使用。没有它时打包是 ad-hoc 签名，macOS TCC 按代码哈希记权限，每次重新打包都要重新授权屏幕录制。
 
-首次点击菜单栏的"开始采集"后，macOS 会请求屏幕录制权限（系统设置 → 隐私与安全性 → 屏幕录制），允许一次即可。
+首次点击菜单栏的"开始记录"后，macOS 会请求屏幕录制权限（系统设置 → 隐私与安全性 → 屏幕录制），允许一次即可。
 
-记忆：`~/.amai/memory/`（可在 `config.json` 的 `memory.root` 修改）。`daily/YYYY-MM-DD.md` 中两条 `amai:timeline` 注释之间由系统维护，区块外可以随意编辑。开发时检索记忆：`swift run amai-memory search <查询>`。记忆整理默认用本地模型；可在菜单"记忆整理模型…"中切换到 Anthropic / OpenAI 的 API Key（ADR-0004），或使用 ChatGPT 订阅（官方 Sign in with ChatGPT）、Claude 订阅（本机已登录的 Claude Code）（ADR-0005）。立即整理（开发用）：`open .build/Amai.app --args --consolidate-today --update-summary`。
+记忆：`~/.amai/memory/`（可在 `config.json` 的 `memory.root` 修改）。`daily/YYYY-MM-DD.md` 中两条 `amai:timeline` 注释之间由系统维护，区块外可以随意编辑。开发时检索记忆：`swift run amai-memory search <查询>`。记忆整理默认用本地模型；可在"设置… → 记忆整理"中切换到 Anthropic / OpenAI 的 API Key（ADR-0004），或使用 ChatGPT 订阅（官方 Sign in with ChatGPT）、Claude 订阅（本机已登录的 Claude Code）（ADR-0005）。立即整理（开发用）：`open .build/Amai.app --args --consolidate-today --update-summary`。
 
 运行时数据：`~/Library/Application Support/Amai/`（`config.json` 可手改；`raw/` 为短期缓冲，截图帧存为按日目录下的 HEVC 分段，默认 72 小时 / 2 GB 上限）。
 

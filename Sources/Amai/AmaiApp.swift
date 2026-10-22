@@ -4,6 +4,10 @@ import AmaiPerception
 import SwiftUI
 
 /// 菜单栏应用入口（docs/architecture.md §2.4）。
+///
+/// 菜单面向普通用户，只保留：状态与上次记忆更新时间、暂停 / 继续、打开记忆、立即同步、
+/// 活动检查器、设置、退出。详细指标在活动检查器的"运行状态"里，维护操作在设置的"高级"里。
+/// 正常运行时只显示一行状态；出现异常时才列出具体问题和建议操作。
 @main
 struct AmaiApp: App {
     @State private var model = AppModel()
@@ -12,26 +16,25 @@ struct AmaiApp: App {
         MenuBarExtra {
             MenuContent(model: model)
         } label: {
-            Image(systemName: Self.symbol(for: model.status))
+            Image(systemName: Self.symbol(for: model))
         }
 
         Window("活动检查器", id: "inspector") {
             InspectorView(model: model)
         }
 
-        Window("记忆整理模型", id: "model-settings") {
-            ModelSettingsView(model: model)
+        Settings {
+            SettingsView(model: model)
         }
-        .windowResizability(.contentSize)
     }
 
-    private static func symbol(for status: PerceptionStatus?) -> String {
-        switch status?.state {
-        case .running: "record.circle"
-        case .paused: "pause.circle"
-        case .permissionMissing: "exclamationmark.triangle"
-        case .error: "xmark.circle"
-        case .stopped, nil: "circle.dotted"
+    private static func symbol(for model: AppModel) -> String {
+        if !model.issues.isEmpty { return "exclamationmark.triangle" }
+        switch model.status?.state {
+        case .running: return "record.circle"
+        case .paused: return "pause.circle"
+        case .permissionMissing, .error: return "exclamationmark.triangle"
+        case .stopped, nil: return "circle.dotted"
         }
     }
 }
@@ -39,132 +42,84 @@ struct AmaiApp: App {
 private struct MenuContent: View {
     let model: AppModel
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
-        if let error = model.startupError {
-            Text(error)
-        } else if let status = model.status {
-            statusSection(status)
-            Divider()
-            controls(status)
-            Divider()
-        } else {
-            Text("Amai · 初始化中")
-            Divider()
+        Text(statusTitle)
+        if let updated = model.lastMemoryUpdate {
+            Text("记忆更新于 \(updated.formatted(.relative(presentation: .named)))")
         }
 
-        extractionSection
+        let issues = model.issues
+        if !issues.isEmpty {
+            Divider()
+            ForEach(issues) { issue in
+                Text("⚠︎ \(issue.message)")
+                if let action = issue.action {
+                    Button(action.title) { perform(action) }
+                }
+            }
+        }
+
         Divider()
-        memorySection
+        recordingControl
+
         Divider()
+        Button("打开记忆") { model.openMemoryFolder() }
+        Button("立即同步") { model.syncNow() }
 
-        if let warning = model.configWarning {
-            Text(warning)
-            Divider()
-        }
+        Divider()
+        Button("活动检查器…") { showInspector() }
+        Button("设置…") { showSettings() }
+            .keyboardShortcut(",")
 
-        Button("打开活动检查器") {
-            openWindow(id: "inspector")
-            NSApp.activate(ignoringOtherApps: true)
-        }
-        Button("打开原始数据目录") { model.revealRawFolder() }
-        Button("打开配置文件") { model.revealConfig() }
         Divider()
         Button("退出 Amai") { model.quit() }
             .keyboardShortcut("q")
     }
 
-    @ViewBuilder
-    private var extractionSection: some View {
-        if !model.modelInstalled {
-            Text("本地模型未安装：\(model.modelTag)")
-        }
-        if let s = model.extractionStatus {
-            Text("抽取 · 已处理窗口 \(s.batchesProcessed) · 片段 \(s.segmentsWritten) · 描述帧 \(s.framesDescribed)")
-            ExtractionStatusLine(model: model)
-        }
-        Button("立即处理积压") { model.runExtractionNow() }
-    }
-
-    @ViewBuilder
-    private var memorySection: some View {
-        if let m = model.memoryStatus {
-            if let last = m.lastSyncAt {
-                Text("记忆 · 上次同步 \(last.formatted(date: .omitted, time: .shortened)) · 更新文件 \(m.filesChanged)")
-            }
-            if let err = m.lastError { Text(err) }
-        }
-        if let c = model.consolidationStatus {
-            if c.running {
-                Text("整理中…")
-            } else if let day = c.lastDailyDay {
-                Text("已整理至 \(day)" + (c.lastSummaryAt.map { " · summary \($0.formatted(date: .abbreviated, time: .omitted))" } ?? ""))
-            }
-            if let err = c.lastError { Text(err) }
-        }
-        Text("整理模型：\(model.consolidationModelLabel)")
-        if model.consolidationModel.mode == .chatgptPlan {
-            Button("Manage usage") { model.openChatGPTUsage() }
-        }
-        Button("记忆整理模型…") {
-            openWindow(id: "model-settings")
-            NSApp.activate(ignoringOtherApps: true)
-        }
-        Button("打开记忆目录") { model.openMemoryFolder() }
-        Button("立即同步记忆") { model.syncMemoryNow() }
-        Button("整理今天（摘要与 work 专题）") { model.consolidateToday() }
-        Button("更新长期记忆（summary）") { model.updateSummaryNow() }
-    }
-
-    @ViewBuilder
-    private func statusSection(_ status: PerceptionStatus) -> some View {
-        Text("Amai · \(label(for: status))")
-        if status.state != .stopped {
-            Text("已截图 \(status.screen.captured) · 重复 \(status.screen.duplicates) · 跳过 \(status.screen.skipped) · 失败 \(status.screen.failures)")
-            Text("焦点切换 \(status.focusChanges) · 缓冲 \(Self.formatBytes(status.spoolBytes))")
-            Text("档位 \(status.powerProfile.rawValue) · 间隔 \(Self.formatInterval(status.effectiveInterval))")
-            if status.systemBlocked {
-                Text("系统睡眠 / 锁屏，暂不截图")
-            }
-            if let error = status.screen.lastError {
-                Text("上次错误：\(String(describing: error))")
-            }
+    private var statusTitle: String {
+        if model.startupError != nil { return "Amai 无法启动" }
+        switch model.status?.state {
+        case .running, .error: return "Amai 正在记录"
+        case .paused: return "Amai 已暂停记录"
+        case .permissionMissing: return "Amai 等待屏幕录制权限"
+        case .stopped: return "Amai 未在记录"
+        case nil: return "Amai 正在启动…"
         }
     }
 
-    // 只有"开始 / 暂停 / 继续"：暂停期间监听器保持运行，只是不截图并留占位。
-    // 完全停止只在退出应用时发生。
+    /// 暂停期间仍保留时间线上的"已暂停"占位；真正停止只在退出时发生。
     @ViewBuilder
-    private func controls(_ status: PerceptionStatus) -> some View {
-        switch status.state {
+    private var recordingControl: some View {
+        switch model.status?.state {
         case .stopped:
-            Button("开始采集") { model.start() }
-        case .running, .error:
-            Button("暂停采集") { model.pause() }
+            Button("开始记录") { model.start() }
         case .paused:
-            Button("继续采集") { model.resume() }
-        case .permissionMissing:
-            Button("申请屏幕录制权限") { model.requestScreenRecording() }
-            Button("打开系统设置") { model.openSystemSettings() }
-            Button("暂停采集") { model.pause() }
+            Button("继续记录") { model.resume() }
+        case .running, .error, .permissionMissing:
+            Button("暂停记录") { model.pause() }
+        case nil:
+            Button("暂停记录") {}.disabled(true)
         }
     }
 
-    private func label(for status: PerceptionStatus) -> String {
-        switch status.state {
-        case .stopped: "未采集"
-        case .running: "采集中"
-        case .paused: "已暂停"
-        case .permissionMissing: "缺少屏幕录制权限"
-        case .error: "采集出错"
+    private func perform(_ action: AppIssue.Action) {
+        switch action {
+        case .grantScreenRecording: model.requestScreenRecording()
+        case .openSettings: showSettings()
+        case .openInspector: showInspector()
+        case .revealConfig: model.revealConfig()
         }
     }
 
-    private static func formatBytes(_ bytes: Int64) -> String {
-        ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
+    private func showInspector() {
+        openWindow(id: "inspector")
+        NSApp.activate(ignoringOtherApps: true)
     }
 
-    private static func formatInterval(_ seconds: TimeInterval) -> String {
-        seconds.isFinite ? "\(Int(seconds)) 秒" : "暂停"
+    private func showSettings() {
+        openSettings()
+        NSApp.activate(ignoringOtherApps: true)
     }
 }

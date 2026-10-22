@@ -69,8 +69,6 @@ struct ModelSettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 560)
-        .padding(.vertical, 8)
         .onAppear(perform: load)
         .onChange(of: draft.mode) { onModeChange() }
         .alert("开启云端整理？", isPresented: $confirmCloud) {
