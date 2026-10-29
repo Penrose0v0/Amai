@@ -55,7 +55,7 @@ private struct MenuContent: View {
             Divider()
             ForEach(issues) { issue in
                 Text("⚠︎ \(issue.message)")
-                if let action = issue.action {
+                ForEach(issue.actions, id: \.self) { action in
                     Button(action.title) { perform(action) }
                 }
             }
@@ -110,6 +110,7 @@ private struct MenuContent: View {
         case .openSettings: showSettings()
         case .openInspector: showInspector()
         case .revealConfig: model.revealConfig()
+        case .relaunch: model.relaunch()
         }
     }
 

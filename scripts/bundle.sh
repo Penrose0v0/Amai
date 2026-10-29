@@ -88,13 +88,27 @@ otool -l "${APP_DIR}/Contents/MacOS/${APP_NAME}" \
         install_name_tool -delete_rpath "${rp}" "${APP_DIR}/Contents/MacOS/${APP_NAME}" 2>/dev/null || true
     done
 
-SIGN_IDENTITY="Amai Local Dev"
-if security find-identity -p codesigning 2>/dev/null | grep -q "\"${SIGN_IDENTITY}\""; then
-    echo "→ codesign with '${SIGN_IDENTITY}' (inside-out)"
-    SIGN_ARG="${SIGN_IDENTITY}"
+# 签名身份，按优先级：
+#   1. 环境变量 AMAI_SIGN_IDENTITY；
+#   2. 本机任意一张有效的 "Apple Development" 证书（Xcode 登录 Apple ID 即可获得，免费账号也可）；
+#   3. 自签名 "Amai Local Dev"（scripts/setup-dev-cert.sh）；
+#   4. ad-hoc。
+# 为什么优先 Apple Development：钥匙串条目的分区列表（partition_id）对没有团队 ID 的签名只能记录
+# cdhash，而 cdhash 每次重新打包都会变，导致每次构建后都弹出钥匙串授权框，"始终允许"也只对当次构建有效。
+# 带团队 ID 的签名记录为 teamid:<ID>，跨构建稳定。
+DEV_CERT_NAME="Amai Local Dev"
+if [ -n "${AMAI_SIGN_IDENTITY:-}" ]; then
+    SIGN_ARG="${AMAI_SIGN_IDENTITY}"
+    echo "→ codesign with AMAI_SIGN_IDENTITY (inside-out)"
+elif APPLE_DEV=$(security find-identity -p codesigning -v 2>/dev/null | awk -F'"' '/"Apple Development: /{print $2; exit}') && [ -n "${APPLE_DEV}" ]; then
+    SIGN_ARG="${APPLE_DEV}"
+    echo "→ codesign with Apple Development identity (inside-out; stable keychain & TCC identity)"
+elif security find-identity -p codesigning 2>/dev/null | grep -q "\"${DEV_CERT_NAME}\""; then
+    SIGN_ARG="${DEV_CERT_NAME}"
+    echo "→ codesign with '${DEV_CERT_NAME}' (inside-out; keychain will re-prompt after each rebuild)"
 else
-    echo "→ ad-hoc codesign (inside-out; create a local dev cert named '${SIGN_IDENTITY}' to stabilize TCC)"
     SIGN_ARG="-"
+    echo "→ ad-hoc codesign (inside-out; run ./scripts/setup-dev-cert.sh or sign in to Xcode for a stable identity)"
 fi
 # inside-out 签名：先签最深层的嵌套对象，最后签 app。不用 --deep（已弃用且会漏签嵌套 bundle）。
 while IFS= read -r item; do

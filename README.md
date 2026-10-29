@@ -23,7 +23,7 @@ open .build/Amai.app         # 运行（菜单栏应用）
 
 直接 `swift run` 无法运行涉及 MLX 推理的代码路径（SwiftPM 不编译 Metal kernel），必须通过 `bundle.sh`。
 
-首次在新机器上开发前运行一次 `./scripts/setup-dev-cert.sh`：它创建名为 `Amai Local Dev` 的自签名代码签名证书，`bundle.sh` 检测到后自动使用。没有它时打包是 ad-hoc 签名，macOS TCC 按代码哈希记权限，每次重新打包都要重新授权屏幕录制。
+代码签名：`bundle.sh` 优先使用本机的 "Apple Development" 证书（在 Xcode 中登录 Apple ID 即可获得，免费账号也可）。带团队 ID 的签名让屏幕录制授权和钥匙串授权在重新打包后保持有效。没有这类证书时退回 `./scripts/setup-dev-cert.sh` 创建的自签名证书 `Amai Local Dev`，此时每次重新打包后，钥匙串会再次弹出授权框（"始终允许"只对当次构建有效）。也可以用环境变量 `AMAI_SIGN_IDENTITY` 指定签名身份。
 
 首次点击菜单栏的"开始记录"后，macOS 会请求屏幕录制权限（系统设置 → 隐私与安全性 → 屏幕录制），允许一次即可。
 

@@ -235,6 +235,23 @@ final class AppModel {
         }
     }
 
+    /// 重新启动 Amai：先像退出时一样收尾，再由一个短命的 shell 在本进程退出后重新打开 App。
+    /// macOS 的屏幕录制授权只在 App 重新启动后生效。
+    func relaunch() {
+        let bundlePath = Bundle.main.bundlePath
+        Task {
+            await consolidator?.stop()
+            await memorySync?.stop()
+            await pipeline?.stop()
+            await coordinator?.stop()
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/bin/sh")
+            process.arguments = ["-c", "sleep 1; /usr/bin/open \"$0\"", bundlePath]
+            try? process.run()
+            NSApplication.shared.terminate(nil)
+        }
+    }
+
     func requestScreenRecording() {
         if !ScreenRecordingPermission.request() {
             ScreenRecordingPermission.openSystemSettings()
@@ -500,7 +517,11 @@ final class AppModel {
         if let status {
             switch status.state {
             case .permissionMissing:
-                list.append(AppIssue(id: "permission", message: "需要屏幕录制权限才能记录", action: .grantScreenRecording))
+                list.append(AppIssue(
+                    id: "permission",
+                    message: "需要屏幕录制权限才能记录。在系统设置中允许后，需要重新启动 Amai 才会生效",
+                    actions: [.grantScreenRecording, .relaunch]
+                ))
             case .error:
                 let detail = status.screen.lastError.map { "（\($0)）" } ?? ""
                 list.append(AppIssue(id: "capture", message: "截图连续失败\(detail)，稍后会自动重试", action: .openInspector))
@@ -564,6 +585,7 @@ struct AppIssue: Identifiable, Equatable {
         case openSettings
         case openInspector
         case revealConfig
+        case relaunch
 
         var title: String {
             switch self {
@@ -571,11 +593,22 @@ struct AppIssue: Identifiable, Equatable {
             case .openSettings: "打开设置…"
             case .openInspector: "查看详情…"
             case .revealConfig: "显示配置文件"
+            case .relaunch: "重新启动 Amai"
             }
         }
     }
 
     let id: String
     let message: String
-    let action: Action?
+    let actions: [Action]
+
+    init(id: String, message: String, action: Action?) {
+        self.init(id: id, message: message, actions: action.map { [$0] } ?? [])
+    }
+
+    init(id: String, message: String, actions: [Action]) {
+        self.id = id
+        self.message = message
+        self.actions = actions
+    }
 }
