@@ -31,6 +31,9 @@ struct RuntimeStatusView: View {
             if let s = model.status {
                 LabeledContent("状态", value: label(s.state))
                 LabeledContent("已截图", value: "\(s.screen.captured)（其中画面重复 \(s.screen.duplicates)）")
+                if s.screen.displays > 0 {
+                    LabeledContent("显示器", value: "\(s.screen.displays) 块")
+                }
                 LabeledContent("跳过", value: "\(s.screen.skipped)（暂停、密码输入、排除的应用）")
                 LabeledContent("失败", value: "\(s.screen.failures)")
                 if let last = s.screen.lastCaptureAt {

@@ -15,13 +15,42 @@ func frame(
     idle: Double = 2,
     duplicateOf: UUID? = nil,
     index: Int = 0,
-    segment: String = "2026-10-20/seg.mp4"
+    segment: String = "2026-10-20/seg.mp4",
+    display: UInt32? = nil,
+    focus: UInt32? = nil,
+    change: Int? = nil
 ) -> PerceptionEvent {
     PerceptionEvent(
         wallTime: at(t), monoTime: UInt64(t * 1e9) + 1,
         source: .screen, kind: .screenFrame, payloadRef: segment,
-        metadata: PerceptionMetadata(app: app, bundleId: bundle, idleSeconds: idle, duplicateOf: duplicateOf, frameIndex: index)
+        metadata: PerceptionMetadata(
+            app: app, bundleId: bundle, displayId: display, focusDisplayId: focus,
+            idleSeconds: idle, duplicateOf: duplicateOf, frameIndex: index, changeDistance: change
+        )
     )
+}
+
+/// 两块屏幕每 10 秒各一帧：显示器 1 静止（除首帧外都是重复），显示器 5 每帧都变（模拟播放视频）。
+/// `focus` 给出每个时刻的焦点屏，`idle` 为该时刻距上次输入的秒数。
+func dualDisplayFrames(
+    count: Int, focus: (Int) -> UInt32 = { _ in 1 }, idle: (Int) -> Double = { _ in 2 }
+) -> [PerceptionEvent] {
+    var events: [PerceptionEvent] = []
+    var lastStill: UUID?
+    for i in 0..<count {
+        let t = Double(i * 10)
+        let still = frame(
+            t, idle: idle(i), duplicateOf: lastStill, index: i, segment: "2026-10-20/a_d1.mp4",
+            display: 1, focus: focus(i), change: i == 0 ? nil : 0
+        )
+        lastStill = still.id
+        let video = frame(
+            t, idle: idle(i), index: i, segment: "2026-10-20/a_d5.mp4",
+            display: 5, focus: focus(i), change: i == 0 ? nil : 30
+        )
+        events += [still, video]
+    }
+    return events
 }
 
 func skipped(_ t: TimeInterval, reason: String = "secureInput") -> PerceptionEvent {
@@ -86,6 +115,7 @@ final class FakeModel: ModelProvider, @unchecked Sendable {
     private(set) var describeCalls = 0
     private(set) var segmentCalls = 0
     private(set) var lastSegmentPrompt = ""
+    private(set) var describePrompts: [String] = []
 
     func generate(_ request: ModelRequest) async throws -> ModelResponse {
         try lock.withLock {
@@ -97,6 +127,7 @@ final class FakeModel: ModelProvider, @unchecked Sendable {
                 return ModelResponse(text: text, provider: identifier, latencyMs: 1)
             }
             describeCalls += 1
+            describePrompts.append(request.dynamic)
             return ModelResponse(text: describe, provider: identifier, latencyMs: 1)
         }
     }

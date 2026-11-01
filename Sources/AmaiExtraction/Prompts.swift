@@ -12,11 +12,18 @@ enum Prompts {
     - 只输出描述本身。
     """
 
-    static func frameDescriptionUser(time: String, app: String?, idleSeconds: Double?, ocrExcerpt: String) -> String {
+    static func frameDescriptionUser(
+        time: String, app: String?, idleSeconds: Double?, onFocusDisplay: Bool = true, ocrExcerpt: String
+    ) -> String {
         var lines = ["时间 \(time)。"]
-        if let app { lines.append("前台应用：\(app)。") }
-        if let idleSeconds {
-            lines.append(idleSeconds < 15 ? "用户刚刚有键鼠输入。" : "距上次键鼠输入约 \(Int(idleSeconds)) 秒。")
+        if onFocusDisplay {
+            if let app { lines.append("前台应用：\(app)。") }
+            if let idleSeconds {
+                lines.append(idleSeconds < 15 ? "用户刚刚有键鼠输入。" : "距上次键鼠输入约 \(Int(idleSeconds)) 秒。")
+            }
+        } else {
+            // 前台应用在另一块屏幕上，给出它反而会误导描述。
+            lines.append("这是一块副屏（非焦点显示器）的截图，前台应用不在这块屏幕上，请只根据画面描述。")
         }
         if !ocrExcerpt.isEmpty {
             lines.append("屏幕文字（OCR 识别，可能有误，仅作参考）：\n\(ocrExcerpt)")
@@ -38,6 +45,9 @@ enum Prompts {
     - confidence：0 到 1，表示你对这个片段描述的把握。证据少或含糊时给低分。
     - 如果第一个片段与"上一个片段"是同一件事，并且时间上相接，设置 "continues_previous": true，此时 title 和 summary 应概括合并后的整件事。
     - 标注为[隐私跳过]的时段没有内容，不要猜测其中发生了什么。
+    - 时间线可能包含多块屏幕的画面，用[屏幕N·焦点]或[屏幕N·副屏]标注。所有屏幕合起来只输出一份活动记录，不要按屏幕分别划分片段。
+    - 焦点屏是用户正在操作的屏幕，以它的内容为主要依据；副屏内容是背景，可以在 summary 中顺带提及（例如一边开着视频一边写代码）。焦点在某块屏幕上也不代表用户在全神贯注地看它。
+    - 副屏画面持续变化（例如在播放视频）不代表用户在操作或在场，是否在操作以键鼠输入为准。
     只输出 JSON 数组，不要输出任何其他文字。格式示例：
     [{"start":"14:05:00","end":"14:18:30","title":"…","summary":"…","category":"work","confidence":0.8,"continues_previous":false}]
     """

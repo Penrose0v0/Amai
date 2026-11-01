@@ -8,8 +8,8 @@ import Foundation
 /// raw/
 /// └── YYYY-MM-DD/
 ///     ├── events.jsonl                    该日全部 PerceptionEvent，一行一个
-///     ├── <yyyyMMdd_HHmmssSSS>.mp4        截图帧的 HEVC 分段（FrameStore 写入）
-///     ├── <yyyyMMdd_HHmmssSSS>.mp4.part   写入中的分段，清理时跳过
+///     ├── <yyyyMMdd_HHmmssSSS>_d<显示器>.mp4        截图帧的 HEVC 分段（FrameStore 写入，每块显示器一个）
+///     ├── <yyyyMMdd_HHmmssSSS>_d<显示器>.mp4.part   写入中的分段，清理时跳过
 ///     └── <wallMs>-<id8>.<ext>            其他 payload（如音频块），文件名按时间排序
 /// ```
 /// 清理策略：

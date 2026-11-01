@@ -4,7 +4,8 @@ import os
 
 /// 一次 tick 的结果，供测试与状态显示使用。
 public enum CaptureTickOutcome: Equatable, Sendable {
-    case captured(UUID)
+    /// 每块成功截到的显示器一个事件，按显示器编号排序。
+    case captured([UUID])
     case skipped(SkipReason)
     case blocked(BlockReason)
     case backingOff(until: Date)
@@ -17,9 +18,12 @@ public enum BlockReason: String, Sendable, Equatable {
 }
 
 public struct ScreenCaptureStats: Sendable, Equatable {
+    /// 已捕获的帧数（多显示器时每块屏幕各算一帧）。
     public var captured = 0
-    /// 已捕获帧中被 dHash 判定与上一帧相同的数量（仍编码进视频，仅作提示）。
+    /// 已捕获帧中被 dHash 判定与同一显示器上一帧相同的数量（仍编码进视频，仅作提示）。
     public var duplicates = 0
+    /// 最近一次成功采集到的显示器数量。
+    public var displays = 0
     public var skipped = 0
     public var failures = 0
     public var consecutiveFailures = 0
@@ -32,8 +36,10 @@ public struct ScreenCaptureStats: Sendable, Equatable {
 
 /// 定时截图采集器（ADR-0002：Dayflow 风格）。
 ///
-/// 每个 tick：系统状态 → 电源档位 → 退避 → 隐私策略 → 截图 → dHash → 追加进视频分段 → 索引。
+/// 每个 tick：系统状态 → 电源档位 → 退避 → 隐私策略 → 截取所有显示器 → 各屏 dHash → 各自追加进视频分段 → 索引。
 /// 所有帧都编码（相邻相似帧由编码器压缩）；dHash 只作为元数据提示抽取层。
+/// 去重按显示器独立进行：一块屏幕在播放视频不会让另一块静止屏幕的帧被当作"有变化"。
+/// 省电档只拉长间隔，仍然采集所有显示器。
 /// 所有系统 I/O 经协议注入，`performTick()` 可在测试中直接驱动。
 public actor ScreenCapturer {
     public struct Dependencies: Sendable {
@@ -82,8 +88,8 @@ public actor ScreenCapturer {
 
     private var loop: Task<Void, Never>?
     private var userPaused = false
-    private var lastHash: UInt64?
-    private var lastFrameEventId: UUID?
+    /// 每块显示器上一帧的哈希与事件 id，用于独立去重。
+    private var lastFrames: [UInt32: (hash: UInt64, eventId: UUID)] = [:]
     private var backoffUntil: Date?
 
     public private(set) var stats = ScreenCaptureStats()
@@ -117,8 +123,7 @@ public actor ScreenCapturer {
     public func stop() async {
         loop?.cancel()
         loop = nil
-        lastHash = nil
-        lastFrameEventId = nil
+        lastFrames.removeAll()
         await deps.frames.finishSegment()
         log.info("screen capturer stopped")
     }
@@ -126,15 +131,14 @@ public actor ScreenCapturer {
     public func setUserPaused(_ paused: Bool) async {
         userPaused = paused
         if paused {
-            lastHash = nil
+            lastFrames.removeAll()
             await deps.frames.finishSegment()
         }
     }
 
-    /// 结束当前视频分段（删除时间段前调用，让分段可被整段删除）。
+    /// 结束所有显示器的视频分段（删除时间段前调用，让分段可被整段删除）。
     public func closeSegment() async {
-        lastHash = nil
-        lastFrameEventId = nil
+        lastFrames.removeAll()
         await deps.frames.finishSegment()
     }
 
@@ -159,7 +163,7 @@ public actor ScreenCapturer {
         if deps.blocker.isCaptureBlocked {
             // 睡眠 / 锁屏期间关掉分段，文件立即可读，也不让写入器跨越睡眠。
             await deps.frames.finishSegment()
-            lastHash = nil
+            lastFrames.removeAll()
             return .blocked(.systemState)
         }
         let profile = deps.power.currentProfile
@@ -194,15 +198,16 @@ public actor ScreenCapturer {
             )
             try? await deps.spool.append(event, payload: nil)
             stats.skipped += 1
-            lastHash = nil
+            lastFrames.removeAll()
             return .skipped(reason)
         }
 
-        let frame: CapturedFrame
+        let capture: ScreenCapture
         do {
-            frame = try await deps.source.captureFrame(
+            capture = try await deps.source.captureAll(
                 excludingBundleIds: deps.policy.excludedBundleIds,
-                targetHeight: config.targetHeight
+                targetHeight: config.targetHeight,
+                frontmostPid: frontmost?.pid
             )
         } catch let error as ScreenCaptureError {
             return recordFailure(error, at: now)
@@ -210,52 +215,76 @@ public actor ScreenCapturer {
             return recordFailure(.captureFailed(String(describing: type(of: error))), at: now)
         }
 
-        let hash = ImageHashing.dHash(frame.image)
-        var metadata = PerceptionMetadata(
-            app: frontmost?.name,
-            bundleId: frontmost?.bundleId,
-            displayId: frame.displayId,
-            idleSeconds: idle,
-            imageHash: String(hash, radix: 16)
-        )
-        if let lastHash, let lastId = lastFrameEventId, ImageHashing.isSameScreen(lastHash, hash) {
-            metadata.duplicateOf = lastId
-            stats.duplicates += 1
+        // 显示器断开（或本次没截到）：收尾它的分段，丢掉它的去重状态。重新接上时从新分段开始。
+        let present = Set(capture.frames.map(\.displayId))
+        for gone in await deps.frames.activeDisplayIds.subtracting(present) {
+            await deps.frames.finishSegment(displayId: gone)
         }
+        lastFrames = lastFrames.filter { present.contains($0.key) }
 
-        let ref: FrameStore.FrameRef
-        do {
-            ref = try await deps.frames.append(frame.image, at: now)
-        } catch {
-            log.error("frame store append failed: \(String(describing: error), privacy: .public)")
+        // 只有一块屏幕时不记焦点屏，与单屏时代的数据保持一致。
+        let focus = present.count > 1 ? capture.focusDisplayId : nil
+        let monoTime = deps.clock.monotonicNanoseconds()
+        var ids: [UUID] = []
+        for frame in capture.frames {
+            let hash = ImageHashing.dHash(frame.image)
+            var metadata = PerceptionMetadata(
+                app: frontmost?.name,
+                bundleId: frontmost?.bundleId,
+                displayId: frame.displayId,
+                focusDisplayId: focus,
+                idleSeconds: idle,
+                imageHash: String(hash, radix: 16)
+            )
+            if let last = lastFrames[frame.displayId] {
+                metadata.changeDistance = ImageHashing.distance(last.hash, hash)
+                if ImageHashing.isSameScreen(last.hash, hash) {
+                    metadata.duplicateOf = last.eventId
+                }
+            }
+
+            let ref: FrameStore.FrameRef
+            do {
+                ref = try await deps.frames.append(frame.image, displayId: frame.displayId, at: now)
+            } catch {
+                // 一块屏幕写入失败不影响其他屏幕；全部失败时按失败退避。
+                log.error("frame store append failed: \(String(describing: error), privacy: .public)")
+                lastFrames[frame.displayId] = nil
+                continue
+            }
+            metadata.frameIndex = ref.frameIndex
+
+            let event = PerceptionEvent(
+                wallTime: now,
+                monoTime: monoTime,
+                source: .screen,
+                kind: .screenFrame,
+                payloadRef: ref.segment,
+                metadata: metadata
+            )
+            do {
+                try await deps.spool.append(event, payload: nil)
+            } catch {
+                log.error("spool append failed: \(String(describing: error), privacy: .public)")
+                return recordFailure(.captureFailed("spool"), at: now)
+            }
+
+            lastFrames[frame.displayId] = (hash, event.id)
+            if metadata.duplicateOf != nil { stats.duplicates += 1 }
+            stats.captured += 1
+            ids.append(event.id)
+        }
+        guard !ids.isEmpty else {
             return recordFailure(.captureFailed("frame store"), at: now)
         }
-        metadata.frameIndex = ref.frameIndex
 
-        let event = PerceptionEvent(
-            wallTime: now,
-            monoTime: deps.clock.monotonicNanoseconds(),
-            source: .screen,
-            kind: .screenFrame,
-            payloadRef: ref.segment,
-            metadata: metadata
-        )
-        do {
-            try await deps.spool.append(event, payload: nil)
-        } catch {
-            log.error("spool append failed: \(String(describing: error), privacy: .public)")
-            return recordFailure(.captureFailed("spool"), at: now)
-        }
-
-        lastHash = hash
-        lastFrameEventId = event.id
-        stats.captured += 1
+        stats.displays = ids.count
         stats.consecutiveFailures = 0
         stats.lastCaptureAt = now
         stats.lastError = nil
         stats.permissionDenied = false
         backoffUntil = nil
-        return .captured(event.id)
+        return .captured(ids)
     }
 
     private func recordFailure(_ error: ScreenCaptureError, at now: Date) -> CaptureTickOutcome {
@@ -268,7 +297,7 @@ public actor ScreenCapturer {
         let index = min(stats.consecutiveFailures - 1, Self.failureBackoff.count - 1)
         let delay = Self.failureBackoff[index]
         backoffUntil = now.addingTimeInterval(delay)
-        lastHash = nil
+        lastFrames.removeAll()
         log.error("capture failed (\(self.stats.consecutiveFailures) in a row): \(String(describing: error), privacy: .public); backing off \(delay)s")
         return .failed(error)
     }

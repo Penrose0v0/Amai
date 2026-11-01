@@ -28,6 +28,18 @@ if [ ! -f "${EXEC_PATH}" ]; then
     exit 1
 fi
 
+# 先退出正在运行的 Amai：替换 bundle 后旧进程的磁盘代码与签名不再一致，
+# 它下一次截图时系统会按"未授权程序"弹出屏幕录制授权框。
+if pgrep -x "${APP_NAME}" >/dev/null; then
+    echo "→ quitting running ${APP_NAME}"
+    osascript -e "quit app \"${APP_NAME}\"" >/dev/null 2>&1 || true
+    for _ in 1 2 3 4 5 6 7 8 9 10; do
+        pgrep -x "${APP_NAME}" >/dev/null || break
+        sleep 0.5
+    done
+    pkill -x "${APP_NAME}" 2>/dev/null || true
+fi
+
 echo "→ assembling ${APP_DIR}"
 rm -rf "${APP_DIR}"
 mkdir -p "${APP_DIR}/Contents/MacOS"

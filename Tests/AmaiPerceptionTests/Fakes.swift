@@ -28,26 +28,35 @@ final class FakeClock: AmaiClock, @unchecked Sendable {
 
 final class FakeScreenSource: ScreenFrameSource, @unchecked Sendable {
     private let lock = NSLock()
-    private var next: Result<CapturedFrame, ScreenCaptureError>
+    private var next: Result<ScreenCapture, ScreenCaptureError>
     private(set) var calls = 0
     private(set) var lastExcluded: Set<String> = []
+    private(set) var lastPid: pid_t?
 
     init(image: CGImage) {
-        next = .success(CapturedFrame(image: image, displayId: 1))
+        next = .success(ScreenCapture(frames: [CapturedFrame(image: image, displayId: 1)], focusDisplayId: 1))
     }
 
+    /// 单屏（显示器 1）。
     func set(image: CGImage) {
-        lock.withLock { next = .success(CapturedFrame(image: image, displayId: 1)) }
+        set(displays: [1: image], focus: 1)
+    }
+
+    /// 多屏：显示器 id → 画面。
+    func set(displays: [UInt32: CGImage], focus: UInt32?) {
+        let frames = displays.sorted { $0.key < $1.key }.map { CapturedFrame(image: $0.value, displayId: $0.key) }
+        lock.withLock { next = .success(ScreenCapture(frames: frames, focusDisplayId: focus)) }
     }
 
     func set(error: ScreenCaptureError) {
         lock.withLock { next = .failure(error) }
     }
 
-    func captureFrame(excludingBundleIds: Set<String>, targetHeight: Int) async throws -> CapturedFrame {
+    func captureAll(excludingBundleIds: Set<String>, targetHeight: Int, frontmostPid: pid_t?) async throws -> ScreenCapture {
         try lock.withLock {
             calls += 1
             lastExcluded = excludingBundleIds
+            lastPid = frontmostPid
             return try next.get()
         }
     }

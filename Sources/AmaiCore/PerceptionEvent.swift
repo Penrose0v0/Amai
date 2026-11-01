@@ -64,6 +64,9 @@ public struct PerceptionMetadata: Codable, Sendable, Equatable {
     public var bundleId: String?
     public var windowTitle: String?
     public var displayId: UInt32?
+    /// 截图时的焦点屏（前台应用主窗口所在显示器）。`displayId == focusDisplayId` 表示这一帧来自焦点屏。
+    /// 只说明用户在哪块屏幕上操作，不代表用户在专注看它。为 nil 时（单屏或旧数据）视为焦点屏。
+    public var focusDisplayId: UInt32?
     public var durationMs: Int?
     /// 截图时距上次用户输入的秒数。空闲判定留给抽取层。
     public var idleSeconds: Double?
@@ -76,28 +79,40 @@ public struct PerceptionMetadata: Codable, Sendable, Equatable {
     public var frameIndex: Int?
     /// 截图帧的感知哈希（dHash），十六进制。
     public var imageHash: String?
+    /// 与同一显示器上一帧的哈希距离（0–64），表示画面变化程度。该屏的第一帧为 nil。
+    public var changeDistance: Int?
+
+    /// 来自焦点屏，或无法区分（单屏 / 旧数据）。
+    public var isOnFocusDisplay: Bool {
+        guard let focusDisplayId, let displayId else { return true }
+        return focusDisplayId == displayId
+    }
 
     public init(
         app: String? = nil,
         bundleId: String? = nil,
         windowTitle: String? = nil,
         displayId: UInt32? = nil,
+        focusDisplayId: UInt32? = nil,
         durationMs: Int? = nil,
         idleSeconds: Double? = nil,
         skipReason: String? = nil,
         duplicateOf: UUID? = nil,
         frameIndex: Int? = nil,
-        imageHash: String? = nil
+        imageHash: String? = nil,
+        changeDistance: Int? = nil
     ) {
         self.app = app
         self.bundleId = bundleId
         self.windowTitle = windowTitle
         self.displayId = displayId
+        self.focusDisplayId = focusDisplayId
         self.durationMs = durationMs
         self.idleSeconds = idleSeconds
         self.skipReason = skipReason
         self.duplicateOf = duplicateOf
         self.frameIndex = frameIndex
         self.imageHash = imageHash
+        self.changeDistance = changeDistance
     }
 }

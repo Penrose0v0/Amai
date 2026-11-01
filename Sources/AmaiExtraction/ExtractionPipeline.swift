@@ -211,6 +211,7 @@ public actor ExtractionPipeline {
         }
 
         let selected = FrameSelector.select(batch.frames, options: options.selection)
+        let displays = DisplayLabels(batch.frames)
         var observations: [Observation] = []
         var timeline: [(Date, String)] = []
 
@@ -243,9 +244,10 @@ public actor ExtractionPipeline {
                     ))
                 }
             }
-            timeline.append((frame.wallTime, timelineLine(frame, description: description, ocrText: ocrText)))
+            timeline.append((frame.wallTime, timelineLine(frame, displays: displays, description: description, ocrText: ocrText)))
         }
         timeline += contextLines(batch)
+        timeline += displayOverview(batch, displays: displays)
         timeline.sort { $0.0 < $1.0 }
 
         let previous = await mergeablePrevious(before: batch.range.start)
@@ -258,6 +260,10 @@ public actor ExtractionPipeline {
     private func factObservation(for frame: PerceptionEvent, jpeg: Data?) async -> (Observation, String) {
         var attributes = appAttributes(frame)
         attributes["frameAvailable"] = jpeg == nil ? "false" : "true"
+        if let display = frame.metadata.displayId, frame.metadata.focusDisplayId != nil {
+            attributes["displayId"] = String(display)
+            attributes["focusDisplay"] = frame.metadata.isOnFocusDisplay ? "true" : "false"
+        }
         if let idle = frame.metadata.idleSeconds { attributes["idleSeconds"] = String(Int(idle)) }
 
         var text = ""
@@ -301,6 +307,7 @@ public actor ExtractionPipeline {
                 time: clock(frame.wallTime),
                 app: frame.metadata.app,
                 idleSeconds: frame.metadata.idleSeconds,
+                onFocusDisplay: frame.metadata.isOnFocusDisplay,
                 ocrExcerpt: excerpt
             ),
             images: [jpeg],
@@ -420,8 +427,11 @@ public actor ExtractionPipeline {
         let (title, summary, category, confidence, provider): (String, String, ActivityCategory, Double, String)
         switch kind {
         case .idle:
+            // 副屏画面变化单独记一笔，不影响"离开"的判定。
+            let secondary = (IdleClassifier.secondaryChangeFraction(batch) ?? 0) >= 0.5
+                ? "其他屏幕的画面仍在变化（可能在自动播放）。" : ""
             (title, summary, category, confidence, provider) =
-                ("离开电脑", "键鼠长时间无输入且画面基本不变。", .idle, 0.8, "rule:idle")
+                ("离开电脑", "键鼠长时间无输入且焦点屏画面基本不变。" + secondary, .idle, 0.8, "rule:idle")
         case .privacy(let reason):
             (title, summary, category, confidence, provider) =
                 (reason.title, "此时段按隐私设置未采集画面。", .other, 1, "rule:privacy")
@@ -452,7 +462,9 @@ public actor ExtractionPipeline {
 
     /// 模型多次失败后的兜底：按前台应用连续段生成低置信度片段，明确标注来源。
     private func processFallback(_ batch: ExtractionBatch) async throws -> Int {
-        let frames = batch.frames.sorted { $0.wallTime < $1.wallTime }
+        // 多屏时同一时刻每块屏幕各有一帧、前台应用相同，只看焦点屏即可。
+        let focus = batch.frames.filter(\.metadata.isOnFocusDisplay)
+        let frames = (focus.isEmpty ? batch.frames : focus).sorted { $0.wallTime < $1.wallTime }
         guard !frames.isEmpty else {
             return try await writeRuleSegment(batch, kind: .privacy(reason: dominantSkipReason(batch)))
         }
@@ -572,17 +584,60 @@ public actor ExtractionPipeline {
         return lines
     }
 
-    private func timelineLine(_ frame: PerceptionEvent, description: String?, ocrText: String) -> String {
-        var line = "\(clock(frame.wallTime)) [\(frame.metadata.app ?? "未知应用")]"
+    /// 多显示器窗口的屏幕编号：按显示器 id 排序后依次称为屏幕1、屏幕2…；单屏时不加标注。
+    private struct DisplayLabels {
+        private let names: [UInt32: String]
+
+        init(_ frames: [PerceptionEvent]) {
+            let ids = Set(frames.compactMap(\.metadata.displayId)).sorted()
+            names = ids.count > 1
+                ? Dictionary(uniqueKeysWithValues: ids.enumerated().map { ($1, "屏幕\($0 + 1)") })
+                : [:]
+        }
+
+        var isMulti: Bool { !names.isEmpty }
+        var all: [(UInt32, String)] { names.sorted { $0.key < $1.key }.map { ($0.key, $0.value) } }
+
+        func tag(_ frame: PerceptionEvent) -> String? {
+            guard let id = frame.metadata.displayId, let name = names[id] else { return nil }
+            return "[\(name)·\(frame.metadata.isOnFocusDisplay ? "焦点" : "副屏")]"
+        }
+    }
+
+    /// 多屏时每块屏幕一行概况：焦点时长与画面变化。画面变化只是事实记录，不代表用户在操作那块屏幕。
+    private func displayOverview(_ batch: ExtractionBatch, displays: DisplayLabels) -> [(Date, String)] {
+        guard displays.isMulti else { return [] }
+        let frames = batch.frames
+        let ticks = Set(frames.map(\.wallTime)).count
+        var parts: [String] = []
+        for (id, name) in displays.all {
+            let own = frames.filter { $0.metadata.displayId == id }
+            let focused = Set(own.filter(\.metadata.isOnFocusDisplay).map(\.wallTime)).count
+            let comparable = own.filter { $0.metadata.changeDistance != nil }
+            let changed = comparable.filter { $0.metadata.duplicateOf == nil }.count
+            var text = "\(name)：焦点约 \(Int((Double(focused) / Double(max(1, ticks)) * 100).rounded()))% 的时间"
+            if !comparable.isEmpty { text += "，画面变化 \(changed)/\(comparable.count) 次截图" }
+            parts.append(text)
+        }
+        return [(batch.range.start, "\(clock(batch.range.start)) [屏幕概况] " + parts.joined(separator: "；"))]
+    }
+
+    private func timelineLine(_ frame: PerceptionEvent, displays: DisplayLabels, description: String?, ocrText: String) -> String {
+        var line = clock(frame.wallTime)
+        if let tag = displays.tag(frame) { line += " \(tag)" }
+        // 前台应用只对焦点屏有意义；副屏上显示的通常是别的应用。
+        if frame.metadata.isOnFocusDisplay {
+            line += " [\(frame.metadata.app ?? "未知应用")]"
+        }
         if let description, !description.isEmpty {
             line += " 画面：\(description)"
         } else if !ocrText.isEmpty {
             let hint = ocrText.replacingOccurrences(of: "\n", with: " ").prefix(120)
             line += "（截图已清理）文字线索：\(hint)"
         } else {
-            line += "（截图已清理，仅知前台应用）"
+            line += frame.metadata.isOnFocusDisplay ? "（截图已清理，仅知前台应用）" : "（截图已清理）"
         }
-        if let idle = frame.metadata.idleSeconds, idle >= 60 {
+        if frame.metadata.isOnFocusDisplay, let idle = frame.metadata.idleSeconds, idle >= 60 {
             line += "（已 \(Int(idle)) 秒无键鼠输入）"
         }
         return line

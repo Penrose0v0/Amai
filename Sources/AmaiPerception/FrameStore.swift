@@ -9,6 +9,7 @@ import os
 ///
 /// 每帧追加进一个 HEVC/MP4 分段：第 N 帧放在视频第 N 秒（1 fps 名义时基，
 /// 真实时间在事件索引里）。分段在达到 `maxFrames`、`maxDuration` 或帧尺寸变化时轮换。
+/// 多显示器时每块屏幕各有一个分段（文件名 `<时间戳>_d<显示器编号>.mp4`），互不影响。
 /// 写入中的分段以 `.part` 结尾，完成后改名为 `.mp4`，清理与读取都只看 `.mp4`。
 /// 相比逐帧 JPEG，相邻相似帧由编码器压缩，磁盘增长约为 1/3。
 public actor FrameStore {
@@ -68,7 +69,8 @@ public actor FrameStore {
     private let clock: any AmaiClock
     private let timeZone: TimeZone
     private let log = AmaiLog.logger("perception.frames")
-    private var segment: Segment?
+    /// 每块显示器一个写入中的分段：分辨率不同，画面也互不相关，混在一起编码既要频繁切段也压不好。
+    private var segments: [UInt32: Segment] = [:]
     /// 分段完成后回调已写入的字节数，供 spool 计量。
     private let onSegmentFinished: @Sendable (Int64) async -> Void
 
@@ -86,19 +88,22 @@ public actor FrameStore {
         self.onSegmentFinished = onSegmentFinished
     }
 
-    public var activeSegmentPath: String? { segment?.relativeFinalPath }
-    public var activeFrameCount: Int { segment?.frameCount ?? 0 }
+    /// 写入中的分段路径，按显示器。
+    public var activeSegmentPaths: [UInt32: String] { segments.mapValues(\.relativeFinalPath) }
+    public var activeDisplayIds: Set<UInt32> { Set(segments.keys) }
+
+    public func activeFrameCount(displayId: UInt32) -> Int { segments[displayId]?.frameCount ?? 0 }
 
     // MARK: - Append
 
-    public func append(_ image: CGImage, at date: Date) async throws -> FrameRef {
-        if let s = segment, Self.shouldRotate(s, image: image, now: date, config: config) {
-            await finishSegment()
+    public func append(_ image: CGImage, displayId: UInt32, at date: Date) async throws -> FrameRef {
+        if let s = segments[displayId], Self.shouldRotate(s, image: image, now: date, config: config) {
+            await finishSegment(displayId: displayId)
         }
-        if segment == nil {
-            segment = try startSegment(width: image.width, height: image.height, at: date)
+        if segments[displayId] == nil {
+            segments[displayId] = try startSegment(width: image.width, height: image.height, displayId: displayId, at: date)
         }
-        guard var s = segment else { throw StoreError.writerFailed("no segment") }
+        guard var s = segments[displayId] else { throw StoreError.writerFailed("no segment") }
 
         guard let pool = s.adaptor.pixelBufferPool else { throw StoreError.pixelBufferUnavailable }
         var buffer: CVPixelBuffer?
@@ -118,20 +123,26 @@ public actor FrameStore {
         guard s.adaptor.append(pixelBuffer, withPresentationTime: time) else {
             let reason = s.writer.error.map { String(describing: $0) } ?? "unknown"
             log.error("frame append failed: \(reason, privacy: .public)")
-            segment = nil
+            segments[displayId] = nil
             s.writer.cancelWriting()
             throw StoreError.appendFailed
         }
         let index = s.frameCount
         s.frameCount += 1
-        segment = s
+        segments[displayId] = s
         return FrameRef(segment: s.relativeFinalPath, frameIndex: index)
     }
 
-    /// 结束当前分段（停止、睡眠、锁屏、退出时调用）。无分段时为空操作。
+    /// 结束所有显示器的分段（停止、睡眠、锁屏、退出时调用）。无分段时为空操作。
     public func finishSegment() async {
-        guard let s = segment else { return }
-        segment = nil
+        for displayId in segments.keys.sorted() {
+            await finishSegment(displayId: displayId)
+        }
+    }
+
+    /// 结束一块显示器的分段（显示器断开时调用）。
+    public func finishSegment(displayId: UInt32) async {
+        guard let s = segments.removeValue(forKey: displayId) else { return }
         s.input.markAsFinished()
         await withCheckedContinuation { continuation in
             s.writer.finishWriting { continuation.resume() }
@@ -215,15 +226,16 @@ public actor FrameStore {
             || s.width != image.width || s.height != image.height
     }
 
-    private func startSegment(width: Int, height: Int, at date: Date) throws -> Segment {
+    private func startSegment(width: Int, height: Int, displayId: UInt32, at date: Date) throws -> Segment {
         let dayName = Self.dayName(for: date, timeZone: timeZone)
         let dayDir = root.appendingPathComponent(dayName, isDirectory: true)
         try FileManager.default.createDirectory(at: dayDir, withIntermediateDirectories: true)
 
+        // 同一 tick 会为每块显示器各开一个分段，文件名带上显示器编号避免撞名。
         let stamp = Self.stampFormatter(timeZone).string(from: date)
-        let finalName = "\(stamp).mp4"
+        let finalName = "\(stamp)_d\(displayId).mp4"
         let finalURL = dayDir.appendingPathComponent(finalName)
-        let partURL = dayDir.appendingPathComponent("\(stamp).mp4.part")
+        let partURL = dayDir.appendingPathComponent("\(finalName).part")
         try? FileManager.default.removeItem(at: partURL)
 
         let writer = try AVAssetWriter(outputURL: partURL, fileType: .mp4)
@@ -249,7 +261,7 @@ public actor FrameStore {
             throw StoreError.writerFailed(writer.error.map { String(describing: $0) } ?? "startWriting")
         }
         writer.startSession(atSourceTime: .zero)
-        log.info("segment started \(width)x\(height)")
+        log.info("segment started \(width)x\(height) display \(displayId)")
         return Segment(
             partURL: partURL, finalURL: finalURL, relativeFinalPath: "\(dayName)/\(finalName)",
             writer: writer, input: input, adaptor: adaptor,

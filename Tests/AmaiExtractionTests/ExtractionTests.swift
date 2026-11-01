@@ -99,6 +99,27 @@ struct IdleClassifierTests {
         let rest = (1...20).map { frame(Double($0) * 10, idle: 1, duplicateOf: first.id) }
         #expect(!IdleClassifier.isIdle(batch([first] + rest)))
     }
+
+    @Test("a video playing on the secondary display does not count as presence")
+    func secondaryVideoStillIdle() {
+        let b = batch(dualDisplayFrames(count: 30, focus: { _ in 1 }, idle: { _ in 300 }))
+        #expect(IdleClassifier.isIdle(b))
+        // 副屏变化作为独立信息保留。
+        #expect(IdleClassifier.secondaryChangeFraction(b) == 1)
+    }
+
+    @Test("no input while the focus display plays video → not idle")
+    func focusVideoNotIdle() {
+        let b = batch(dualDisplayFrames(count: 30, focus: { _ in 5 }, idle: { _ in 300 }))
+        #expect(!IdleClassifier.isIdle(b))
+        #expect(IdleClassifier.secondaryChangeFraction(b) == 0)
+    }
+
+    @Test("keyboard / mouse input decides presence even with a static focus display")
+    func inputDecides() {
+        let b = batch(dualDisplayFrames(count: 30, focus: { _ in 1 }, idle: { _ in 3 }))
+        #expect(!IdleClassifier.isIdle(b))
+    }
 }
 
 @Suite("FrameSelector")
@@ -139,6 +160,71 @@ struct FrameSelectorTests {
         let selected = FrameSelector.select(events)
         #expect(selected.count == 15)
         #expect(zip(selected, selected.dropFirst()).allSatisfy { $0.wallTime < $1.wallTime })
+    }
+
+    // MARK: - Multiple displays
+
+    private func counts(_ selected: [PerceptionEvent]) -> [UInt32: Int] {
+        Dictionary(grouping: selected) { $0.metadata.displayId ?? 0 }.mapValues(\.count)
+    }
+
+    @Test("a video on the secondary display does not take over the budget")
+    func secondaryVideoDoesNotDominate() {
+        // 15 分钟：用户在显示器 1 上打字（画面几乎不变），显示器 5 一直在播视频。
+        let events = dualDisplayFrames(count: 90, focus: { _ in 1 }, idle: { _ in 2 })
+        let selected = FrameSelector.select(events)
+        let c = counts(selected)
+        #expect(selected.count == 15)
+        #expect((c[1] ?? 0) > (c[5] ?? 0))
+        #expect((c[5] ?? 0) >= 1, "each display keeps at least one frame for context")
+        #expect((c[5] ?? 0) <= 4)
+        #expect(zip(selected, selected.dropFirst()).allSatisfy { $0.wallTime <= $1.wallTime })
+    }
+
+    @Test("focus and input move the budget to the display being worked on")
+    func focusMovesBudget() {
+        // 前 2/3 时间焦点在显示器 5 并且有输入，后 1/3 在显示器 1 且无输入。
+        let events = dualDisplayFrames(
+            count: 90, focus: { $0 < 60 ? 5 : 1 }, idle: { $0 < 60 ? 2 : 200 }
+        )
+        let c = counts(FrameSelector.select(events))
+        #expect((c[5] ?? 0) > (c[1] ?? 0))
+        #expect((c[1] ?? 0) >= 1)
+        #expect(c.values.reduce(0, +) <= 15)
+    }
+
+    @Test("unused quota of a display with few candidates goes to the others")
+    func allocationRedistributes() {
+        let quotas = FrameSelector.allocate(15, weights: [0.1, 0.9], capacities: [10, 3])
+        #expect(quotas == [10, 3])
+        #expect(FrameSelector.allocate(15, weights: [0.5, 0.5], capacities: [100, 100]).reduce(0, +) == 15)
+        #expect(FrameSelector.allocate(2, weights: [0.2, 0.5, 0.3], capacities: [5, 5, 5]) == [0, 1, 1])
+        #expect(FrameSelector.allocate(15, weights: [1, 0], capacities: [20, 20]) == [14, 1])
+    }
+
+    @Test("app switches are detected within each display")
+    func perDisplayAppSwitch() {
+        var events = dualDisplayFrames(count: 90, focus: { _ in 1 }, idle: { _ in 200 })
+        // 第 40 个时刻切到 Safari（两块屏幕的帧都记录同一个前台应用）。
+        events = events.map { e in
+            guard e.wallTime >= at(400) else { return e }
+            var m = e.metadata
+            m.app = "Safari"
+            m.bundleId = "com.apple.Safari"
+            return PerceptionEvent(id: e.id, wallTime: e.wallTime, monoTime: e.monoTime, source: e.source,
+                                   kind: e.kind, payloadRef: e.payloadRef, metadata: m)
+        }
+        let selected = FrameSelector.select(events)
+        #expect(selected.contains { $0.wallTime == at(400) && $0.metadata.displayId == 1 })
+        #expect(selected.count <= 15)
+    }
+
+    @Test("frames from both displays fall into the same processing window")
+    func sharedWindow() {
+        let events = dualDisplayFrames(count: 90)
+        let batches = Batcher.readyBatches(events: events, now: at(10_000))
+        #expect(batches.count == 1)
+        #expect(batches[0].frames.count == 180)
     }
 }
 

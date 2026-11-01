@@ -36,8 +36,8 @@
 
 | 模块 | 输入 | 输出 | 职责 |
 |---|---|---|---|
-| ScreenCapture | 系统屏幕 | `PerceptionEvent(kind: .screenFrame)` | **定时截图**（Dayflow 风格）：ScreenCaptureKit 单帧截图，固定间隔（默认 10 秒，可配置，按电源档位拉长）；鼠标所在显示器优先；每帧附前台应用元数据、"距上次输入秒数"与 dHash；画面与上一帧相同时标记 `duplicateOf` 供抽取层跳过，但帧仍然编码 |
-| FrameStore | 截图帧 | HEVC/MP4 分段 + 帧号 | 所有帧按顺序追加进视频分段（第 N 帧在第 N 秒），每段 600 帧或 600 秒或尺寸变化时轮换；写入中为 `.part`，完成后改名 `.mp4`；相邻相似帧由编码器压缩，磁盘增长约为逐帧 JPEG 的 1/3（Dayflow 实测约 10 MB / 小时） |
+| ScreenCapture | 系统屏幕 | `PerceptionEvent(kind: .screenFrame)` | **定时截图**（Dayflow 风格）：ScreenCaptureKit 单帧截图，固定间隔（默认 10 秒，可配置，按电源档位拉长）；**每个 tick 截取所有已连接的显示器**（省电档同样全部截取，只拉长间隔）；每帧附显示器编号、焦点屏（前台应用面积最大的窗口所在显示器，取不到时用鼠标所在显示器；只用窗口几何，不读窗口标题）、前台应用元数据、"距上次输入秒数"、dHash 与同屏上一帧的哈希距离；去重按显示器独立进行，画面与同屏上一帧相同时标记 `duplicateOf` 供抽取层跳过，但帧仍然编码；显示器断开时收尾其分段并清除去重状态 |
+| FrameStore | 截图帧 | HEVC/MP4 分段 + 帧号 | 每块显示器一个写入中的分段（`<时间戳>_d<显示器>.mp4`），帧按顺序追加（第 N 帧在第 N 秒），每段 600 帧或 600 秒或尺寸变化时轮换；写入中为 `.part`，完成后改名 `.mp4`；相邻相似帧由编码器压缩，磁盘增长约为逐帧 JPEG 的 1/3（Dayflow 实测约 10 MB / 小时） |
 | AudioCapture | 系统音频、麦克风 | `PerceptionEvent(kind: .audioChunk)` | 按语音活动切块；静音跳过；来源标记（system / mic）；两者独立开关 |
 | InteractionCapture | 键鼠事件、焦点变化 | `PerceptionEvent(kind: .interaction)` | 空闲时长（无需权限）、应用 / 窗口切换；可选的活动强度统计（按键次数、鼠标移动、滚动，需输入监控权限）；**不记录按键内容** |
 | PermissionMonitor | 系统权限状态 | 权限状态事件 | 检测屏幕录制、麦克风、辅助功能 / 输入监控权限变化并通知；不信任 preflight 结果，以实际采集成功与否为准 |
@@ -57,10 +57,10 @@
 | 模块 | 输入 | 输出 | 职责 |
 |---|---|---|---|
 | Batcher | PerceptionEvent | `ExtractionBatch` | 处理窗口：目标 15 分钟，相邻截图间隔超过 2 分钟即切开，仍在增长的窗口留到下一轮。窗口只是处理单位，不等于一个活动 |
-| IdleClassifier / 隐私规则 | 窗口 | 规则片段 | 九成帧键鼠空闲超过 60 秒**且**八成帧画面重复才判为离开（只看键鼠会误判看视频）；全为隐私跳过的窗口记为"隐私跳过"。规则片段不调用模型，相邻同类自动合并 |
-| FrameSelector | 窗口内的帧 | 选中帧（默认最多 15） | 首帧、末帧、应用切换帧优先；只丢弃"画面重复、无键鼠输入、同一应用"的帧；超限时均匀采样 |
+| IdleClassifier / 隐私规则 | 窗口 | 规则片段 | 以键鼠输入为主：九成帧键鼠空闲超过 60 秒，**且焦点屏**八成帧画面重复，才判为离开（焦点屏在播视频不算离开）；副屏画面变化不参与判定，只作为独立信息写进片段摘要；全为隐私跳过的窗口记为"隐私跳过"。规则片段不调用模型，相邻同类自动合并 |
+| FrameSelector | 窗口内的帧 | 选中帧（默认最多 15） | 首帧、末帧、应用切换帧优先；只丢弃"画面重复、无键鼠输入、同一应用"的帧；超限时均匀采样。多屏时先在各屏之间分配总预算（仍最多 15）：每屏保底 1 帧，其余按 0.5×焦点时长占比 + 0.3×焦点屏键鼠活动占比 + 0.2×画面变化占比分配，避免播放视频的副屏占掉预算；键鼠输入只归属焦点屏 |
 | ScreenUnderstanding | 选中帧 | 每帧两条 `Observation` | **事实**：感知元数据 + Apple Vision OCR 文本（落盘前凭据脱敏）；**推断**：本地 VLM 的 1–2 句画面描述。都带证据引用（事件 id、视频分段、帧号）。原始帧已过期时只产出元数据事实 |
-| ActivitySegmenter | 观察时间线 + 上一个片段 | `ActivitySegment`（可多个） | 纯文本调用模型输出 JSON；校验后裁剪到窗口、消除重叠；第一个片段可声明延续上一个片段，沿用其 id 跨窗口合并 |
+| ActivitySegmenter | 观察时间线 + 上一个片段 | `ActivitySegment`（可多个） | 纯文本调用模型输出 JSON；校验后裁剪到窗口、消除重叠；第一个片段可声明延续上一个片段，沿用其 id 跨窗口合并。多屏时所有屏幕合起来只产出一份活动记录：时间线中每帧标注 `[屏幕N·焦点]` / `[屏幕N·副屏]`，副屏帧不标前台应用，并附一行各屏焦点时长与画面变化概况 |
 | AudioUnderstanding（未实现） | audioChunk 事件 | `Observation` | 本地 ASR；以观察的形式并入同一时间线 |
 | ModelProvider | 提示 / 图像 / 音频 | 模型输出 | 抽象接口；MVP 实现为 mlx-swift-lm 嵌入式本地 VLM（Gemma 4）；外部实现可替换；记录数据外发边界。提示词分 cacheable / dynamic 两段以复用 KV cache（Eira 经验） |
 | WorkingContext | 近期 ActivitySegment | 短期上下文 | 抽取层的短期工作记忆，有容量上限，不持久化为长期记忆 |
@@ -127,7 +127,7 @@ PerceptionEvent
   source        screen | audio | interaction | system
   kind          screenFrame | audioChunk | interaction | focusChange | permissionChange ...
   payloadRef    原始数据引用（RawSpool 中的路径或 blob id），可为空
-  metadata      { app, bundleId, windowTitle, displayId, durationMs, idleSeconds, ... }
+  metadata      { app, bundleId, displayId, focusDisplayId, idleSeconds, duplicateOf, changeDistance, ... }
   sensitivity   normal | skipped（被 PrivacyPolicy 跳过时仅保留占位，不含内容）
 
 Observation

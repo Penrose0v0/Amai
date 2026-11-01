@@ -24,7 +24,7 @@ struct FrameStoreTests {
         let images = (0..<3).map { SyntheticImage.make(seed: $0, size: 256) }
         var refs: [FrameStore.FrameRef] = []
         for (i, image) in images.enumerated() {
-            refs.append(try await store.append(image, at: clock.now().addingTimeInterval(Double(i * 10))))
+            refs.append(try await store.append(image, displayId: 1, at: clock.now().addingTimeInterval(Double(i * 10))))
         }
         #expect(refs.map(\.frameIndex) == [0, 1, 2])
         #expect(Set(refs.map(\.segment)).count == 1)
@@ -57,17 +57,46 @@ struct FrameStoreTests {
         config.maxFrames = 2
         let store = FrameStore(root: root, configuration: config, clock: clock, timeZone: TimeZone(identifier: "UTC")!)
 
-        let a = try await store.append(SyntheticImage.make(seed: 0, size: 128), at: clock.now())
-        let b = try await store.append(SyntheticImage.make(seed: 1, size: 128), at: clock.now().addingTimeInterval(1))
-        let c = try await store.append(SyntheticImage.make(seed: 2, size: 128), at: clock.now().addingTimeInterval(2))
+        let a = try await store.append(SyntheticImage.make(seed: 0, size: 128), displayId: 1, at: clock.now())
+        let b = try await store.append(SyntheticImage.make(seed: 1, size: 128), displayId: 1, at: clock.now().addingTimeInterval(1))
+        let c = try await store.append(SyntheticImage.make(seed: 2, size: 128), displayId: 1, at: clock.now().addingTimeInterval(2))
         #expect(a.segment == b.segment)
         #expect(c.segment != b.segment)
         #expect(c.frameIndex == 0)
 
-        let d = try await store.append(SyntheticImage.make(seed: 3, size: 64), at: clock.now().addingTimeInterval(3))
+        let d = try await store.append(SyntheticImage.make(seed: 3, size: 64), displayId: 1, at: clock.now().addingTimeInterval(3))
         #expect(d.segment != c.segment)
         await store.finishSegment()
-        #expect(await store.activeSegmentPath == nil)
+        #expect(await store.activeSegmentPaths.isEmpty)
+    }
+
+    @Test("displays with different sizes write separate segments without forcing rotation")
+    func perDisplaySegments() async throws {
+        let root = try TempDir.make()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let clock = FakeClock()
+        let store = FrameStore(root: root, clock: clock, timeZone: TimeZone(identifier: "UTC")!)
+
+        // 交替写入两块尺寸不同的屏幕：单写入器时每帧都会因尺寸变化切段。
+        var refs: [UInt32: [FrameStore.FrameRef]] = [:]
+        for i in 0..<4 {
+            let t = clock.now().addingTimeInterval(Double(i * 10))
+            refs[1, default: []].append(try await store.append(SyntheticImage.make(seed: i, size: 128), displayId: 1, at: t))
+            refs[5, default: []].append(try await store.append(SyntheticImage.make(seed: i, size: 64), displayId: 5, at: t))
+        }
+        #expect(Set(refs[1]!.map(\.segment)).count == 1)
+        #expect(Set(refs[5]!.map(\.segment)).count == 1)
+        #expect(refs[1]![0].segment != refs[5]![0].segment)
+        #expect(refs[5]!.map(\.frameIndex) == [0, 1, 2, 3])
+        #expect(await store.activeFrameCount(displayId: 1) == 4)
+
+        await store.finishSegment(displayId: 5)
+        #expect(await store.activeDisplayIds == [1])
+        let five = try await FrameStore.image(segmentURL: root.appendingPathComponent(refs[5]![2].segment), frameIndex: 2)
+        #expect(five.width == 64)
+        await store.finishSegment()
+        let one = try await FrameStore.image(segmentURL: root.appendingPathComponent(refs[1]![3].segment), frameIndex: 3)
+        #expect(one.width == 128)
     }
 
     @Test("an interrupted fragmented segment is recovered; unreadable leftovers are marked broken")
@@ -85,7 +114,7 @@ struct FrameStoreTests {
         let store = FrameStore(root: root, configuration: config, clock: clock, timeZone: TimeZone(identifier: "UTC")!)
         var ref: FrameStore.FrameRef?
         for i in 0..<8 {
-            ref = try await store.append(SyntheticImage.make(seed: i, size: 128), at: clock.now().addingTimeInterval(Double(i)))
+            ref = try await store.append(SyntheticImage.make(seed: i, size: 128), displayId: 1, at: clock.now().addingTimeInterval(Double(i)))
         }
         // 给写入器一点时间把已完成的片段落盘，然后在不收尾的情况下拷走文件，模拟进程被杀。
         try await Task.sleep(for: .milliseconds(500))
@@ -111,6 +140,6 @@ struct FrameStoreTests {
         defer { try? FileManager.default.removeItem(at: root) }
         let store = FrameStore(root: root, clock: FakeClock())
         await store.finishSegment()
-        #expect(await store.activeFrameCount == 0)
+        #expect(await store.activeFrameCount(displayId: 1) == 0)
     }
 }

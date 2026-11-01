@@ -172,6 +172,49 @@ struct PipelineTests {
         #expect(segments[1].provider == "rule:privacy")
     }
 
+    @Test("two displays yield one unified record with display labels and a bounded frame budget")
+    func crossDisplay() async throws {
+        let events = dualDisplayFrames(count: 90, focus: { _ in 1 }, idle: { _ in 2 })
+        let h = try Harness(events: events, now: at(2000))
+        defer { h.cleanup() }
+        h.model.segmentation = ["""
+        [{"start":"\(hms(0))","end":"\(hms(900))","title":"编辑采集代码","summary":"在 Xcode 中编辑，副屏开着视频","category":"work","confidence":0.8}]
+        """]
+
+        #expect(await h.pipeline.runOnce() == 1)
+        #expect(h.model.segmentCalls == 1)
+        #expect(h.model.describeCalls <= 15)
+
+        let segments = await h.store.segments(on: at(0))
+        #expect(segments.count == 1)
+        #expect(segments[0].apps == ["com.apple.dt.Xcode"])
+
+        let prompt = h.model.lastSegmentPrompt
+        #expect(prompt.contains("[屏幕1·焦点] [Xcode]"))
+        #expect(prompt.contains("[屏幕2·副屏]"))
+        #expect(!prompt.contains("[屏幕2·副屏] [Xcode]"), "secondary frames must not claim the frontmost app")
+        #expect(prompt.contains("[屏幕概况] 屏幕1：焦点约 100% 的时间，画面变化 0/89 次截图；屏幕2：焦点约 0% 的时间，画面变化 89/89 次截图"))
+        #expect(h.model.describePrompts.contains { $0.contains("副屏") && !$0.contains("前台应用：") })
+
+        let facts = await h.store.observations(on: at(0)).filter { $0.kind == .fact }
+        #expect(Set(facts.compactMap { $0.attributes["displayId"] }) == ["1", "5"])
+        #expect(facts.filter { $0.attributes["focusDisplay"] == "true" }.count
+            > facts.filter { $0.attributes["focusDisplay"] == "false" }.count)
+    }
+
+    @Test("no input with a video on the secondary display is recorded as away, with the change noted")
+    func awayWithSecondaryVideo() async throws {
+        let events = dualDisplayFrames(count: 60, focus: { _ in 1 }, idle: { _ in 300 })
+        let h = try Harness(events: events, now: at(2000))
+        defer { h.cleanup() }
+
+        #expect(await h.pipeline.runOnce() == 1)
+        #expect(h.model.describeCalls == 0 && h.model.segmentCalls == 0)
+        let segments = await h.store.segments(on: at(0))
+        #expect(segments.map(\.title) == ["离开电脑"])
+        #expect(segments[0].summary.contains("其他屏幕的画面仍在变化"))
+    }
+
     @Test("credentials seen by OCR are redacted before storage")
     func redaction() async throws {
         let h = try Harness(events: frames(0, 100), now: at(1000))
