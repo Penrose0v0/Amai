@@ -1,0 +1,96 @@
+# 0006 · Memory Schema v1：单文件分区、依据类型与无损迁移
+
+- 状态：**Accepted**（2026-11-03 用户确认）。部分取代 ADR-0003 中 work/ 专题与 summary.md 的文件布局；整理机制本身沿用 ADR-0003。
+- 日期：2026-11-03
+
+## 背景
+
+M4 之后，记忆分散在 `summary.md`、`work/projects/*.md`、`work/research/*.md` 等文件里，`health/`、`finance/`、`goals/` 下只有空目录。实际使用中有三个问题：
+
+- 文件太散，人不方便浏览，今后的 Agent 也不方便按领域取用；
+- 系统条目只记来源日期，看不出是用户说的、看到的还是模型推断的；
+- 整理只覆盖 work 与 summary，Health / Finance / Goals 没有维护者。
+
+## 决策
+
+### 目录
+
+```text
+memory/
+├── general.md      综合档案（取代 summary.md）
+├── work.md
+├── health.md
+├── finance.md
+├── goals.md
+├── daily/YYYY-MM-DD.md
+└── .archive/       迁移归档（隐藏，不参与索引与整理）
+```
+
+- 每个主要分区原则上只有一个文件。分区（`MemoryCategory`：general / work / health / finance / goals / daily）也是今后向外部 Agent 授权读取的单位。
+- 每个文件为半结构化 Markdown：一级标题、用户可自由编写的内容，以及"## Amai 整理的记忆"下的 `amai:memory` 系统区块。系统区块内按 `### 小节` 分组：
+  - General 使用固定的推荐小节：基本信息、教育背景、个人偏好、当前状态、工作概况、健康概况、财务概况、目标概况、重要关系、其他；
+  - Work 按项目 / 研究方向分组，小节名就是项目名；
+  - Health / Finance / Goals 的推荐结构在阶段 2 接入整理时确定。
+- 推荐结构只约束系统区块，不约束用户手写的部分。不为填充模板而编造信息。
+
+### 条目依据类型（kind）
+
+条目格式：`- 文字 <!-- src:2026-10-19,2026-10-20 kind:inferred -->`。
+
+| kind | 含义 |
+|---|---|
+| `observed` | 有直接观察依据 |
+| `inferred` | 模型推断 |
+| `stated` | 用户明确陈述 |
+| `confirmed` | 用户明确确认 |
+| `unknown` | 兼容状态：Schema v1 之前写入的条目没有记录依据。渲染时不写 `kind:`，与旧格式一致 |
+
+- kind 表示依据，不表示真实性或置信度。
+- 去重只合并文字相同且 kind 相同的条目，来源取并集。kind 不同的同文条目分开保留。
+- 依据校验（`MemoryItems.reconcileKinds`）有两条规则：
+  - 改写已有条目时沿用原来的 kind；
+  - 从 observed / inferred / unknown 升级到 stated / confirmed，必须有明确的用户依据（由调用方验证），模型不能自行升级。
+- 阶段 1：整理忽略模型给出的 kind，新条目一律记为 `inferred`。阶段 2 再把 kind 接入结构化输出与验证。
+
+### 迁移
+
+旧布局到 v1 的映射：
+
+| 旧文件 | 新位置 |
+|---|---|
+| `summary.md` | `general.md`（小节按固定表映射） |
+| `work/**/*.md` | `work.md`，每个旧文件一个小节 |
+| `goals/`、`health/`、`finance/` 下的文件 | 对应的单文件，每个旧文件一个小节 |
+
+安全措施：
+
+- **不截断、不改写**：旧条目的文字、来源、kind 原样搬入。条目上限只用于之后的自动整理。区块外的用户内容只要不是系统骨架，就原样搬到目标文件的"## 迁移自 …"下。
+- **先写后验再归档**：写入目标后重读文件，逐条校验旧条目和用户内容都在，然后先保存迁移记录，再把旧文件复制到 `.archive/schema-v1/`，校验副本哈希后才从原位置移除。任何一步失败都会停止，并保留旧文件。
+- **幂等可续跑**：完全相同的条目与已存在的用户内容不会重复写入，崩溃后再次运行会从剩下的旧文件继续。
+- **迁移记录**：`.archive/schema-v1/migration.json`，记录每个源文件的哈希与归档位置，以及每个目标文件迁移后的哈希。迁移前已存在的目标文件另存一份副本。
+- **回滚不丢新内容**：只要任一目标文件在迁移后被修改过（整理或用户编辑），就整体拒绝回滚。即使回滚，也不删除新文件，只把它们移到 `.archive/schema-v1-rollback/<时间>/`。回滚用于配合旧版 Amai；新版下次启动会重新迁移。
+
+App 启动时先迁移，然后才启动同步与整理。迁移失败时，菜单提示问题，整理暂停，daily 同步照常进行。命令行：`amai-memory migrate [--status|--rollback]`。
+
+### 读取接口
+
+`MemoryLibrary` 是统一的只读接口：
+
+- 按分区读取文档，返回原文、手写部分，以及带小节、来源和 kind 的系统条目；
+- 读取 daily；
+- 按分区检索。
+
+Memory Browser 和今后的 Memory API / MCP / Skill 都复用它。GRDB 只用于派生的全文索引，按文件路径区分分区，不新增数据库。
+
+## 备选方案
+
+- **每个项目仍一个文件，只换目录名**：迁移最简单，但不满足"每个分区一个文件"，Browser 与授权都要处理目录树，因此未采用。
+- **旧条目缺 kind 时默认 `inferred`**：会把来源不明的旧条目一律标成推断。这比默认 `stated` 安全，但同样是在编造依据，因此未采用。最终选择 `unknown`。
+- **按规范化文本去重迁移条目**：会丢掉只在标点上不同的写法，迁移改为逐字合并。
+
+## 影响
+
+- `MemoryDirectory` 不再创建 `work/`、`goals/` 等目录。`MemoryScope` 由 `MemoryCategory` 取代，`retrieve(categories:)`；命令行 `--scope` 改为 `--category`。
+- Consolidator 改写 `general.md`（原 summary）与 `work.md`（原 work/ 专题）。模型输出的 `file` 字段改为 `project`，不再由模型决定文件路径，路径白名单随之删除。状态字段 `lastSummaryAt` 读入时兼容为 `lastGeneralAt`。
+- 云端整理的外发说明改为列出 general.md 与 work.md。
+- 后续：阶段 2 按分区整理（含日终摘要附带分类路由），阶段 3 实现 Memory Browser。

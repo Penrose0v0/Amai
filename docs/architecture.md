@@ -86,12 +86,14 @@
 | 接口 | 说明 |
 |---|---|
 | `ingest(ActivitySegment)` | 接收抽取结果，按写入规则决定写入哪些文件、以何种形式 |
-| `retrieve(query, scope, limit)` | 根据问题返回相关记忆片段及来源 |
-| `consolidate(trigger)` | 日终 / 周期性整理：daily 汇总、专题更新、summary 刷新 |
+| `retrieve(query, categories, limit)` | 根据问题返回相关记忆片段及来源，按分区（general / work / health / finance / goals / daily）过滤 |
+| `consolidate(trigger)` | 日终 / 周期性整理：daily 摘要、分区文件更新、general 刷新 |
 | `delete(timeRange | entryId)` | 删除指定时间段或条目的派生记忆 |
 | `reindex()` | 从 Markdown 重建派生索引 |
 
 M3 实现（`AmaiMemory`）：`MemoryStore` 写 daily 时间线区块；`MemoryIndex` 负责 trigram 全文索引与 `retrieve`；`MemorySync` 每 60 秒以片段 `updatedAt` 为水位线同步有更新的日期并刷新索引。记忆层通过 `SegmentSource` 协议读取片段，由 App 用抽取层的存储实现，记忆层不依赖抽取层。开发用命令行：`swift run amai-memory search <查询>`。
+
+Memory Schema v1（ADR-0006）：每个分区一个 Markdown 文件；`MemoryLibrary` 是统一只读接口（按分区读文档与系统条目、读 daily、按分区检索），Browser 与今后的外部 Agent 接入都复用它；`SchemaMigration` 在启动时把旧布局无损迁移到 v1，归档在记忆目录的 `.archive/`。
 
 设计约束：
 - Markdown 是唯一真相来源，索引可随时删除重建。
@@ -100,7 +102,7 @@ M3 实现（`AmaiMemory`）：`MemoryStore` 写 daily 时间线区块；`MemoryI
 ### 2.4 App Shell
 
 - **菜单栏**（面向普通用户，2026-10-22 简化）：运行状态与上次记忆更新时间；暂停 / 继续记录；打开记忆；立即同步（处理积压活动并同步记忆）；活动检查器；设置；退出。正常运行时只显示一行状态，出现异常（缺权限、截图连续失败、模型不可用、记忆写入或整理出错、配置无效）时才列出问题与建议操作，图标同时变为警示。
-- **设置窗口**（原生 ⌘,）：通用（记录状态、记忆位置）、记忆整理（整理模型来源与账号）、高级（手动处理积压、同步、整理今天、更新 summary、权限、原始数据与配置文件入口）。
+- **设置窗口**（原生 ⌘,）：通用（记录状态、记忆位置）、记忆整理（整理模型来源与账号）、高级（手动处理积压、同步、整理今天、更新 General、权限、原始数据与配置文件入口）。
 - **活动检查器**：活动（片段、观察、关键帧、检索、删除）与运行状态（采集、抽取、记忆、整理的详细指标）两个标签页。
 - 不包含业务逻辑；通过各层公开接口工作。
 

@@ -10,9 +10,9 @@ final class ScriptedModel: MemoryLanguageModel, @unchecked Sendable {
     private(set) var schemaNames: [String] = []
     var digest = #"{"summary":"主要在开发 Amai 的抽取层。","highlights":["完成活动切分","修正切分过碎"]}"#
     var topics = #"{"updates":[]}"#
-    var summary = #"{"items":[]}"#
+    var general = #"{"items":[]}"#
     private(set) var lastTopicsPrompt = ""
-    private(set) var lastSummaryPrompt = ""
+    private(set) var lastGeneralPrompt = ""
     private(set) var calls = 0
 
     func complete(system: String, user: String, maxTokens: Int, schema: OutputSchema?) async throws -> String {
@@ -21,8 +21,8 @@ final class ScriptedModel: MemoryLanguageModel, @unchecked Sendable {
             if let schema { schemaNames.append(schema.name) }
             if system == Prompts.digestSystem { return digest }
             if system == Prompts.topicsSystem { lastTopicsPrompt = user; return topics }
-            lastSummaryPrompt = user
-            return summary
+            lastGeneralPrompt = user
+            return general
         }
     }
 }
@@ -32,11 +32,12 @@ struct MemoryItemsTests {
     @Test("render and parse round-trip, with sections")
     func roundTrip() {
         let items = [
-            MemoryItem(text: "开发 Amai", sources: ["2026-10-19", "2026-10-20"], section: "工作与研究"),
-            MemoryItem(text: "常在深夜写代码", sources: ["2026-10-20"], section: "习惯与偏好"),
+            MemoryItem(text: "常在深夜写代码", sources: ["2026-10-20"], section: "个人偏好"),
+            MemoryItem(text: "开发 Amai", sources: ["2026-10-19", "2026-10-20"], section: "工作概况", kind: .inferred),
         ]
-        let body = MemoryItems.render(items, sections: Consolidator.summarySections)
-        #expect(body.contains("### 工作与研究\n- 开发 Amai <!-- src:2026-10-19,2026-10-20 -->"))
+        let body = MemoryItems.render(items, sections: MemorySchema.generalSections)
+        #expect(body.contains("### 工作概况\n- 开发 Amai <!-- src:2026-10-19,2026-10-20 kind:inferred -->"))
+        #expect(body.contains("- 常在深夜写代码 <!-- src:2026-10-20 -->"))
         #expect(MemoryItems.parse(body) == items)
     }
 
@@ -142,7 +143,7 @@ struct ConsolidatorTests {
 
     @Test("output schemas are valid JSON and strict")
     func schemas() throws {
-        for schema in [Schemas.digest, Schemas.topics, Schemas.summary] {
+        for schema in [Schemas.digest, Schemas.topics, Schemas.general] {
             let obj = try #require(try JSONSerialization.jsonObject(with: Data(schema.json.utf8)) as? [String: Any])
             #expect(obj["additionalProperties"] as? Bool == false)
             #expect(!(obj["required"] as? [String] ?? []).isEmpty)
@@ -161,58 +162,62 @@ struct ConsolidatorTests {
         #expect(other.calls == 2 && f.model.calls == 0)
     }
 
-    @Test("creates and updates work topics with sources; rejects bad paths; snapshots before rewrite")
+    @Test("work.md groups by project; other projects, kinds and user notes survive; snapshots before rewrite")
     func topics() async throws {
         let f = try Fixture()
         defer { f.cleanup() }
         try await f.seedDay()
         f.model.topics = """
         {"updates":[
-          {"file":"work/projects/amai.md","title":"Amai","items":[{"text":"完成抽取层 MVP","sources":["2026-10-19"]},{"text":"修正切分过碎"}]},
-          {"file":"../escape.md","title":"x","items":[{"text":"y"}]},
-          {"file":"goals/plans.md","title":"x","items":[{"text":"y"}]}
+          {"project":"Amai","items":[{"text":"完成抽取层 MVP","sources":["2026-10-19"]},{"text":"修正切分过碎"}]},
+          {"project":"  ","items":[{"text":"y"}]}
         ]}
         """
         let report = try await f.consolidator.consolidateDay(f.day)
-        #expect(report.topicsUpdated == ["work/projects/amai.md"])
-        #expect(report.topicsRejected.count == 2)
-        let amai = try f.read("work/projects/amai.md")
-        #expect(amai.hasPrefix("# Amai\n\n## 记录\n\n<!-- amai:memory:begin"))
-        #expect(amai.contains("- 修正切分过碎 <!-- src:2026-10-19 -->"))
-        #expect(!FileManager.default.fileExists(atPath: f.root.appendingPathComponent("goals/plans.md").path))
+        #expect(report.projectsUpdated == ["Amai"])
+        #expect(report.projectsRejected.count == 1)
+        let work = try f.read("work.md")
+        #expect(work.hasPrefix("# Work\n\n## Amai 整理的记忆\n\n<!-- amai:memory:begin"))
+        #expect(work.contains("### Amai\n- 完成抽取层 MVP <!-- src:2026-10-19 kind:inferred -->"))
+        #expect(work.contains("- 修正切分过碎 <!-- src:2026-10-19 kind:inferred -->"))
 
-        // 用户在区块外加笔记；第二天模型合并旧条目并新增一条。
-        try (amai + "\n## 我的想法\n下周开始做 M4\n").write(to: f.root.appendingPathComponent("work/projects/amai.md"), atomically: true, encoding: .utf8)
+        // 用户在区块外加笔记、区块内另有一个手动依据的项目；第二天只更新 Amai。
+        let block = try #require(Consolidator.memoryBlock.content(in: work))
+        let seeded = work.replacingOccurrences(of: block, with: block + "\n\n### 论文\n- 投稿 CVPR <!-- src:2026-10-18 kind:stated -->")
+        try (seeded + "\n## 我的想法\n下周开始做 M4\n").write(to: f.root.appendingPathComponent("work.md"), atomically: true, encoding: .utf8)
         let day2 = f.day.addingTimeInterval(86_400)
         f.source.set([segment(86_400, 90_000, "整理记忆")], on: day2)
         try await f.store.writeDailyTimeline(day: day2, segments: [segment(86_400, 90_000, "整理记忆")])
         f.model.topics = """
-        {"updates":[{"file":"work/projects/amai.md","items":[
-          {"text":"完成抽取层 MVP 并修正切分过碎","sources":["2026-10-19"]},
+        {"updates":[{"project":"Amai","items":[
+          {"text":"完成抽取层 MVP","sources":["2026-10-20"],"kind":"stated"},
           {"text":"完成 Markdown 记忆写入","sources":["2026-10-20"]}]}]}
         """
         _ = try await f.consolidator.consolidateDay(day2)
-        #expect(f.model.lastTopicsPrompt.contains("文件 work/projects/amai.md（Amai）"))
-        #expect(f.model.lastTopicsPrompt.contains("完成抽取层 MVP"))
-        let updated = try f.read("work/projects/amai.md")
-        #expect(updated.contains("完成 Markdown 记忆写入 <!-- src:2026-10-20 -->"))
+        #expect(f.model.lastTopicsPrompt.contains("项目「Amai」"))
+        #expect(f.model.lastTopicsPrompt.contains("项目「论文」"))
+        let updated = try f.read("work.md")
+        // 模型自称 stated 不会被采纳：沿用原来的 inferred，来源取并集。
+        #expect(updated.contains("- 完成抽取层 MVP <!-- src:2026-10-19,2026-10-20 kind:inferred -->"))
+        #expect(updated.contains("- 完成 Markdown 记忆写入 <!-- src:2026-10-20 kind:inferred -->"))
+        #expect(updated.contains("### 论文\n- 投稿 CVPR <!-- src:2026-10-18 kind:stated -->"))
         #expect(updated.contains("## 我的想法\n下周开始做 M4"))
-        #expect(f.snapshots.snapshots().contains { $0.lastPathComponent.hasSuffix("work__projects__amai.md") })
+        #expect(f.snapshots.snapshots().contains { $0.lastPathComponent.hasSuffix("work.md") })
     }
 
-    @Test("a rewrite that drops most existing entries is rejected")
+    @Test("a rewrite that drops most of a project's entries is rejected")
     func lossGuard() async throws {
         let f = try Fixture()
         defer { f.cleanup() }
         try await f.seedDay()
         let six = (1...6).map { #"{"text":"条目 \#($0)","sources":["2026-10-19"]}"# }.joined(separator: ",")
-        f.model.topics = #"{"updates":[{"file":"work/research.md","title":"研究","items":[\#(six)]}]}"#
+        f.model.topics = #"{"updates":[{"project":"研究","items":[\#(six)]}]}"#
         _ = try await f.consolidator.consolidateDay(f.day)
 
-        f.model.topics = #"{"updates":[{"file":"work/research.md","items":[{"text":"只剩一条"}]}]}"#
+        f.model.topics = #"{"updates":[{"project":"研究","items":[{"text":"只剩一条"}]}]}"#
         let report = try await f.consolidator.consolidateDay(f.day)
-        #expect(report.topicsRejected == ["work/research.md"])
-        #expect(try f.read("work/research.md").contains("条目 6"))
+        #expect(report.projectsRejected == ["研究"])
+        #expect(try f.read("work.md").contains("条目 6"))
     }
 
     @Test("unparsable model output fails without marking the day done")
@@ -228,26 +233,60 @@ struct ConsolidatorTests {
         #expect(await f.consolidator.status.lastError != nil)
     }
 
-    @Test("summary groups by section, keeps user-written text, and passes it to the model")
-    func summary() async throws {
+    @Test("general groups by section, keeps user-written text and item kinds, and passes them to the model")
+    func general() async throws {
         let f = try Fixture()
         defer { f.cleanup() }
         try await f.seedDay()
         _ = try await f.consolidator.consolidateDay(f.day)
-        try "# 用户档案\n\n## 基本背景\n某大学研究生\n".write(to: f.root.appendingPathComponent("summary.md"), atomically: true, encoding: .utf8)
-        f.model.summary = """
+        try """
+        # General
+
+        ## 基本信息
+        某大学研究生
+
+        ## Amai 整理的记忆
+
+        <!-- amai:memory:begin · x -->
+        ### 个人偏好
+        - 喜欢用 Swift <!-- src:2026-10-18 kind:stated -->
+        - 似乎习惯深夜工作 <!-- src:2026-10-18 -->
+        <!-- amai:memory:end -->
+        """.write(to: f.root.appendingPathComponent("general.md"), atomically: true, encoding: .utf8)
+        f.model.general = """
         {"items":[
-          {"section":"工作与研究","text":"正在开发 Ambient Personal AI 项目 Amai","sources":["2026-10-19"]},
-          {"section":"奇怪的小节","text":"似乎习惯深夜工作","sources":["2026-10-19"]}]}
+          {"section":"工作概况","text":"正在开发 Ambient Personal AI 项目 Amai","sources":["2026-10-19"]},
+          {"section":"个人偏好","text":"喜欢用 Swift","sources":["2026-10-19"]},
+          {"section":"个人偏好","text":"似乎习惯深夜工作","sources":["2026-10-18"],"kind":"confirmed"},
+          {"section":"奇怪的小节","text":"经常查阅论文","sources":["2026-10-19"]}]}
         """
-        #expect(try await f.consolidator.updateSummary())
-        #expect(f.model.lastSummaryPrompt.contains("某大学研究生"))
-        #expect(f.model.lastSummaryPrompt.contains("主要在开发 Amai 的抽取层"))
-        let text = try f.read("summary.md")
-        #expect(text.hasPrefix("# 用户档案\n\n## 基本背景\n某大学研究生\n"))
-        #expect(text.contains("### 工作与研究\n- 正在开发 Ambient Personal AI 项目 Amai <!-- src:2026-10-19 -->"))
-        #expect(text.contains("### 其他\n- 似乎习惯深夜工作"))
-        #expect(await f.consolidator.status.lastSummaryAt != nil)
+        #expect(try await f.consolidator.updateGeneral())
+        #expect(f.model.lastGeneralPrompt.contains("某大学研究生"))
+        #expect(f.model.lastGeneralPrompt.contains("主要在开发 Amai 的抽取层"))
+        let text = try f.read("general.md")
+        #expect(text.hasPrefix("# General\n\n## 基本信息\n某大学研究生\n"))
+        #expect(text.contains("### 工作概况\n- 正在开发 Ambient Personal AI 项目 Amai <!-- src:2026-10-19 kind:inferred -->"))
+        #expect(text.contains("- 喜欢用 Swift <!-- src:2026-10-18,2026-10-19 kind:stated -->"))
+        // unknown 不会被模型升级为 confirmed。
+        #expect(text.contains("- 似乎习惯深夜工作 <!-- src:2026-10-18 -->"))
+        #expect(text.contains("### 其他\n- 经常查阅论文"))
+        #expect(await f.consolidator.status.lastGeneralAt != nil)
+    }
+
+    @Test("state written before Schema v1 keeps its last summary time")
+    func legacyState() async throws {
+        let support = try tempDir()
+        defer { try? FileManager.default.removeItem(at: support) }
+        let root = try tempDir()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let stateURL = support.appendingPathComponent("consolidation.json")
+        try #"{"lastDailyDay":"2026-10-18","lastSummaryAt":"2026-10-19T00:00:00Z"}"#.write(to: stateURL, atomically: true, encoding: .utf8)
+        let c = Consolidator(
+            store: try MemoryStore(root: root, timeZone: utc), source: FakeSource(), model: ScriptedModel(),
+            snapshots: SnapshotStore(root: support), stateURL: stateURL, timeZone: utc
+        )
+        #expect(await c.status.lastGeneralAt == Date(timeIntervalSince1970: 1_792_368_000))
+        #expect(await c.status.lastDailyDay == "2026-10-18")
     }
 
     @Test("tick consolidates finished days once, waits until 4am, and is idempotent")
@@ -280,13 +319,10 @@ struct ConsolidatorTests {
         #expect(await f.consolidator.status.lastDailyDay == nil)
     }
 
-    @Test("topic paths are restricted to work/*.md")
-    func paths() {
-        #expect(Consolidator.validTopicPath("work/projects/amai.md") == "work/projects/amai.md")
-        #expect(Consolidator.validTopicPath("/work/research.md") == "work/research.md")
-        #expect(Consolidator.validTopicPath("work/../summary.md") == nil)
-        #expect(Consolidator.validTopicPath("work/.hidden.md") == nil)
-        #expect(Consolidator.validTopicPath("summary.md") == nil)
-        #expect(Consolidator.validTopicPath("work/notes.txt") == nil)
+    @Test("project names are cleaned before becoming headings")
+    func projectNames() {
+        #expect(Consolidator.projectName("## Amai\n计划") == "Amai 计划")
+        #expect(Consolidator.projectName("<!-- x -->") == "x")
+        #expect(Consolidator.projectName("   ") == nil)
     }
 }

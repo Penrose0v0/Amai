@@ -21,6 +21,8 @@ final class AppModel {
     private(set) var status: PerceptionStatus?
     private(set) var extractionStatus: ExtractionStatus?
     private(set) var startupError: String?
+    /// 记忆迁移（Schema v1）失败的原因。失败时旧文件原样保留，暂停记忆整理，daily 同步照常。
+    private(set) var migrationError: String?
     private(set) var configWarning: String?
     private(set) var modelInstalled = true
     private(set) var memoryStatus: MemorySync.Status?
@@ -68,6 +70,7 @@ final class AppModel {
         var claudeWorkdir = FileManager.default.temporaryDirectory.appendingPathComponent("amai-claude-cli")
         var configWarning: String?
         var startupError: String?
+        var migrationError: String?
         var config = AppConfiguration.default
         do {
             let resolved = try AmaiPaths.standard()
@@ -103,6 +106,16 @@ final class AppModel {
             ))
             pipeline = built
 
+            // 先把旧布局（summary.md、work/ 等）迁移到 Schema v1，再启动同步与整理，避免整理读写到一半迁移的文件。
+            do {
+                let migrated = try SchemaMigration(root: config.memory.rootURL).migrate()
+                if !migrated.migrated.isEmpty {
+                    AmaiLog.logger("app").info("memory schema v1 migration: \(migrated.migrated.count) files, \(migrated.itemsCarried) items")
+                }
+            } catch {
+                migrationError = "记忆迁移未完成，旧文件已原样保留：\(error)"
+                AmaiLog.logger("app").error("memory migration failed: \(String(describing: error), privacy: .public)")
+            }
             let memoryStore = try MemoryStore(root: config.memory.rootURL)
             let index = MemoryIndex(
                 root: config.memory.rootURL,
@@ -146,6 +159,7 @@ final class AppModel {
         self.memoryRoot = config.memory.rootURL
         self.configWarning = configWarning
         self.startupError = startupError
+        self.migrationError = migrationError
         self.modelTag = config.extraction.modelTag
         self.modelInstalled = LocalInferenceBackend.isInstalled(tag: config.extraction.modelTag)
 
@@ -159,7 +173,8 @@ final class AppModel {
         if let memorySync {
             Task { await memorySync.start() }
         }
-        if let consolidator {
+        // 迁移失败时不启动整理：整理会写 general.md / work.md，而旧文件还没搬完。
+        if let consolidator, migrationError == nil {
             Task { await consolidator.start() }
         }
         // 先恢复异常退出残留的分段，再恢复采集，避免新分段被误当成残留处理。
@@ -171,14 +186,14 @@ final class AppModel {
         }
         startPolling()
 
-        // 开发用启动参数：open .build/Amai.app --args --consolidate-today [--update-summary]
+        // 开发用启动参数：open .build/Amai.app --args --consolidate-today [--update-general]
         let args = CommandLine.arguments
-        if args.contains("--consolidate-today") || args.contains("--update-summary") {
+        if migrationError == nil, args.contains("--consolidate-today") || args.contains("--update-general") {
             Task { [weak self] in
                 guard let self, let consolidator = self.consolidator, let memorySync = self.memorySync else { return }
                 await memorySync.syncOnce()
                 if args.contains("--consolidate-today") { _ = try? await consolidator.consolidateDay(Date()) }
-                if args.contains("--update-summary") { _ = try? await consolidator.updateSummary() }
+                if args.contains("--update-general") { _ = try? await consolidator.updateGeneral() }
                 await memorySync.syncOnce()
                 await self.refresh()
             }
@@ -277,9 +292,9 @@ final class AppModel {
         NSWorkspace.shared.open(memoryRoot)
     }
 
-    /// 手动整理今天：生成今天的日终摘要并更新 work/ 专题（不影响凌晨的正式整理）。
+    /// 手动整理今天：生成今天的日终摘要并更新 work.md（不影响凌晨的正式整理）。
     func consolidateToday() {
-        guard let consolidator, let memorySync else { return }
+        guard let consolidator, let memorySync, migrationError == nil else { return }
         Task {
             await memorySync.syncOnce()
             _ = try? await consolidator.consolidateDay(Date())
@@ -288,10 +303,10 @@ final class AppModel {
         }
     }
 
-    func updateSummaryNow() {
-        guard let consolidator, let memorySync else { return }
+    func updateGeneralNow() {
+        guard let consolidator, let memorySync, migrationError == nil else { return }
         Task {
-            _ = try? await consolidator.updateSummary()
+            _ = try? await consolidator.updateGeneral()
             await memorySync.syncOnce()
             await refresh()
         }
@@ -540,6 +555,9 @@ final class AppModel {
             default:
                 break
             }
+        }
+        if let migrationError {
+            list.append(AppIssue(id: "migration", message: migrationError, action: nil))
         }
         if let err = memoryStatus?.lastError {
             list.append(AppIssue(id: "memory", message: err, action: .openInspector))

@@ -1,33 +1,52 @@
 import Foundation
 
+/// 记忆分区（Memory Schema v1，ADR-0006）。每个主要分区对应记忆根目录下的一个 Markdown 文件，
+/// `daily` 对应 `daily/` 目录。分区也是今后向外部 Agent 授权读取的单位。
+public enum MemoryCategory: String, Sendable, CaseIterable, Codable {
+    case general
+    case work
+    case health
+    case finance
+    case goals
+    case daily
+
+    /// 单文件分区（不含 daily），按 Browser 侧栏顺序。
+    public static let documents: [MemoryCategory] = [.general, .work, .health, .finance, .goals]
+
+    /// 单文件分区的相对路径；daily 为 nil。
+    public var file: String? {
+        self == .daily ? nil : "\(rawValue).md"
+    }
+
+    public var displayName: String {
+        switch self {
+        case .general: "General"
+        case .work: "Work"
+        case .health: "Health"
+        case .finance: "Finance"
+        case .goals: "Goals"
+        case .daily: "Daily"
+        }
+    }
+
+    /// 相对路径所属的分区；用户自建的其他文件不属于任何分区。
+    public init?(file: String) {
+        if file.hasPrefix(MemoryDirectory.dailyDirectory + "/") {
+            self = .daily
+            return
+        }
+        guard let c = MemoryCategory.documents.first(where: { $0.file == file }) else { return nil }
+        self = c
+    }
+}
+
 /// 记忆目录布局（docs/memory.md §2）。所有路径相对记忆根目录。
 public enum MemoryDirectory {
-    public static let summary = "summary.md"
     public static let dailyDirectory = "daily"
+    /// 迁移归档等内部文件放在隐藏目录，不参与索引与整理，但保留在磁盘上供恢复。
+    public static let archiveDirectory = ".archive"
 
-    /// MVP 自动写入的专题文件（M4 起）。health / finance 不自动写入。
-    public static let autoWrittenTopics: [String] = [
-        "work/research.md",
-        "work/work-log.md",
-        "goals/long-term.md",
-        "goals/plans.md",
-        "goals/decisions.md",
-    ]
-
-    public static let scaffoldOnlyTopics: [String] = [
-        "health/sleep.md",
-        "health/exercise.md",
-        "health/nutrition.md",
-        "health/medical.md",
-        "finance/income.md",
-        "finance/expenses.md",
-        "finance/investments.md",
-        "finance/assets.md",
-    ]
-
-    public static let directories: [String] = [
-        "daily", "health", "work", "work/projects", "finance", "goals",
-    ]
+    public static let directories: [String] = [dailyDirectory]
 
     /// `daily/YYYY-MM-DD.md`，按给定时区取日期。
     public static func dailyFile(for date: Date, timeZone: TimeZone) -> String {

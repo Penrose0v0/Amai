@@ -109,8 +109,8 @@ struct RuntimeStatusView: View {
             if let c = model.consolidationStatus {
                 LabeledContent("状态", value: c.running ? "整理中" : "空闲")
                 LabeledContent("日终摘要已整理至", value: c.lastDailyDay ?? "尚未整理")
-                LabeledContent("summary 上次更新", value: c.lastSummaryAt?.formatted(date: .abbreviated, time: .shortened) ?? "尚未更新")
-                LabeledContent("work 专题累计更新", value: "\(c.topicsWritten)")
+                LabeledContent("General 上次更新", value: c.lastGeneralAt?.formatted(date: .abbreviated, time: .shortened) ?? "尚未更新")
+                LabeledContent("Work 项目累计更新", value: "\(c.projectsWritten)")
                 if let error = c.lastError {
                     LabeledContent("上次错误", value: error)
                 }

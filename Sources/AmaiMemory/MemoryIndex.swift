@@ -2,15 +2,10 @@ import AmaiCore
 import Foundation
 import GRDB
 
-public enum MemoryScope: String, Sendable, CaseIterable {
-    case daily
-    case summary
-    /// 专题文件（work/、goals/、health/、finance/ 等）。
-    case topic
-}
-
 public struct MemoryHit: Sendable, Equatable {
     public let file: String
+    /// 文件所属分区；用户自建的其他文件为 nil。
+    public let category: MemoryCategory?
     public let heading: String
     public let excerpt: String
     /// 越小越相关（bm25）；子串匹配时为 0。
@@ -93,9 +88,10 @@ public actor MemoryIndex {
     }
 
     /// 按问题检索。查询不足 3 个字符时 trigram 无法匹配，改用子串匹配。
+    /// `categories` 为 nil 时检索全部文件（含用户自建的其他 Markdown）。
     public func retrieve(
         _ query: String,
-        scopes: Set<MemoryScope> = Set(MemoryScope.allCases),
+        categories: Set<MemoryCategory>? = nil,
         dayRange: ClosedRange<Date>? = nil,
         limit: Int = 10
     ) throws -> [MemoryHit] {
@@ -104,11 +100,17 @@ public actor MemoryIndex {
 
         var filters: [String] = []
         var args: [any DatabaseValueConvertible] = []
-        if scopes.count < MemoryScope.allCases.count {
+        // 分区由文件路径决定，不需要额外的索引列。
+        if let categories {
             var parts: [String] = []
-            if scopes.contains(.daily) { parts.append("s.file LIKE 'daily/%'") }
-            if scopes.contains(.summary) { parts.append("s.file = 'summary.md'") }
-            if scopes.contains(.topic) { parts.append("(s.file NOT LIKE 'daily/%' AND s.file <> 'summary.md')") }
+            for c in MemoryCategory.allCases where categories.contains(c) {
+                if let file = c.file {
+                    parts.append("s.file = ?")
+                    args.append(file)
+                } else {
+                    parts.append("s.file LIKE '\(MemoryDirectory.dailyDirectory)/%'")
+                }
+            }
             filters.append("(" + (parts.isEmpty ? "0" : parts.joined(separator: " OR ")) + ")")
         }
         if let dayRange {
@@ -139,8 +141,10 @@ public actor MemoryIndex {
             }
             return rows.map { row in
                 let content: String = row["content"]
+                let file: String = row["file"]
                 return MemoryHit(
-                    file: row["file"],
+                    file: file,
+                    category: MemoryCategory(file: file),
                     heading: row["heading"],
                     excerpt: Self.excerpt(content, around: q),
                     score: row["score"],

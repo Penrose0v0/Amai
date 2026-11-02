@@ -153,10 +153,13 @@ struct MemoryStoreTests {
         let root = try tempDir()
         defer { try? FileManager.default.removeItem(at: root) }
         let store = try MemoryStore(root: root, timeZone: utc)
-        try "x".write(to: root.appendingPathComponent("summary.md"), atomically: true, encoding: .utf8)
-        try "y".write(to: root.appendingPathComponent("work/research.md"), atomically: true, encoding: .utf8)
-        try "z".write(to: root.appendingPathComponent("work/notes.txt"), atomically: true, encoding: .utf8)
-        #expect(await store.markdownFiles() == ["summary.md", "work/research.md"])
+        try "x".write(to: root.appendingPathComponent("general.md"), atomically: true, encoding: .utf8)
+        try "y".write(to: root.appendingPathComponent("work.md"), atomically: true, encoding: .utf8)
+        try "z".write(to: root.appendingPathComponent("notes.txt"), atomically: true, encoding: .utf8)
+        // 归档目录是隐藏目录，不参与索引与整理。
+        try FileManager.default.createDirectory(at: root.appendingPathComponent(".archive/schema-v1"), withIntermediateDirectories: true)
+        try "old".write(to: root.appendingPathComponent(".archive/schema-v1/summary.md"), atomically: true, encoding: .utf8)
+        #expect(await store.markdownFiles() == ["general.md", "work.md"])
     }
 }
 
@@ -207,7 +210,7 @@ struct MemoryIndexTests {
         let f = try Fixture()
         defer { try? FileManager.default.removeItem(at: f.root) }
         try f.write("daily/2026-10-19.md", "# 2026-10-20\n\n## 时间线\n- 03:00–03:08 编辑采集代码并调试屏幕录制权限\n")
-        try f.write("work/research.md", "# 研究\n\n## 当前方向\n多智能体一致性评估\n")
+        try f.write("work.md", "# Work\n\n## 当前方向\n多智能体一致性评估\n")
         #expect(try await f.index.refresh().indexed == 2)
 
         let long = try await f.index.retrieve("屏幕录制")
@@ -218,9 +221,11 @@ struct MemoryIndexTests {
         let short = try await f.index.retrieve("代码")
         #expect(short.map(\.file) == ["daily/2026-10-19.md"])
 
-        let topic = try await f.index.retrieve("一致性", scopes: [.topic])
-        #expect(topic.map(\.file) == ["work/research.md"])
-        #expect(try await f.index.retrieve("一致性", scopes: [.daily]).isEmpty)
+        let work = try await f.index.retrieve("一致性", categories: [.work])
+        #expect(work.map(\.file) == ["work.md"])
+        #expect(work.first?.category == .work)
+        #expect(try await f.index.retrieve("一致性", categories: [.daily, .general]).isEmpty)
+        #expect(try await f.index.retrieve("一致性", categories: []).isEmpty)
     }
 
     @Test("day range filters daily files")
@@ -239,16 +244,16 @@ struct MemoryIndexTests {
     func incremental() async throws {
         let f = try Fixture()
         defer { try? FileManager.default.removeItem(at: f.root) }
-        try f.write("summary.md", "# 用户档案\n\n## 习惯\n早上写代码\n")
-        try f.write("goals/plans.md", "## 本周\n完成 M3\n")
+        try f.write("general.md", "# General\n\n## 习惯\n早上写代码\n")
+        try f.write("goals.md", "## 本周\n完成 M3\n")
         try await f.index.refresh()
         #expect(try await f.index.refresh() == .init(indexed: 0, removed: 0, unchanged: 2))
 
-        try f.write("summary.md", "# 用户档案\n\n## 习惯\n晚上散步，早上写代码\n")
-        try FileManager.default.removeItem(at: f.root.appendingPathComponent("goals/plans.md"))
+        try f.write("general.md", "# General\n\n## 习惯\n晚上散步，早上写代码\n")
+        try FileManager.default.removeItem(at: f.root.appendingPathComponent("goals.md"))
         let r = try await f.index.refresh()
         #expect(r.indexed == 1 && r.removed == 1)
-        #expect(try await f.index.retrieve("晚上散步").map(\.file) == ["summary.md"])
+        #expect(try await f.index.retrieve("晚上散步").map(\.file) == ["general.md"])
         #expect(try await f.index.retrieve("完成 M3").isEmpty)
 
         let before = try await f.index.retrieve("写代码")
