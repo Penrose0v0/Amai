@@ -32,7 +32,14 @@ struct AmaiApp: App {
         }
 
         Settings {
-            SettingsView(model: model)
+            // 预览模式不显示真实设置：模型设置页会读写钥匙串中的 API Key。
+            if model.isMemoryPreview {
+                Text("记忆预览模式下没有设置。")
+                    .foregroundStyle(.secondary)
+                    .frame(width: 360, height: 120)
+            } else {
+                SettingsView(model: model)
+            }
         }
     }
 
@@ -53,6 +60,20 @@ private struct MenuContent: View {
     @Environment(\.openSettings) private var openSettings
 
     var body: some View {
+        if model.isMemoryPreview {
+            Text("Amai 记忆预览（只读示例数据）")
+            Divider()
+            Button("打开记忆") { showMemory() }
+            Divider()
+            Button("退出预览") { model.quit() }
+                .keyboardShortcut("q")
+        } else {
+            fullMenu
+        }
+    }
+
+    @ViewBuilder
+    private var fullMenu: some View {
         Text(statusTitle)
         if let updated = model.lastMemoryUpdate {
             Text("记忆更新于 \(updated.formatted(.relative(presentation: .named)))")
