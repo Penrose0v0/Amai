@@ -68,6 +68,12 @@ let package = Package(
             dependencies: ["AmaiCore", "AmaiMemory"]
         ),
 
+        // 记忆窗口的 SwiftUI 视图（只读浏览、检索、来源查看）。通过回调与 App 交互，便于在测试中渲染检查。
+        .target(
+            name: "AmaiMemoryUI",
+            dependencies: ["AmaiCore", "AmaiMemory"]
+        ),
+
         // 云端文本模型客户端（Anthropic / OpenAI）与钥匙串。只用于记忆整理（ADR-0004）。
         // 不依赖任何层，由 App 适配到记忆层的 MemoryLanguageModel。
         .target(name: "AmaiCloud"),
@@ -75,7 +81,7 @@ let package = Package(
         // 菜单栏应用。只通过各层公开接口工作，不含业务逻辑。
         .executableTarget(
             name: "Amai",
-            dependencies: ["AmaiCore", "AmaiPerception", "AmaiExtraction", "AmaiMemory", "AmaiMemoryEval", "AmaiCloud"]
+            dependencies: ["AmaiCore", "AmaiPerception", "AmaiExtraction", "AmaiMemory", "AmaiMemoryEval", "AmaiMemoryUI", "AmaiCloud"]
         ),
 
         // 开发用记忆检索命令行：swift run amai-memory search <查询>；eval 子命令用 Claude Code 或本地模型跑记忆整理评测。
@@ -87,7 +93,7 @@ let package = Package(
         .testTarget(name: "AmaiCoreTests", dependencies: ["AmaiCore"]),
         .testTarget(name: "AmaiPerceptionTests", dependencies: ["AmaiPerception"]),
         .testTarget(name: "AmaiExtractionTests", dependencies: ["AmaiExtraction"]),
-        .testTarget(name: "AmaiMemoryTests", dependencies: ["AmaiMemory", "AmaiMemoryEval"]),
+        .testTarget(name: "AmaiMemoryTests", dependencies: ["AmaiMemory", "AmaiMemoryEval", "AmaiMemoryUI"]),
         .testTarget(name: "AmaiCloudTests", dependencies: ["AmaiCloud"]),
     ]
 )

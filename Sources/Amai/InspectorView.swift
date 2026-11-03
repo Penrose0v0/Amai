@@ -3,7 +3,7 @@ import AmaiExtraction
 import AmaiMemory
 import SwiftUI
 
-/// 活动检查器：两个标签页——活动记录（片段、观察、关键帧、检索、删除）与运行状态（详细指标）。
+/// 活动检查器：两个标签页——活动记录（片段、观察、关键帧、片段检索、删除）与运行状态（详细指标）。
 struct InspectorView: View {
     let model: AppModel
 
@@ -18,21 +18,14 @@ struct InspectorView: View {
     }
 }
 
-/// 按天查看活动片段、关联观察与关键帧；检索片段或 Markdown 记忆；删除片段或时间段。
+/// 按天查看活动片段、关联观察与关键帧；检索片段；删除片段或时间段。
+/// 长期记忆的浏览与检索在独立的记忆窗口（MemoryBrowserView）。
 struct ActivityBrowserView: View {
     let model: AppModel
 
-    enum SearchMode: String, CaseIterable, Identifiable {
-        case segments = "活动片段"
-        case memory = "记忆"
-        var id: String { rawValue }
-    }
-
     @State private var day = Date()
     @State private var query = ""
-    @State private var mode: SearchMode = .segments
     @State private var segments: [ActivitySegment] = []
-    @State private var memoryHits: [MemoryHit] = []
     @State private var selection: ActivitySegment.ID?
     @State private var searching = false
     @State private var showErase = false
@@ -42,11 +35,7 @@ struct ActivityBrowserView: View {
             VStack(spacing: 0) {
                 controls
                 Divider()
-                if searching && mode == .memory {
-                    memoryResults
-                } else {
-                    segmentList
-                }
+                segmentList
             }
             .navigationSplitViewColumnWidth(min: 340, ideal: 400)
         } detail: {
@@ -90,23 +79,6 @@ struct ActivityBrowserView: View {
         }
     }
 
-    private var memoryResults: some View {
-        List(Array(memoryHits.enumerated()), id: \.offset) { _, hit in
-            VStack(alignment: .leading, spacing: 3) {
-                Text(hit.heading.isEmpty ? hit.file : "\(hit.file) · \(hit.heading)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text(hit.excerpt).font(.callout).textSelection(.enabled)
-            }
-            .padding(.vertical, 2)
-        }
-        .overlay {
-            if memoryHits.isEmpty {
-                ContentUnavailableView("记忆中没有匹配的内容", systemImage: "magnifyingglass")
-            }
-        }
-    }
-
     private var controls: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
@@ -116,18 +88,9 @@ struct ActivityBrowserView: View {
                 Button("删除时间段…") { showErase = true }
                 Button("立即处理") { model.runExtractionNow() }
             }
-            HStack {
-                Picker("", selection: $mode) {
-                    ForEach(SearchMode.allCases) { Text($0.rawValue).tag($0) }
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .frame(width: 150)
-                TextField(mode == .segments ? "检索最近 7 天（标题、摘要、屏幕文字）" : "检索 Markdown 记忆", text: $query)
-                    .textFieldStyle(.roundedBorder)
-                    .onSubmit { Task { await reload() } }
-            }
-            .onChange(of: mode) { Task { await reload() } }
+            TextField("检索最近 7 天的活动片段（标题、摘要、屏幕文字）", text: $query)
+                .textFieldStyle(.roundedBorder)
+                .onSubmit { Task { await reload() } }
             ExtractionStatusLine(model: model)
         }
         .padding(10)
@@ -136,10 +99,6 @@ struct ActivityBrowserView: View {
     private func reload() async {
         let q = query.trimmingCharacters(in: .whitespaces)
         searching = !q.isEmpty
-        if searching && mode == .memory {
-            memoryHits = await model.searchMemory(q)
-            return
-        }
         segments = searching ? await model.search(q, endingOn: day) : await model.segments(on: day)
         if let selection, !segments.contains(where: { $0.id == selection }) {
             self.selection = nil

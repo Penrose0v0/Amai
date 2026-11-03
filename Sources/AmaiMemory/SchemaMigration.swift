@@ -40,14 +40,33 @@ public struct SchemaMigration: Sendable {
         public var setAside: [String] = []
     }
 
-    public enum MigrationError: Error, Equatable {
+    public enum MigrationError: Error, Equatable, CustomStringConvertible {
+        public var description: String {
+            switch self {
+            case .unreadable(let f): "无法读取 \(f)"
+            case .malformedBlock(let f): "\(f) 中的系统区块标记不完整"
+            case .verificationFailed(let detail): "迁移校验未通过（\(detail)）"
+            case .archiveFailed(let f): "归档 \(f) 失败"
+            }
+        }
+
         case unreadable(String)
         case malformedBlock(String)
         case verificationFailed(String)
         case archiveFailed(String)
     }
 
-    public enum RollbackError: Error, Equatable {
+    public enum RollbackError: Error, Equatable, CustomStringConvertible {
+        public var description: String {
+            switch self {
+            case .nothingToRollBack: "没有可以回滚的迁移"
+            case .targetModified(let files): "迁移后这些文件已被修改，回滚会丢失更新：\(files.joined(separator: "、"))"
+            case .archiveMissing(let f): "归档文件缺失：\(f)"
+            case .archiveModified(let f): "归档文件已被改动：\(f)"
+            case .legacyPathOccupied(let f): "原位置已有文件：\(f)"
+            }
+        }
+
         case nothingToRollBack
         /// 迁移后目标文件已被修改（整理或用户编辑）。直接回滚会丢掉这些更新，因此拒绝。
         case targetModified([String])

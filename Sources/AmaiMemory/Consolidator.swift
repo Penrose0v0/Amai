@@ -90,7 +90,16 @@ public actor Consolidator {
         public var modelCalls = 0
     }
 
-    public enum ConsolidationError: Error, Equatable {
+    public enum ConsolidationError: Error, Equatable, CustomStringConvertible {
+        public var description: String {
+            switch self {
+            case .unparsableModelOutput(let task): "模型返回的内容无法解析（\(task)）"
+            case .tooMuchLoss(let file): "本次整理会删除 \(file) 中过多已有记忆，已拒绝"
+            case .categoriesFailed(let list):
+                "部分分区整理失败（\(list.compactMap { MemoryCategory(rawValue: $0)?.localizedName }.joined(separator: "、"))），稍后重试"
+            }
+        }
+
         case unparsableModelOutput(String)
         case tooMuchLoss(String)
         case categoriesFailed([String])

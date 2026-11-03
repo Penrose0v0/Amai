@@ -1,11 +1,12 @@
 import AmaiCore
 import AmaiExtraction
+import AmaiMemoryUI
 import AmaiPerception
 import SwiftUI
 
 /// 菜单栏应用入口（docs/architecture.md §2.4）。
 ///
-/// 菜单面向普通用户，只保留：状态与上次记忆更新时间、暂停 / 继续、打开记忆、立即同步、
+/// 菜单面向普通用户，只保留：状态与上次记忆更新时间、暂停 / 继续、打开记忆（记忆窗口）、立即同步、
 /// 活动检查器、设置、退出。详细指标在活动检查器的"运行状态"里，维护操作在设置的"高级"里。
 /// 正常运行时只显示一行状态；出现异常时才列出具体问题和建议操作。
 @main
@@ -18,6 +19,11 @@ struct AmaiApp: App {
         } label: {
             Image(systemName: Self.symbol(for: model))
         }
+
+        Window("记忆", id: "memory") {
+            MemoryBrowserView(env: model.memoryBrowserEnvironment)
+        }
+        .defaultSize(width: 960, height: 640)
 
         Window("活动检查器", id: "inspector") {
             InspectorView(model: model)
@@ -65,7 +71,7 @@ private struct MenuContent: View {
         recordingControl
 
         Divider()
-        Button("打开记忆") { model.openMemoryFolder() }
+        Button("打开记忆") { showMemory() }
         Button("立即同步") { model.syncNow() }
 
         Divider()
@@ -112,6 +118,12 @@ private struct MenuContent: View {
         case .revealConfig: model.revealConfig()
         case .relaunch: model.relaunch()
         }
+    }
+
+    /// 记忆窗口；打开记忆文件夹的入口在窗口工具栏与设置里。
+    private func showMemory() {
+        openWindow(id: "memory")
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     private func showInspector() {

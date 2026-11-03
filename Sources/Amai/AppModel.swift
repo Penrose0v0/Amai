@@ -9,6 +9,7 @@ import struct AmaiCore.TimeRange
 import AmaiCloud
 import AmaiExtraction
 import AmaiMemory
+import AmaiMemoryUI
 import AmaiPerception
 import AppKit
 import Foundation
@@ -305,6 +306,40 @@ final class AppModel {
         NSWorkspace.shared.open(memoryRoot)
     }
 
+    // MARK: - Memory browser
+
+    /// 记忆窗口使用的只读接口（与今后的外部 Agent 接入共用）。
+    var memoryLibrary: MemoryLibrary {
+        MemoryLibrary(root: memoryRoot, index: memoryIndex)
+    }
+
+    var memoryBrowserEnvironment: MemoryBrowserEnvironment {
+        let index = memoryIndex
+        let library = memoryLibrary
+        return MemoryBrowserEnvironment(
+            library: library,
+            search: { query in
+                guard let index else { return [] }
+                // 先增量刷新索引，纳入用户刚在编辑器里做的修改。
+                _ = try? await index.refresh()
+                return (try? await library.search(query, limit: 40)) ?? []
+            },
+            openFile: { [weak self] url in self?.openMemoryFile(url) },
+            reveal: { [weak self] url in self?.revealInFinder(url) }
+        )
+    }
+
+    /// 用默认应用打开记忆文件（Markdown 编辑器）。
+    func openMemoryFile(_ url: URL) {
+        NSWorkspace.shared.open(url)
+    }
+
+    /// 在访达中显示记忆文件或文件夹。
+    func revealInFinder(_ url: URL?) {
+        let target = url.flatMap { FileManager.default.fileExists(atPath: $0.path) ? $0 : nil } ?? memoryRoot
+        NSWorkspace.shared.activateFileViewerSelecting([target])
+    }
+
     /// 手动整理今天：生成今天的日终摘要并整理路由到的分区（不影响凌晨的正式整理）。
     func consolidateToday() {
         guard let consolidator, let memorySync, migrationError == nil else { return }
@@ -499,9 +534,6 @@ final class AppModel {
         try? await memorySync?.rewrite(day: segment.timeRange.start)
     }
 
-    func searchMemory(_ query: String) async -> [MemoryHit] {
-        (try? await memoryIndex?.retrieve(query, limit: 20)) ?? []
-    }
 
     func thumbnail(for evidence: Evidence, maxHeight: Int = 360) async -> NSImage? {
         guard let reader else { return nil }

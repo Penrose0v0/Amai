@@ -31,7 +31,7 @@ struct ModelSettingsView: View {
                     ForEach(ConsolidationModelConfiguration.Mode.allCases, id: \.self) { Text($0.title).tag($0) }
                 }
                 .pickerStyle(.radioGroup)
-                Text("只影响日终摘要、work 专题与 summary 的整理。屏幕抽取始终在本机运行，截图与屏幕文字不会发送到任何服务。")
+                Text("只影响日终摘要、各分区记忆与综合档案的整理。屏幕抽取始终在本机运行，截图与屏幕文字不会发送到任何服务。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -223,7 +223,7 @@ struct ModelSettingsView: View {
 
     static func privacyNote(_ config: ConsolidationModelConfiguration) -> String {
         """
-        开启后，每天整理与每周更新 General 时会把以下文本发送给 \(config.serviceName)：当天活动片段的标题与摘要、所用应用名、你在 daily 中手写的笔记、日终摘要，以及 general / work / health / finance / goals 五个记忆文件的内容（含你手写的部分）。
+        开启后，每天整理与每周更新 General 时会把以下文本发送给 \(config.serviceName)：当天活动片段的标题与摘要、所用应用名、你在 daily 中手写的笔记、日终摘要，以及综合、工作、健康、财务、目标五个记忆文件的内容（含你手写的部分）。
         不会发送：截图、屏幕文字识别（OCR）原文、观察记录和任何原始数据。发送前会自动去掉密钥、令牌、银行卡号等凭据。
         数据按该服务的数据政策处理。云端调用失败时不会改用其他模型，当天会在下次重试。
         """

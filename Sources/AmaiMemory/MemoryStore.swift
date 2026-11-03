@@ -10,7 +10,14 @@ public actor MemoryStore {
     private let timeZone: TimeZone
     private let log = AmaiLog.logger("memory.store")
 
-    public enum WriteError: Error, Equatable {
+    public enum WriteError: Error, Equatable, CustomStringConvertible {
+        public var description: String {
+            switch self {
+            case .unreadableExisting(let f): "无法读取已有文件 \(f)，为避免覆盖已停止写入"
+            case .malformedBlock(let f): "\(f) 中的系统区块标记不完整，为避免误删内容已停止写入"
+            }
+        }
+
         case unreadableExisting(String)
         case malformedBlock(String)
     }

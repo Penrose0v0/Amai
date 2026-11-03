@@ -45,7 +45,7 @@ private struct GeneralSettingsView: View {
                     LabeledContent("上次更新", value: updated.formatted(date: .abbreviated, time: .shortened))
                 }
                 LabeledContent("整理方式", value: model.consolidationModelLabel)
-                Button("打开记忆") { model.openMemoryFolder() }
+                Button("打开记忆文件夹") { model.openMemoryFolder() }
             }
         }
         .formStyle(.grouped)
@@ -73,14 +73,14 @@ private struct AdvancedSettingsView: View {
                 Button("立即处理积压的屏幕活动") { model.runExtractionNow() }
                 Button("立即同步记忆") { model.syncMemoryNow() }
                 Button("整理今天（日终摘要与各分区）") { model.consolidateToday() }
-                Button("更新综合档案（General）") { model.updateGeneralNow() }
+                Button("更新综合档案") { model.updateGeneralNow() }
                 if model.consolidationModel.mode == .chatgptPlan {
                     Button("Manage usage") { model.openChatGPTUsage() }
                 }
             } header: {
                 Text("手动维护")
             } footer: {
-                Text("这些操作平时会自动进行：屏幕活动每分钟处理一次，记忆每分钟同步一次，日终摘要在凌晨 4 点后生成，summary 每周更新。")
+                Text("这些操作平时会自动进行：屏幕活动每分钟处理一次，记忆每分钟同步一次，日终摘要与各分区记忆在凌晨 4 点后整理，综合档案每周更新。")
             }
 
             Section("权限") {
