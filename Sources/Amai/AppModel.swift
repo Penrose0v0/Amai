@@ -339,7 +339,7 @@ final class AppModel {
 
     // MARK: - Memory browser
 
-    /// 记忆窗口的界面状态（当前分区、搜索等），窗口关闭再打开时保留。
+    /// 主窗口的界面状态（当前页面、日期、搜索等）。从菜单打开主窗口时重置为「综合」。
     let memoryBrowser = MemoryBrowserController()
 
     /// 记忆窗口使用的只读接口（与今后的外部 Agent 接入共用）。
@@ -618,7 +618,7 @@ final class AppModel {
                 ))
             case .error:
                 let detail = status.screen.lastError.map { "（\($0)）" } ?? ""
-                list.append(AppIssue(id: "capture", message: "截图连续失败\(detail)，稍后会自动重试", action: .openInspector))
+                list.append(AppIssue(id: "capture", message: "截图连续失败\(detail)，稍后会自动重试", action: .openStatus))
             default:
                 break
             }
@@ -630,7 +630,7 @@ final class AppModel {
             case .modelUnavailable:
                 list.append(AppIssue(id: "model", message: e.lastError ?? "本地模型不可用", action: .openSettings))
             case .retrying:
-                list.append(AppIssue(id: "extraction", message: "处理屏幕活动时出错，稍后会自动重试", action: .openInspector))
+                list.append(AppIssue(id: "extraction", message: "处理屏幕活动时出错，稍后会自动重试", action: .openStatus))
             default:
                 break
             }
@@ -639,7 +639,7 @@ final class AppModel {
             list.append(AppIssue(id: "migration", message: migrationError, action: nil))
         }
         if let err = memoryStatus?.lastError {
-            list.append(AppIssue(id: "memory", message: err, action: .openInspector))
+            list.append(AppIssue(id: "memory", message: err, action: .openStatus))
         }
         if let err = consolidationStatus?.lastError {
             list.append(AppIssue(id: "consolidation", message: err, action: .openSettings))
@@ -681,7 +681,7 @@ struct AppIssue: Identifiable, Equatable {
     enum Action: Equatable {
         case grantScreenRecording
         case openSettings
-        case openInspector
+        case openStatus
         case revealConfig
         case relaunch
 
@@ -689,7 +689,7 @@ struct AppIssue: Identifiable, Equatable {
             switch self {
             case .grantScreenRecording: "打开屏幕录制设置…"
             case .openSettings: "打开设置…"
-            case .openInspector: "查看详情…"
+            case .openStatus: "查看运行状态…"
             case .revealConfig: "显示配置文件"
             case .relaunch: "重新启动 Amai"
             }

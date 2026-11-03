@@ -3,57 +3,88 @@ import AmaiExtraction
 import AmaiMemory
 import SwiftUI
 
-/// 活动检查器：两个标签页——活动记录（片段、观察、关键帧、片段检索、删除）与运行状态（详细指标）。
-struct InspectorView: View {
+/// 主窗口「时间线」页：按日期展示活动片段（Dayflow 风格的纵向时间线）。
+/// 每段显示时间、分类、标题、摘要与第一张关键帧；点击后在右侧查看全部关键帧、观察，并可删除。
+/// 只读取抽取层已有的片段与关键帧，不改变处理流程。
+struct ActivityTimelineView: View {
     let model: AppModel
+    let day: Date
 
-    var body: some View {
-        TabView {
-            ActivityBrowserView(model: model)
-                .tabItem { Label("活动", systemImage: "clock") }
-            RuntimeStatusView(model: model)
-                .tabItem { Label("运行状态", systemImage: "gauge.with.dots.needle.33percent") }
-        }
-        .frame(minWidth: 880, minHeight: 540)
-    }
-}
-
-/// 按天查看活动片段、关联观察与关键帧；检索片段；删除片段或时间段。
-/// 长期记忆的浏览与检索在独立的记忆窗口（MemoryBrowserView）。
-struct ActivityBrowserView: View {
-    let model: AppModel
-
-    @State private var day = Date()
-    @State private var query = ""
     @State private var segments: [ActivitySegment] = []
     @State private var selection: ActivitySegment.ID?
-    @State private var searching = false
+    @State private var showIdle = false
     @State private var showErase = false
+    @State private var loaded = false
+
+    private var visible: [ActivitySegment] {
+        showIdle ? segments : segments.filter { $0.category != .idle && !$0.provider.hasPrefix("rule:") }
+    }
 
     var body: some View {
-        NavigationSplitView {
-            VStack(spacing: 0) {
-                controls
-                Divider()
-                segmentList
+        VStack(spacing: 0) {
+            if visible.isEmpty {
+                if loaded {
+                    ContentUnavailableView {
+                        Label("这一天没有活动记录", systemImage: "clock")
+                    } description: {
+                        Text(model.isMemoryPreview ? "预览模式没有活动数据。" : "Amai 记录屏幕活动后，会在这里按时间显示。")
+                    }
+                } else {
+                    ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+            } else {
+                ScrollViewReader { proxy in
+                    List(selection: $selection) {
+                        ForEach(visible) { segment in
+                            TimelineRow(model: model, segment: segment)
+                                .tag(segment.id)
+                                .id(segment.id)
+                                .listRowSeparator(.hidden)
+                        }
+                    }
+                    .listStyle(.inset)
+                    .onAppear {
+                        // 今天默认滚到最新的活动。
+                        if Calendar.current.isDateInToday(day), let last = visible.last { proxy.scrollTo(last.id, anchor: .bottom) }
+                    }
+                }
             }
-            .navigationSplitViewColumnWidth(min: 340, ideal: 400)
-        } detail: {
+            Divider()
+            HStack {
+                ExtractionStatusLine(model: model)
+                Spacer()
+                Toggle("显示空闲与跳过", isOn: $showIdle)
+                    .toggleStyle(.checkbox)
+                    .font(.caption)
+                Button("删除时间段…") { showErase = true }
+                    .controlSize(.small)
+                    .disabled(model.isMemoryPreview)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+        }
+        .inspector(isPresented: Binding(get: { selection != nil }, set: { if !$0 { selection = nil } })) {
             if let segment = segments.first(where: { $0.id == selection }) {
                 SegmentDetail(model: model, segment: segment) {
+                    selection = nil
                     Task { await reload() }
                 }
                 .id(segment.id)
-            } else {
-                ContentUnavailableView("选择一个活动片段", systemImage: "sidebar.left")
+                .inspectorColumnWidth(min: 360, ideal: 440, max: 640)
             }
         }
-        .task(id: day) { await reload() }
-        .task {
-            // 抽取在后台持续进行，定期刷新列表。
+        .task(id: day) {
+            loaded = false
+            selection = nil
+            await reload()
+            loaded = true
+        }
+        .task(id: day) {
+            // 抽取在后台持续进行：看今天时定期刷新。
+            guard Calendar.current.isDateInToday(day) else { return }
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(30))
-                if !searching { await reload() }
+                await reload()
             }
         }
         .sheet(isPresented: $showErase) {
@@ -61,47 +92,91 @@ struct ActivityBrowserView: View {
                 Task { await reload() }
             }
         }
-        .frame(minWidth: 880, minHeight: 540)
-    }
-
-    private var segmentList: some View {
-        List(segments, selection: $selection) { segment in
-            SegmentRow(segment: segment, showDate: searching)
-                .tag(segment.id)
-        }
-        .overlay {
-            if segments.isEmpty {
-                ContentUnavailableView(
-                    searching ? "没有匹配的片段" : "这一天还没有活动片段",
-                    systemImage: searching ? "magnifyingglass" : "clock"
-                )
-            }
-        }
-    }
-
-    private var controls: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                DatePicker("", selection: $day, displayedComponents: .date)
-                    .labelsHidden()
-                Spacer()
-                Button("删除时间段…") { showErase = true }
-                Button("立即处理") { model.runExtractionNow() }
-            }
-            TextField("检索最近 7 天的活动片段（标题、摘要、屏幕文字）", text: $query)
-                .textFieldStyle(.roundedBorder)
-                .onSubmit { Task { await reload() } }
-            ExtractionStatusLine(model: model)
-        }
-        .padding(10)
     }
 
     private func reload() async {
-        let q = query.trimmingCharacters(in: .whitespaces)
-        searching = !q.isEmpty
-        segments = searching ? await model.search(q, endingOn: day) : await model.segments(on: day)
-        if let selection, !segments.contains(where: { $0.id == selection }) {
-            self.selection = nil
+        segments = await model.segments(on: day).sorted { $0.timeRange.start < $1.timeRange.start }
+    }
+}
+
+/// 时间线中的一段活动：左侧时间，色条表示分类，右侧第一张关键帧。
+private struct TimelineRow: View {
+    let model: AppModel
+    let segment: ActivitySegment
+    @State private var thumbnail: NSImage?
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(segment.timeRange.start.formatted(date: .omitted, time: .shortened))
+                    .font(.callout.monospacedDigit().weight(.medium))
+                Text(segment.timeRange.end.formatted(date: .omitted, time: .shortened))
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+            }
+            .frame(width: 52, alignment: .trailing)
+
+            RoundedRectangle(cornerRadius: 2)
+                .fill(segment.category.color)
+                .frame(width: 4)
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    Text(segment.title).font(.headline).lineLimit(2)
+                    if segment.provider.hasPrefix("fallback") || segment.confidence < 0.5 {
+                        Image(systemName: "exclamationmark.circle")
+                            .foregroundStyle(.orange)
+                            .help("低置信度，内容可能不准确")
+                    }
+                }
+                if !segment.summary.isEmpty {
+                    Text(segment.summary)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(3)
+                }
+                HStack(spacing: 6) {
+                    CategoryBadge(category: segment.category)
+                    Text(duration).font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Group {
+                if let thumbnail {
+                    Image(nsImage: thumbnail).resizable().scaledToFill()
+                } else {
+                    Rectangle().fill(.quaternary.opacity(0.5))
+                        .overlay(Image(systemName: segment.evidence.isEmpty ? "photo.badge.exclamationmark" : "photo").foregroundStyle(.tertiary))
+                }
+            }
+            .frame(width: 136, height: 78)
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+        }
+        .padding(.vertical, 6)
+        .contentShape(Rectangle())
+        .task(id: segment.evidence.first) {
+            guard let first = segment.evidence.first else { return }
+            thumbnail = await model.thumbnail(for: first, maxHeight: 180)
+        }
+    }
+
+    private var duration: String {
+        let minutes = Int((segment.timeRange.duration / 60).rounded())
+        return minutes >= 60 ? "\(minutes / 60) 小时 \(minutes % 60) 分" : "\(minutes) 分钟"
+    }
+}
+
+extension ActivityCategory {
+    var color: Color {
+        switch self {
+        case .work: .blue
+        case .research: .purple
+        case .communication: .green
+        case .reading: .orange
+        case .entertainment: .pink
+        case .idle: .gray
+        case .other: .teal
         }
     }
 }
@@ -187,40 +262,6 @@ struct ExtractionStatusLine: View {
         case .retrying: "处理失败，将重试"
         case .disabled: "抽取已关闭"
         }
-    }
-}
-
-private struct SegmentRow: View {
-    let segment: ActivitySegment
-    let showDate: Bool
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            HStack(spacing: 6) {
-                Text(timeText)
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
-                CategoryBadge(category: segment.category)
-                if segment.provider.hasPrefix("fallback") || segment.confidence < 0.5 {
-                    Image(systemName: "exclamationmark.circle")
-                        .foregroundStyle(.orange)
-                        .help("低置信度：\(segment.provider)")
-                }
-            }
-            Text(segment.title).font(.body)
-            if !segment.summary.isEmpty {
-                Text(segment.summary)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-            }
-        }
-        .padding(.vertical, 2)
-    }
-
-    private var timeText: String {
-        let range = "\(segment.timeRange.start.formatted(date: .omitted, time: .shortened))–\(segment.timeRange.end.formatted(date: .omitted, time: .shortened))"
-        return showDate ? "\(segment.timeRange.start.formatted(date: .abbreviated, time: .omitted)) \(range)" : range
     }
 }
 

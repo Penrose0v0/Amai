@@ -4,25 +4,24 @@ import AmaiMemory
 import Observation
 import SwiftUI
 
-/// 记忆窗口：浏览 Amai 整理的长期记忆（docs/memory.md §3.5）。
+/// Amai 主窗口：日常回顾（时间线、每日总结）与长期记忆（五个分区）。
 ///
-/// - 左侧五个分区，右侧渲染对应的 Markdown：用户手写的内容原样渲染，系统区块按小节列出条目，
-///   每条带依据类型与来源日期（点开可看当天摘要、打开当天记录）；
-/// - 搜索覆盖五个分区与每日记录；
-/// - 文件在外部被修改时自动刷新（窗口打开期间每 2 秒检查一次修改时间）。
+/// - 长期记忆：渲染对应 Markdown。用户手写的内容原样渲染，系统区块按小节列出条目，
+///   每条带依据类型与来源日期（点开可看当天摘要、跳到当天时间线）；
+/// - 每日总结：当天 daily 文件中的日终摘要与手写笔记；
+/// - 时间线由 App 注入（需要抽取层的活动片段与关键帧），这个模块不依赖抽取层；
+/// - 搜索覆盖五个分区与每日记录；文件在外部被修改时自动刷新。
 ///
-/// 只读：不在这里修改记忆。与活动检查器（时间线、片段）相互独立。
-public struct MemoryBrowserView: View {
+/// 只读：不在这里修改记忆。
+public struct MemoryBrowserView<Timeline: View>: View {
     let env: MemoryBrowserEnvironment
     @Bindable var controller: MemoryBrowserController
+    let timeline: (Date) -> Timeline
 
-    public init(env: MemoryBrowserEnvironment, controller: MemoryBrowserController) {
+    public init(env: MemoryBrowserEnvironment, controller: MemoryBrowserController, @ViewBuilder timeline: @escaping (Date) -> Timeline) {
         self.env = env
         self.controller = controller
-    }
-
-    public init(env: MemoryBrowserEnvironment, initial: MemoryCategory = .general) {
-        self.init(env: env, controller: MemoryBrowserController(selection: initial))
+        self.timeline = timeline
     }
 
     @State private var document: MemoryDocument?
@@ -30,48 +29,66 @@ public struct MemoryBrowserView: View {
 
     public var body: some View {
         NavigationSplitView {
-            List(MemoryCategory.documents, id: \.self, selection: $controller.selection) { category in
-                Label(category.localizedName, systemImage: category.symbol)
+            List(selection: $controller.selection) {
+                Section("日常回顾") {
+                    Label("时间线", systemImage: "clock").tag(BrowserPage.timeline)
+                    Label("每日总结", systemImage: "doc.text").tag(BrowserPage.dailySummary)
+                }
+                Section("长期记忆") {
+                    ForEach(MemoryCategory.documents, id: \.self) { category in
+                        Label(category.localizedName, systemImage: category.symbol).tag(BrowserPage.category(category))
+                    }
+                }
             }
-            .navigationSplitViewColumnWidth(min: 150, ideal: 170, max: 220)
+            .navigationSplitViewColumnWidth(min: 160, ideal: 180, max: 240)
         } detail: {
             Group {
                 if let hits = controller.hits {
-                    SearchResultsView(env: env, query: controller.query, hits: hits) { category in
-                        controller.clearSearch()
-                        controller.selection = category
-                    }
-                } else if let category = controller.selection {
-                    if let document {
-                        MemoryDocumentView(env: env, document: document)
-                    } else {
-                        ContentUnavailableView {
-                            Label("还没有\(category.localizedName)记忆", systemImage: category.symbol)
-                        } description: {
-                            Text("Amai 会在整理每日记录后自动写入。你也可以自己创建 \(category.file ?? "") 并在里面书写。")
-                        }
-                    }
+                    SearchResultsView(env: env, query: controller.query, hits: hits)
                 } else {
-                    ContentUnavailableView("选择一个分区", systemImage: "sidebar.left")
+                    switch controller.selection {
+                    case .timeline:
+                        timeline(controller.day)
+                    case .dailySummary:
+                        DailySummaryView(env: env, day: controller.day)
+                    case .category(let category):
+                        if let document {
+                            MemoryDocumentView(env: env, document: document)
+                        } else {
+                            ContentUnavailableView {
+                                Label("还没有\(category.localizedName)记忆", systemImage: category.symbol)
+                            } description: {
+                                Text("Amai 会在整理每日记录后自动写入。你也可以自己创建 \(category.file ?? "") 并在里面书写。")
+                            }
+                        }
+                    case nil:
+                        ContentUnavailableView("在左侧选择要查看的内容", systemImage: "sidebar.left")
+                    }
                 }
             }
-            .navigationTitle(controller.hits != nil ? "搜索结果" : (controller.selection?.localizedName ?? "记忆"))
+            .navigationTitle(title)
+            .navigationSubtitle(subtitle)
         }
         .searchable(text: $controller.query, placement: .toolbar, prompt: "搜索记忆")
         .onSubmit(of: .search) { Task { await controller.search(env) } }
         .onChange(of: controller.query) { if controller.query.isEmpty { controller.hits = nil } }
         .toolbar {
+            if controller.hits == nil, controller.selection?.isDaily == true {
+                ToolbarItemGroup(placement: .navigation) {
+                    DayNavigator(day: $controller.day)
+                }
+            }
             ToolbarItemGroup {
                 Button {
-                    if let url = document?.url { env.openFile(url) }
+                    if let url = currentFile { env.openFile(url) }
                 } label: {
                     Label("在编辑器中打开", systemImage: "square.and.pencil")
                 }
                 .help("用默认的 Markdown 编辑器打开这个文件")
-                .disabled(document == nil || controller.hits != nil)
+                .disabled(currentFile == nil || controller.hits != nil)
 
                 Button {
-                    env.reveal(document?.url)
+                    env.reveal(currentFile)
                 } label: {
                     Label("在访达中显示", systemImage: "folder")
                 }
@@ -84,14 +101,38 @@ public struct MemoryBrowserView: View {
             // 用户可能在编辑器里修改文件；只比较修改时间，开销很小。
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(2))
-                if let category = controller.selection, modifiedAt(category) != loadedAt { reload() }
+                if case .category(let category) = controller.selection, modifiedAt(category) != loadedAt { reload() }
             }
         }
-        .frame(minWidth: 760, minHeight: 500)
+        .frame(minWidth: 820, minHeight: 520)
+    }
+
+    private var title: String {
+        if controller.hits != nil { return "搜索结果" }
+        switch controller.selection {
+        case .timeline: return "时间线"
+        case .dailySummary: return "每日总结"
+        case .category(let c): return c.localizedName
+        case nil: return "Amai"
+        }
+    }
+
+    private var subtitle: String {
+        guard controller.hits == nil, controller.selection?.isDaily == true else { return "" }
+        return controller.day.formatted(.dateTime.year().month().day().weekday(.wide))
+    }
+
+    /// 工具栏"在编辑器中打开"对应的文件：分区文件，或每日总结所在的 daily 文件。
+    private var currentFile: URL? {
+        switch controller.selection {
+        case .category: document?.url
+        case .dailySummary: env.library.daily(on: controller.day)?.url
+        default: nil
+        }
     }
 
     private func reload() {
-        guard let category = controller.selection else { document = nil; return }
+        guard case .category(let category) = controller.selection else { document = nil; return }
         document = env.library.document(category)
         loadedAt = document?.modifiedAt
     }
@@ -102,11 +143,37 @@ public struct MemoryBrowserView: View {
     }
 }
 
-/// 记忆窗口的界面状态。由 App 持有，可以从外部切换分区、发起搜索（例如今后从通知直接打开某个分区）。
+extension MemoryBrowserView where Timeline == NoTimelineView {
+    /// 没有活动数据时（测试、预览）：时间线显示空状态。
+    public init(env: MemoryBrowserEnvironment, initial: MemoryCategory = .general) {
+        self.init(env: env, controller: MemoryBrowserController(selection: .category(initial))) { _ in NoTimelineView() }
+    }
+}
+
+/// 没有活动数据时的时间线占位。
+public struct NoTimelineView: View {
+    public init() {}
+    public var body: some View {
+        ContentUnavailableView("没有活动数据", systemImage: "clock", description: Text("这里只能浏览记忆文件。"))
+    }
+}
+
+/// 主窗口左侧的页面。
+public enum BrowserPage: Hashable, Sendable {
+    case timeline
+    case dailySummary
+    case category(MemoryCategory)
+
+    var isDaily: Bool { self == .timeline || self == .dailySummary }
+}
+
+/// 主窗口的界面状态。由 App 持有，可以从外部切换页面、日期或发起搜索。
 @MainActor
 @Observable
 public final class MemoryBrowserController {
-    public var selection: MemoryCategory?
+    public var selection: BrowserPage?
+    /// 时间线与每日总结显示的日期（当天 00:00）。
+    public var day: Date
     public var query = ""
     /// 非 nil 时右侧显示搜索结果。
     public var hits: [MemoryHit]?
@@ -114,8 +181,9 @@ public final class MemoryBrowserController {
     public var presentedSource: String?
     public var historyExpanded = false
 
-    public init(selection: MemoryCategory? = .general) {
+    public init(selection: BrowserPage? = .category(.general), day: Date = Date()) {
         self.selection = selection
+        self.day = Calendar.current.startOfDay(for: day)
     }
 
     public func search(_ env: MemoryBrowserEnvironment) async {
@@ -129,7 +197,113 @@ public final class MemoryBrowserController {
         hits = nil
     }
 
+    /// 跳到某天（YYYY-MM-DD）的时间线或每日总结。
+    public func show(_ page: BrowserPage, dayName: String) {
+        if let d = MemoryDirectory.day(ofDailyFile: "\(MemoryDirectory.dailyDirectory)/\(dayName).md", timeZone: .current) {
+            day = d
+        }
+        presentedSource = nil
+        clearSearch()
+        selection = page
+    }
+
+    /// 回到默认页面：综合（从菜单打开主窗口时调用）；时间线与每日总结的日期回到今天。
+    public func showDefault() {
+        clearSearch()
+        presentedSource = nil
+        day = Calendar.current.startOfDay(for: Date())
+        selection = .category(.general)
+    }
+
     static func sourceKey(_ item: MemoryItem, _ day: String) -> String { "\(item.text)|\(day)" }
+}
+
+/// 日期切换：前一天、日期选择、后一天、今天。
+struct DayNavigator: View {
+    @Binding var day: Date
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Button { shift(-1) } label: { Image(systemName: "chevron.left") }
+                .help("前一天")
+            DatePicker("", selection: Binding(get: { day }, set: { day = Calendar.current.startOfDay(for: $0) }), displayedComponents: .date)
+                .labelsHidden()
+                .datePickerStyle(.compact)
+            Button { shift(1) } label: { Image(systemName: "chevron.right") }
+                .help("后一天")
+                .disabled(Calendar.current.isDateInToday(day))
+            Button("今天") { day = Calendar.current.startOfDay(for: Date()) }
+                .disabled(Calendar.current.isDateInToday(day))
+        }
+    }
+
+    private func shift(_ days: Int) {
+        if let d = Calendar.current.date(byAdding: .day, value: days, to: day) { day = d }
+    }
+}
+
+// MARK: - Daily summary
+
+/// 每日总结：当天 daily 文件中的日终摘要与用户手写的笔记（时间线在"时间线"页查看）。
+struct DailySummaryView: View {
+    let env: MemoryBrowserEnvironment
+    let day: Date
+    @Environment(MemoryBrowserController.self) private var controller: MemoryBrowserController?
+
+    var body: some View {
+        let daily = env.library.daily(on: day)
+        let digest = daily.flatMap { Consolidator.digestBlock.content(in: $0.markdown) }.flatMap { $0.isEmpty ? nil : $0 }
+        let notes = daily.map { Self.notes($0.userMarkdown) } ?? ""
+        if digest == nil && notes.isEmpty {
+            ContentUnavailableView {
+                Label("这一天还没有每日总结", systemImage: "doc.text")
+            } description: {
+                Text(Calendar.current.isDateInToday(day)
+                     ? "Amai 会在第二天凌晨 4 点后整理今天的记录。"
+                     : "这一天没有活动记录，或者还没有整理。")
+            } actions: {
+                Button("查看时间线") { controller?.selection = .timeline }
+            }
+        } else {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    if let digest {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Label("Amai 的总结", systemImage: "sparkles")
+                                .font(.headline)
+                                .foregroundStyle(.secondary)
+                            MarkdownView(digest)
+                        }
+                        .padding(16)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 10))
+                    }
+                    if !notes.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("我的笔记").font(.headline)
+                            MarkdownView(notes)
+                        }
+                    }
+                    Button("查看当天时间线") { controller?.selection = .timeline }
+                }
+                .padding(24)
+                .frame(maxWidth: 760, alignment: .leading)
+                .frame(maxWidth: .infinity)
+            }
+        }
+    }
+
+    /// daily 文件中用户手写的部分：去掉一级标题与系统生成的小节标题。
+    static func notes(_ userMarkdown: String) -> String {
+        let generated: Set<String> = ["## 摘要", TimelineBlock.heading]
+        return userMarkdown.components(separatedBy: "\n")
+            .filter { line in
+                let t = line.trimmingCharacters(in: .whitespaces)
+                return !t.hasPrefix("# ") && !generated.contains(t)
+            }
+            .joined(separator: "\n")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
 }
 
 /// 记忆窗口与 App 之间的接口：只读的记忆库，以及检索、打开文件、在访达中显示三个操作。
@@ -304,7 +478,7 @@ private struct MemoryItemRow: View {
     }
 }
 
-/// 来源日期：点开显示当天的日终摘要，可打开当天的记录文件。
+/// 来源日期：点开显示当天的日终摘要，可跳到当天时间线或打开当天的记录文件。
 private struct SourceButton: View {
     let env: MemoryBrowserEnvironment
     let key: String
@@ -339,6 +513,7 @@ private struct SourceButton: View {
 private struct SourcePopover: View {
     let env: MemoryBrowserEnvironment
     let day: String
+    @Environment(MemoryBrowserController.self) private var controller: MemoryBrowserController?
 
     var body: some View {
         let date = MemoryDirectory.day(ofDailyFile: "\(MemoryDirectory.dailyDirectory)/\(day).md", timeZone: .current)
@@ -352,9 +527,13 @@ private struct SourcePopover: View {
                 } else {
                     Text("这一天还没有日终摘要。").foregroundStyle(.secondary)
                 }
-                Button("打开当天的记录") { env.openFile(daily.url) }
+                HStack {
+                    Button("查看当天时间线") { controller?.show(.timeline, dayName: day) }
+                    Button("打开当天的记录") { env.openFile(daily.url) }
+                }
             } else {
                 Text("这一天的记录文件已不存在。").foregroundStyle(.secondary)
+                Button("查看当天时间线") { controller?.show(.timeline, dayName: day) }
             }
         }
         .padding(14)
@@ -368,7 +547,7 @@ struct SearchResultsView: View {
     let env: MemoryBrowserEnvironment
     let query: String
     let hits: [MemoryHit]
-    let open: (MemoryCategory) -> Void
+    @Environment(MemoryBrowserController.self) private var controller: MemoryBrowserController?
 
     var body: some View {
         if hits.isEmpty {
@@ -441,10 +620,16 @@ struct SearchResultsView: View {
     }
 
     /// 分区命中：切换到该分区；每日记录或其他文件：用编辑器打开。
+    /// 分区命中：切换到该分区；每日记录：跳到当天的时间线（命中时间线）或每日总结；其他文件：用编辑器打开。
     private func select(_ hit: MemoryHit) {
-        if let c = hit.category, c != .daily {
-            open(c)
-        } else {
+        switch hit.category {
+        case .daily:
+            let name = String(hit.file.dropFirst(MemoryDirectory.dailyDirectory.count + 1).dropLast(3))
+            controller?.show(hit.heading == "时间线" ? .timeline : .dailySummary, dayName: name)
+        case let c?:
+            controller?.clearSearch()
+            controller?.selection = .category(c)
+        case nil:
             env.openFile(env.library.root.appendingPathComponent(hit.file))
         }
     }

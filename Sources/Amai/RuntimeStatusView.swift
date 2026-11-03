@@ -4,7 +4,7 @@ import AmaiMemory
 import AmaiPerception
 import SwiftUI
 
-/// 活动检查器中的"运行状态"：采集、抽取、记忆、整理的详细指标。菜单里不再显示这些数字。
+/// 设置中的"运行状态"：采集、抽取、记忆、整理的详细指标。菜单里只显示简要状态。
 struct RuntimeStatusView: View {
     let model: AppModel
 

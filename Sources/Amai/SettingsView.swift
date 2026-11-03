@@ -2,18 +2,32 @@ import AmaiCore
 import AmaiPerception
 import SwiftUI
 
-/// 原生"设置"窗口（⌘,）：通用、记忆整理模型、高级。
+/// 设置窗口的标签页。菜单中的"查看运行状态…"会直接打开运行状态页。
+enum SettingsTab: String {
+    case general, model, status, advanced
+    static let storageKey = "settings.tab"
+}
+
+/// 原生"设置"窗口（⌘,）：通用、记忆整理模型、运行状态、高级。
 struct SettingsView: View {
     let model: AppModel
+    @AppStorage(SettingsTab.storageKey) private var tab = SettingsTab.general.rawValue
 
     var body: some View {
-        TabView {
+        TabView(selection: $tab) {
             GeneralSettingsView(model: model)
                 .tabItem { Label("通用", systemImage: "gearshape") }
+                .tag(SettingsTab.general.rawValue)
             ModelSettingsView(model: model)
                 .tabItem { Label("记忆整理", systemImage: "brain") }
+                .tag(SettingsTab.model.rawValue)
+            RuntimeStatusView(model: model)
+                .frame(minHeight: 480)
+                .tabItem { Label("运行状态", systemImage: "gauge.with.dots.needle.33percent") }
+                .tag(SettingsTab.status.rawValue)
             AdvancedSettingsView(model: model)
                 .tabItem { Label("高级", systemImage: "wrench.and.screwdriver") }
+                .tag(SettingsTab.advanced.rawValue)
         }
         .frame(width: 580)
     }

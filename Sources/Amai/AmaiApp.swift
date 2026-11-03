@@ -6,8 +6,9 @@ import SwiftUI
 
 /// 菜单栏应用入口（docs/architecture.md §2.4）。
 ///
-/// 菜单面向普通用户，只保留：状态与上次记忆更新时间、暂停 / 继续、打开记忆（记忆窗口）、立即同步、
-/// 活动检查器、设置、退出。详细指标在活动检查器的"运行状态"里，维护操作在设置的"高级"里。
+/// 主界面是统一窗口：日常回顾（时间线、每日总结）与长期记忆（五个分区）。
+/// 菜单面向普通用户，只保留：状态与上次记忆更新时间、暂停 / 继续、打开 Amai（主窗口）、立即同步、
+/// 设置、退出。详细指标在"设置 → 运行状态"里，维护操作在设置的"高级"里。
 /// 正常运行时只显示一行状态；出现异常时才列出具体问题和建议操作。
 @main
 struct AmaiApp: App {
@@ -20,16 +21,14 @@ struct AmaiApp: App {
             Image(systemName: Self.symbol(for: model))
         }
 
-        Window("记忆", id: "memory") {
-            MemoryBrowserView(env: model.memoryBrowserEnvironment, controller: model.memoryBrowser)
+        Window("Amai", id: "main") {
+            MemoryBrowserView(env: model.memoryBrowserEnvironment, controller: model.memoryBrowser) { day in
+                ActivityTimelineView(model: model, day: day)
+            }
         }
-        .defaultSize(width: 960, height: 640)
-        // 隔离预览模式（--memory-preview）启动后直接打开记忆窗口。
+        .defaultSize(width: 1100, height: 720)
+        // 隔离预览模式（--memory-preview）启动后直接打开主窗口。
         .defaultLaunchBehavior(model.isMemoryPreview ? .presented : .automatic)
-
-        Window("活动检查器", id: "inspector") {
-            InspectorView(model: model)
-        }
 
         Settings {
             // 预览模式不显示真实设置：模型设置页会读写钥匙串中的 API Key。
@@ -63,7 +62,7 @@ private struct MenuContent: View {
         if model.isMemoryPreview {
             Text("Amai 记忆预览（只读示例数据）")
             Divider()
-            Button("打开记忆") { showMemory() }
+            Button("打开 Amai") { showMain() }
             Divider()
             Button("退出预览") { model.quit() }
                 .keyboardShortcut("q")
@@ -94,11 +93,10 @@ private struct MenuContent: View {
         recordingControl
 
         Divider()
-        Button("打开记忆") { showMemory() }
+        Button("打开 Amai") { showMain() }
         Button("立即同步") { model.syncNow() }
 
         Divider()
-        Button("活动检查器…") { showInspector() }
         Button("设置…") { showSettings() }
             .keyboardShortcut(",")
 
@@ -137,24 +135,21 @@ private struct MenuContent: View {
         switch action {
         case .grantScreenRecording: model.requestScreenRecording()
         case .openSettings: showSettings()
-        case .openInspector: showInspector()
+        case .openStatus: showSettings(tab: .status)
         case .revealConfig: model.revealConfig()
         case .relaunch: model.relaunch()
         }
     }
 
-    /// 记忆窗口；打开记忆文件夹的入口在窗口工具栏与设置里。
-    private func showMemory() {
-        openWindow(id: "memory")
+    /// 主窗口，每次从菜单打开都回到「综合」；打开记忆文件夹的入口在窗口工具栏与设置里。
+    private func showMain() {
+        model.memoryBrowser.showDefault()
+        openWindow(id: "main")
         NSApp.activate(ignoringOtherApps: true)
     }
 
-    private func showInspector() {
-        openWindow(id: "inspector")
-        NSApp.activate(ignoringOtherApps: true)
-    }
-
-    private func showSettings() {
+    private func showSettings(tab: SettingsTab? = nil) {
+        if let tab { UserDefaults.standard.set(tab.rawValue, forKey: SettingsTab.storageKey) }
         openSettings()
         NSApp.activate(ignoringOtherApps: true)
     }

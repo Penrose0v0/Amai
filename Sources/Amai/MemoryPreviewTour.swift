@@ -14,7 +14,7 @@ enum MemoryPreviewTour {
         let browser = model.memoryBrowser
 
         func window() -> NSWindow? {
-            NSApp.windows.first { $0.identifier?.rawValue.contains("memory") == true && $0.isVisible }
+            NSApp.windows.first { $0.identifier?.rawValue.contains("main") == true && $0.isVisible }
         }
         func shot(_ name: String) async {
             try? await Task.sleep(for: .milliseconds(900))
@@ -36,17 +36,19 @@ enum MemoryPreviewTour {
         NSApp.activate(ignoringOtherApps: true)
         window()?.makeKeyAndOrderFront(nil)
         resize(1080, 720)
+        log.append("初始页面：\(String(describing: browser.selection))")
+        await shot("00-initial")
 
         for (i, c) in MemoryCategory.documents.enumerated() {
-            browser.selection = c
+            browser.selection = .category(c)
             await shot("0\(i + 1)-\(c.rawValue)")
         }
 
-        browser.selection = .general
+        browser.selection = .category(.general)
         browser.historyExpanded = true
         await shot("06-general-history")
         browser.historyExpanded = false
-        browser.selection = .work
+        browser.selection = .category(.work)
 
         if let first = model.memoryLibrary.document(.work)?.systemItems.first, let day = first.sources.first {
             browser.presentedSource = "\(first.text)|\(day)"
@@ -59,7 +61,7 @@ enum MemoryPreviewTour {
         await shot("08-search")
         browser.clearSearch()
 
-        browser.selection = .general
+        browser.selection = .category(.general)
         resize(760, 500)
         await shot("09-min-size")
         resize(1500, 950)
@@ -67,7 +69,7 @@ enum MemoryPreviewTour {
         resize(1080, 720)
 
         // 外部修改：在编辑器里给 health.md 加一行，窗口应在几秒内自动刷新。
-        browser.selection = .health
+        browser.selection = .category(.health)
         try? await Task.sleep(for: .seconds(1))
         let health = model.memoryRoot.appendingPathComponent("health.md")
         if var text = try? String(contentsOf: health, encoding: .utf8) {
