@@ -1,4 +1,7 @@
+import AmaiCloud
+import AmaiCore
 import AmaiMemory
+import AmaiMemoryEval
 import Foundation
 
 // 开发用记忆检索命令行（docs/roadmap.md M3）。只读 Markdown 与派生索引，不触碰采集与抽取数据。
@@ -7,6 +10,8 @@ import Foundation
 //   amai-memory reindex                     增量刷新索引
 //   amai-memory rebuild                     清空后全量重建
 //   amai-memory migrate [--status|--rollback]  Schema v1 迁移、查看迁移记录、回滚（ADR-0006）
+//   amai-memory eval <场景.json> --claude <claude 路径> [--model opus] [--output 目录]
+//                                           用 Claude 订阅（本机 Claude Code）跑记忆整理评测；只用合成数据与临时目录
 //
 // 选项：--memory <目录>（默认 ~/.amai/memory）  --index <sqlite>（默认 App 使用的索引）
 
@@ -40,6 +45,46 @@ let limit = option("--limit").flatMap(Int.init) ?? 10
 guard let command = args.first else {
     print(usage)
     exit(1)
+}
+
+/// Claude Code 客户端适配为记忆层的模型接口（与 App 中的 CloudLanguageModel 相同，先脱敏再发送）。
+struct EvalCloudModel: MemoryLanguageModel {
+    let client: ClaudeCodeClient
+    var identifier: String { client.identifier }
+
+    func complete(system: String, user: String, maxTokens: Int, schema: OutputSchema?) async throws -> String {
+        try await client.generate(CloudRequest(
+            system: SecretRedactor.redact(system).text, user: SecretRedactor.redact(user).text,
+            maxTokens: maxTokens, schemaName: schema?.name, schemaJSON: schema?.json
+        )).text
+    }
+}
+
+if command == "eval" {
+    let claude = option("--claude")
+    let modelName = option("--model") ?? ClaudeCodeClient.defaultModel
+    let only = option("--only")
+    let output = URL(fileURLWithPath: option("--output") ?? "eval/memory/results", isDirectory: true)
+    guard args.count >= 2, let claude else { print(usage); exit(1) }
+    let workdir = FileManager.default.temporaryDirectory.appendingPathComponent("amai-eval-claude", isDirectory: true)
+    let model = EvalCloudModel(client: ClaudeCodeClient(
+        executable: URL(fileURLWithPath: (claude as NSString).expandingTildeInPath), model: modelName, workingDirectory: workdir
+    ))
+    do {
+        var scenarios = try MemoryEvaluation.load(URL(fileURLWithPath: args[1]))
+        if let only { scenarios = scenarios.filter { only.split(separator: ",").map(String.init).contains($0.name) } }
+        let summary = await MemoryEvaluation.run(scenarios, model: model)
+        try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
+        try Data(summary.report().utf8).write(to: output.appendingPathComponent("report.md"))
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        try encoder.encode(summary.results).write(to: output.appendingPathComponent("report.json"))
+        print(summary.report())
+        exit(0)
+    } catch {
+        FileHandle.standardError.write(Data("错误：\(error)\n".utf8))
+        exit(2)
+    }
 }
 
 if command == "migrate" {

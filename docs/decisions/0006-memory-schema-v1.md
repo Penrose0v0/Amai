@@ -50,7 +50,8 @@ memory/
 - 依据校验（`MemoryItems.reconcileKinds`）有两条规则：
   - 改写已有条目时沿用原来的 kind；
   - 从 observed / inferred / unknown 升级到 stated / confirmed，必须有明确的用户依据（由调用方验证），模型不能自行升级。
-- 阶段 1：整理忽略模型给出的 kind，新条目一律记为 `inferred`。阶段 2 再把 kind 接入结构化输出与验证。
+- 阶段 1：整理忽略模型给出的 kind，新条目一律记为 `inferred`。
+- 阶段 2（已实现）：kind 由引用的依据来源决定（`EvidenceLedger`，见 docs/memory.md §5.1），模型无法自称依据。
 
 ### 迁移
 
@@ -93,4 +94,19 @@ Memory Browser 和今后的 Memory API / MCP / Skill 都复用它。GRDB 只用�
 - `MemoryDirectory` 不再创建 `work/`、`goals/` 等目录。`MemoryScope` 由 `MemoryCategory` 取代，`retrieve(categories:)`；命令行 `--scope` 改为 `--category`。
 - Consolidator 改写 `general.md`（原 summary）与 `work.md`（原 work/ 专题）。模型输出的 `file` 字段改为 `project`，不再由模型决定文件路径，路径白名单随之删除。状态字段 `lastSummaryAt` 读入时兼容为 `lastGeneralAt`。
 - 云端整理的外发说明改为列出 general.md 与 work.md。
-- 后续：阶段 2 按分区整理（含日终摘要附带分类路由），阶段 3 实现 Memory Browser。
+- 后续：阶段 3 实现 Memory Browser。
+
+## 阶段 2：分区整理（2026-11-03 用户确认）
+
+- **准确性优先**：默认用户不会检查或纠正记忆，不依赖用户确认保证准确；证据不足时宁可遗漏。
+- **依据继承抽取层**：daily 时间线丢失了事实与推断的区分，整理改为通过 `SegmentSource` 读取片段与 `fact` 观察（只用应用名与时间，不读屏幕文字），构建带编号的依据清单。kind 由所引用依据中最弱的一个决定；不做"文本匹配即 observed"。
+- **类别路由**：日终摘要逐一判断四个分区，只调用路由到的整理器；不设"有笔记就全跑""工作超过 30 分钟就跑 Work"之类的硬规则。路由缺失或无法解析时兜底整理全部分区。
+- **操作式整理**：模型提出 add / update / retire / merge / rename_project，代码校验依据强弱、分区规则与丢失比例后应用，变化记入"变更记录"。
+- **Work 稳定项目 ID**：小节标题注释中保存 `project:` 与 `aka:`。
+- **Health / Finance**：只收用户本人、有用户陈述或观察依据的条目；屏幕上的推断无法证明是用户本人的数据，因此不足以写入。
+- **评测**：合成场景 + `MemoryEvaluation`，见 docs/memory.md §5.4。
+
+备选与取舍：
+- 让模型返回整份条目列表（阶段 1 的方式）：无法逐条判断是否以弱覆盖强，也难以留痕，改为操作式。
+- 每周再用摘要扫一遍未被路由的分区：摘要本身是推断，扫出的内容质量低，且用户要求只由日终摘要判断，未采用。
+- 用文本匹配授予 observed：屏幕描述本身是推断，文字吻合不代表被观察到，未采用。文本覆盖率只用于把转述过度的"用户陈述"降为推断。

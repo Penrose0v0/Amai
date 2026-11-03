@@ -8,6 +8,8 @@ import Foundation
 public enum MemorySchema {
     public static let version = 1
     public static let blockHeading = "## Amai 整理的记忆"
+    /// 系统区块中记录撤下与更新前内容的小节，不属于当前有效的记忆。
+    public static let historySection = "变更记录"
 
     public static func title(for category: MemoryCategory) -> String {
         category.displayName

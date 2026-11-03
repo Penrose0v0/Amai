@@ -22,13 +22,14 @@ public struct OutputSchema: Sendable, Equatable {
     }
 }
 
-/// 记忆整理（ADR-0003，参考 OpenClaw 的 Markdown 记忆；文件布局见 ADR-0006）：
-/// 1. 日终摘要：daily 的 `amai:digest` 区块；
-/// 2. Work：work.md 的 `amai:memory` 区块，按项目 / 研究方向分 `### 小节`；
-/// 3. General：general.md 的 `amai:memory` 区块，按推荐小节分组。
+/// 记忆整理（ADR-0003 的机制，ADR-0006 的文件与依据规则）：
+/// 1. 日终摘要：daily 的 `amai:digest` 区块，同时给出各分区是否需要更新（类别路由）；
+/// 2. 分区整理：只对路由到的 Work / Goals / Health / Finance 调用对应整理器；
+/// 3. General：每周根据各分区条目与最近的摘要汇总。
 ///
-/// 由 LLM 决定保存、更新、舍弃哪些条目；代码只负责来源标注、去重、依据类型校验、快照、
-/// 防止一次改写丢失过多已有条目，以及只写系统区块、不碰用户手写内容。
+/// 模型只提出操作（新增、更新、撤下、合并）并引用依据编号；条目的依据类型、来源日期、
+/// 能否覆盖已有事实、分区专属校验与防大量丢失都由代码决定（`CategoryUpdater`）。
+/// 只写系统区块，用户手写内容永不覆盖；每次改写前存快照。
 public actor Consolidator {
     public static let digestBlock = SystemBlock(
         name: "digest", note: "由 Amai 每日整理自动生成，区块内的修改会被覆盖"
@@ -36,6 +37,8 @@ public actor Consolidator {
     public static let memoryBlock = SystemBlock(
         name: "memory", note: "由 Amai 根据每日记录自动维护；区块内的修改会在下次整理时被覆盖，需要保留的内容请写在区块外"
     )
+    /// 每天按此顺序整理路由到的分区。
+    public static let dailyCategories: [MemoryCategory] = [.work, .goals, .health, .finance]
 
     public struct Options: Sendable {
         /// 本地时间几点之后整理前一天。
@@ -44,12 +47,15 @@ public actor Consolidator {
         public var generalInterval: TimeInterval = 7 * 86_400
         /// 首次更新 General 之前至少需要的日终摘要天数。
         public var minDigestsForFirstGeneral = 2
-        /// 一次整理写入单个目标（General 全文件、Work 的一个项目）的条目上限。不作用于迁移。
-        public var maxItemsPerTarget = 40
+        /// 自动整理时每个小节（Work 为每个项目）的条目上限。不作用于迁移。
+        public var maxItemsPerSection = 40
         public var maxNewProjectsPerDay = 3
-        /// 一次改写后剩余的已有条目比例不得低于此值（OpenClaw 的 maxPriorEntryLossFraction 思路）。
+        /// 一次整理后剩余的已有条目比例不得低于此值（OpenClaw 的 maxPriorEntryLossFraction 思路）。
         public var minRetainedFraction = 0.5
-        public var dailyContextChars = 6000
+        /// 某个分区整理连续失败这么多次后放弃当天，避免反复调用模型。
+        public var maxCategoryAttempts = 3
+        /// General 汇总时提供给模型的分区条目总字数上限。
+        public var generalContextChars = 14_000
 
         public init() {}
     }
@@ -60,30 +66,47 @@ public actor Consolidator {
         public var lastGeneralAt: Date?
         public var lastRunAt: Date?
         public var lastError: String?
-        public var projectsWritten = 0
+        /// 累计写入的分区更新次数。
+        public var categoriesWritten = 0
 
         public init() {}
     }
 
     public struct DayReport: Sendable, Equatable {
         public var digestWritten = false
-        /// Work 中被更新的项目（小节名）。
-        public var projectsUpdated: [String] = []
-        public var projectsRejected: [String] = []
+        /// 路由到的分区（摘要判断或兜底）。
+        public var routed: [MemoryCategory] = []
+        /// 摘要没有给出可用的路由结果，按兜底整理全部分区。
+        public var routingFallback = false
+        public var updated: [MemoryCategory] = []
+        /// 路由到但不可能有合格依据（Health / Finance 当天没有用户陈述），未调用模型。
+        public var skipped: [MemoryCategory] = []
+        public var failed: [MemoryCategory] = []
+        /// 被代码拒绝的操作及原因（写入日志，也供评测使用）。
+        public var rejected: [String] = []
+        public var modelCalls = 0
     }
 
     public enum ConsolidationError: Error, Equatable {
         case unparsableModelOutput(String)
         case tooMuchLoss(String)
+        case categoriesFailed([String])
+    }
+
+    private struct DayProgress: Codable, Equatable {
+        var routes: [String]?
+        var done: [String] = []
+        var attempts: [String: Int] = [:]
     }
 
     private struct State: Codable {
         var lastDailyDay: String?
         var lastGeneralAt: Date?
+        var progress: [String: DayProgress] = [:]
 
         init() {}
 
-        private enum CodingKeys: String, CodingKey { case lastDailyDay, lastGeneralAt, lastSummaryAt }
+        private enum CodingKeys: String, CodingKey { case lastDailyDay, lastGeneralAt, lastSummaryAt, progress }
 
         /// Schema v1 之前写的是 `lastSummaryAt`，读入时沿用，避免升级后立即重跑一次 General。
         init(from decoder: any Decoder) throws {
@@ -91,12 +114,14 @@ public actor Consolidator {
             lastDailyDay = try c.decodeIfPresent(String.self, forKey: .lastDailyDay)
             lastGeneralAt = try c.decodeIfPresent(Date.self, forKey: .lastGeneralAt)
                 ?? c.decodeIfPresent(Date.self, forKey: .lastSummaryAt)
+            progress = (try? c.decodeIfPresent([String: DayProgress].self, forKey: .progress)) ?? [:]
         }
 
         func encode(to encoder: any Encoder) throws {
             var c = encoder.container(keyedBy: CodingKeys.self)
             try c.encodeIfPresent(lastDailyDay, forKey: .lastDailyDay)
             try c.encodeIfPresent(lastGeneralAt, forKey: .lastGeneralAt)
+            if !progress.isEmpty { try c.encode(progress, forKey: .progress) }
         }
     }
 
@@ -201,9 +226,10 @@ public actor Consolidator {
         return await recentDigests(endingOn: now, days: 7).count >= options.minDigestsForFirstGeneral
     }
 
-    // MARK: - 1 + 2. Daily digest and Work
+    // MARK: - 1 + 2. Daily digest, routing and category updates
 
-    /// 整理某一天：生成日终摘要，再更新 work.md。可重复调用，结果覆盖系统区块。
+    /// 整理某一天：生成日终摘要与类别路由，再整理路由到的分区。可重复调用：
+    /// 摘要覆盖系统区块；已完成的分区不重复整理（进度保存在状态文件中），失败的分区下次重试。
     @discardableResult
     public func consolidateDay(_ day: Date) async throws -> DayReport {
         status.running = true
@@ -214,24 +240,31 @@ public actor Consolidator {
         var report = DayReport()
 
         do {
-            guard let daily = await store.read(file),
-                  TimelineBlock.block.content(in: daily)?.isEmpty == false
-            else {
-                // 没有活动记录的日子：直接标记为已整理。
+            let daily = await store.read(file)
+            let hasTimeline = daily.flatMap(TimelineBlock.block.content(in:))?.isEmpty == false
+            let hasNotes = !EvidenceLedger.userLines(inDaily: daily ?? "").isEmpty
+            guard let daily, hasTimeline || hasNotes else {
+                // 没有活动记录也没有笔记的日子：直接标记为已整理。
                 try markDaily(dayName)
                 return report
             }
 
-            let stats = Self.stats(for: await source.segments(on: day))
-            let context = String(Self.digestBlock.removing(from: daily).prefix(options.dailyContextChars))
+            let segments = await source.segments(on: day)
+            let ledger = EvidenceLedger.forDay(
+                day: dayName, daily: daily, segments: segments,
+                observations: await source.observations(on: day), timeZone: timeZone
+            )
+            let stats = Self.stats(for: segments)
+            var progress = state.progress[dayName] ?? DayProgress()
 
-            // 1. 日终摘要
+            // 1. 日终摘要与类别路由（每次都重写摘要；路由只在第一次成功时确定，续跑沿用）。
             let digestRaw = try await model.complete(
                 system: Prompts.digestSystem,
-                user: Prompts.digestUser(day: dayName, stats: stats, daily: context),
-                maxTokens: 700,
+                user: Prompts.digestUser(day: dayName, stats: stats, ledger: ledger),
+                maxTokens: 1200,
                 schema: Schemas.digest
             )
+            report.modelCalls += 1
             guard let digest = ModelJSON.decode(DigestOutput.self, from: digestRaw) else {
                 throw ConsolidationError.unparsableModelOutput("digest")
             }
@@ -241,60 +274,55 @@ public actor Consolidator {
                 heading: "## 摘要", insertBeforeHeading: TimelineBlock.heading,
                 snapshots: snapshots, task: "daily-digest", model: model.identifier, itemCount: digest.highlights?.count ?? 0
             )
+            if progress.routes == nil {
+                if let routes = digest.routes?.categories {
+                    progress.routes = routes.map(\.rawValue)
+                } else {
+                    // 路由结果缺失或无法解析：宁可多整理（各整理器本身有依据门槛），也不漏掉。
+                    progress.routes = Self.dailyCategories.map(\.rawValue)
+                    report.routingFallback = true
+                    log.info("routing missing, falling back to all categories")
+                }
+                try saveProgress(progress, for: dayName)
+            }
+            report.routed = Self.dailyCategories.filter { progress.routes?.contains($0.rawValue) == true }
 
-            // 2. Work（work.md 按项目分小节）
-            let workPath = MemoryCategory.work.file!
-            let workText = await store.read(workPath)
-            let workItems = workText.flatMap(Self.memoryBlock.content(in:)).map(MemoryItems.parse) ?? []
-            let projects = Self.projects(from: workItems)
-            let topicRaw = try await model.complete(
-                system: Prompts.topicsSystem,
-                user: Prompts.topicsUser(day: dayName, daily: (await store.read(file)).map { String($0.prefix(options.dailyContextChars)) } ?? context, projects: projects),
-                maxTokens: 1600,
-                schema: Schemas.topics
-            )
-            guard let output = ModelJSON.decode(TopicsOutput.self, from: topicRaw) else {
-                throw ConsolidationError.unparsableModelOutput("topics")
-            }
-            var updatedItems = workItems
-            var created = 0
-            for update in output.updates ?? [] {
-                guard let name = Self.projectName(update.project) else {
-                    report.projectsRejected.append(update.project)
+            // 2. 分区整理
+            for category in report.routed where !progress.done.contains(category.rawValue) {
+                let policy = CategoryPolicy.policy(for: category)
+                if !policy.allowsInferred && !ledger.hasUserStatements {
+                    report.skipped.append(category)
+                    progress.done.append(category.rawValue)
+                    try saveProgress(progress, for: dayName)
                     continue
                 }
-                let existing = projects.first { $0.name == name }
-                if existing == nil {
-                    guard created < options.maxNewProjectsPerDay else { report.projectsRejected.append(name); continue }
+                do {
+                    report.modelCalls += 1
+                    let outcome = try await updateCategory(category, dayName: dayName, ledger: ledger)
+                    report.rejected += outcome.rejected.map { "\(category.rawValue)：\($0)" }
+                    if outcome.written { report.updated.append(category) }
+                    progress.done.append(category.rawValue)
+                } catch {
+                    let attempts = (progress.attempts[category.rawValue] ?? 0) + 1
+                    progress.attempts[category.rawValue] = attempts
+                    log.error("category \(category.rawValue, privacy: .public) failed (\(attempts)): \(String(describing: error), privacy: .public)")
+                    if attempts >= options.maxCategoryAttempts {
+                        progress.done.append(category.rawValue)
+                    }
+                    report.failed.append(category)
                 }
-                let previous = existing?.items ?? []
-                // 阶段 1：模型输出还不带依据类型，旧条目沿用原依据，新条目一律记为推断。
-                let proposed = update.items.map { var i = $0; i.kind = .unknown; i.section = name; return i }
-                var items = MemoryItems.sanitize(proposed, fallbackSource: dayName, limit: options.maxItemsPerTarget)
-                items = MemoryItems.reconcileKinds(items, previous: previous, defaultKind: .inferred)
-                guard !items.isEmpty else { continue }
-                if !retainsEnough(old: previous.count, new: items.count) {
-                    log.error("project update rejected: too many entries dropped")
-                    report.projectsRejected.append(name)
-                    continue
-                }
-                guard items != previous else { continue }
-                updatedItems = Self.replacingSection(name, in: updatedItems, with: items)
-                report.projectsUpdated.append(name)
-                if existing == nil { created += 1 }
+                try saveProgress(progress, for: dayName)
             }
-            if !report.projectsUpdated.isEmpty {
-                let changed = try await store.writeBlock(
-                    Self.memoryBlock, body: MemoryItems.render(updatedItems), file: workPath,
-                    newFileTitle: MemorySchema.title(for: .work), heading: MemorySchema.blockHeading,
-                    snapshots: snapshots, task: "work", model: model.identifier, itemCount: updatedItems.count
-                )
-                if !changed { report.projectsUpdated = [] }
+            status.categoriesWritten += report.updated.count
+            for r in report.rejected { log.info("rejected operation: \(r, privacy: .private)") }
+
+            if report.routed.contains(where: { !progress.done.contains($0.rawValue) }) {
+                throw ConsolidationError.categoriesFailed(report.failed.map(\.rawValue))
             }
-            status.projectsWritten += report.projectsUpdated.count
             try markDaily(dayName)
-            status.lastError = nil
-            log.info("daily consolidated: digest=\(report.digestWritten) projects=\(report.projectsUpdated.count) rejected=\(report.projectsRejected.count)")
+            status.lastError = report.failed.isEmpty ? nil
+                : "整理 \(dayName) 的 \(report.failed.map(\.displayName).joined(separator: "、")) 多次失败，已跳过"
+            log.info("daily consolidated: digest=\(report.digestWritten) routed=\(report.routed.count) updated=\(report.updated.count) rejected=\(report.rejected.count)")
             return report
         } catch {
             status.lastError = "整理 \(dayName) 失败：\(error)"
@@ -303,9 +331,68 @@ public actor Consolidator {
         }
     }
 
+    struct CategoryOutcome {
+        var written = false
+        var rejected: [String] = []
+    }
+
+    /// 整理一个分区：把当天依据、分区手写内容（U）与已有条目交给模型，按代码规则应用返回的操作。
+    private func updateCategory(_ category: MemoryCategory, dayName: String, ledger base: EvidenceLedger) async throws -> CategoryOutcome {
+        let path = category.file!
+        let policy = CategoryPolicy.policy(for: category)
+        let text = await store.read(path)
+        let body = text.flatMap(Self.memoryBlock.content(in:)) ?? ""
+        let all = MemoryItems.parse(body)
+        var meta = Dictionary(MemoryItems.sections(body).map { ($0.name, $0.meta) }, uniquingKeysWith: { a, _ in a })
+        let (items, history) = CategoryUpdater.split(all)
+        if policy.sections == nil { meta = CategoryUpdater.ensureProjectIDs(items, meta: meta) }
+
+        var ledger = base
+        for line in EvidenceLedger.contentLines(text.map { Self.memoryBlock.removing(from: $0) } ?? "") {
+            ledger.append(.userStatement, prefix: "U", day: dayName, text: line)
+        }
+        let raw = try await model.complete(
+            system: Prompts.categorySystem(policy),
+            user: Prompts.categoryUser(day: dayName, ledger: ledger, items: items, history: history, projects: policy.sections == nil ? meta : nil),
+            maxTokens: 2400,
+            schema: Schemas.operations
+        )
+        guard let output = ModelJSON.decode(OperationsOutput.self, from: raw) else {
+            throw ConsolidationError.unparsableModelOutput(category.rawValue)
+        }
+        var updater = CategoryUpdater(policy: policy, ledger: ledger, day: dayName)
+        updater.maxItemsPerSection = options.maxItemsPerSection
+        updater.maxNewProjects = options.maxNewProjectsPerDay
+        updater.minRetainedFraction = options.minRetainedFraction
+        let result = updater.apply(output.operations ?? [], to: all, sectionMeta: meta)
+        var outcome = CategoryOutcome(rejected: result.rejected)
+        guard result.changed else { return outcome }
+        outcome.written = try await store.writeBlock(
+            Self.memoryBlock, body: Self.renderCategory(result.items, policy: policy, meta: result.sectionMeta),
+            file: path, newFileTitle: MemorySchema.title(for: category), heading: MemorySchema.blockHeading,
+            snapshots: snapshots, task: category.rawValue, model: model.identifier, itemCount: result.items.count
+        )
+        return outcome
+    }
+
+    /// 小节顺序：推荐小节 → 其他已有小节（迁移来的、Work 的项目）→ 变更记录。
+    static func renderCategory(_ items: [MemoryItem], policy: CategoryPolicy, meta: [String: [String: String]]) -> String {
+        let normalized = items.map { item -> MemoryItem in
+            var item = item
+            if item.section == nil { item.section = "其他" }
+            return item
+        }
+        var order = policy.sections ?? []
+        for s in normalized.compactMap(\.section) where !order.contains(s) && s != CategoryPolicy.historySection {
+            order.append(s)
+        }
+        order.append(CategoryPolicy.historySection)
+        return MemoryItems.render(normalized, sections: order, sectionMeta: meta)
+    }
+
     // MARK: - 3. general.md
 
-    /// 用最近 7 天的日终摘要与 Work 更新 general.md 的系统区块。
+    /// 用各分区条目（带依据类型）与最近 7 天的日终摘要更新 general.md 的系统区块。
     @discardableResult
     public func updateGeneral() async throws -> Bool {
         status.running = true
@@ -314,38 +401,47 @@ public actor Consolidator {
         let path = MemoryCategory.general.file!
         do {
             let now = clock.now()
+            let today = MemoryDirectory.dayName(for: now, timeZone: timeZone)
             let digests = await recentDigests(endingOn: now, days: 7)
             guard !digests.isEmpty else { return false }
+
+            var ledger = EvidenceLedger()
+            for d in digests {
+                ledger.append(.digest, day: d.day, text: String(d.text.replacingOccurrences(of: "\n", with: " ").prefix(600)))
+            }
+            ledger = await addCategoryEvidence(to: ledger, today: today)
             let current = await store.read(path)
-            let userPart = current.map { Self.memoryBlock.removing(from: $0) } ?? ""
-            let existing = current.flatMap { Self.memoryBlock.content(in: $0) }.map(MemoryItems.parse) ?? []
-            let workItems = (await store.read(MemoryCategory.work.file!)).flatMap(Self.memoryBlock.content(in:)).map(MemoryItems.parse) ?? []
+            for line in EvidenceLedger.contentLines(current.map { Self.memoryBlock.removing(from: $0) } ?? "") {
+                ledger.append(.userStatement, prefix: "U", day: today, text: line)
+            }
+            let body = current.flatMap(Self.memoryBlock.content(in:)) ?? ""
+            let all = MemoryItems.parse(body)
+            let (items, history) = CategoryUpdater.split(all)
+            let policy = CategoryPolicy.policy(for: .general)
 
             let raw = try await model.complete(
-                system: Prompts.generalSystem,
-                user: Prompts.generalUser(userWritten: userPart, existing: existing, digests: digests, projects: Self.projects(from: workItems)),
-                maxTokens: 1800,
-                schema: Schemas.general
+                system: Prompts.categorySystem(policy),
+                user: Prompts.categoryUser(day: today, ledger: ledger, items: items, history: history, projects: nil),
+                maxTokens: 3000,
+                schema: Schemas.operations
             )
-            guard let output = ModelJSON.decode(GeneralOutput.self, from: raw) else {
+            guard let output = ModelJSON.decode(OperationsOutput.self, from: raw) else {
                 throw ConsolidationError.unparsableModelOutput("general")
             }
-            let proposed = (output.items ?? []).map { item in
-                var item = item
-                item.kind = .unknown
-                item.section = MemorySchema.generalSection(forLegacy: item.section)
-                return item
+            var updater = CategoryUpdater(policy: policy, ledger: ledger, day: today)
+            updater.maxItemsPerSection = options.maxItemsPerSection
+            updater.minRetainedFraction = options.minRetainedFraction
+            let result = updater.apply(output.operations ?? [], to: all, sectionMeta: [:])
+            if result.lossGuardTripped { throw ConsolidationError.tooMuchLoss(path) }
+            for r in result.rejected { log.info("general rejected: \(r, privacy: .private)") }
+            var changed = false
+            if result.changed {
+                changed = try await store.writeBlock(
+                    Self.memoryBlock, body: Self.renderCategory(result.items, policy: policy, meta: [:]),
+                    file: path, newFileTitle: MemorySchema.title(for: .general), heading: MemorySchema.blockHeading,
+                    snapshots: snapshots, task: "general", model: model.identifier, itemCount: result.items.count
+                )
             }
-            var items = MemoryItems.sanitize(proposed, fallbackSource: nil, limit: options.maxItemsPerTarget)
-            items = MemoryItems.reconcileKinds(items, previous: existing, defaultKind: .inferred)
-            guard retainsEnough(old: existing.count, new: items.count) else {
-                throw ConsolidationError.tooMuchLoss(path)
-            }
-            let changed = try await store.writeBlock(
-                Self.memoryBlock, body: MemoryItems.render(items, sections: MemorySchema.generalSections),
-                file: path, newFileTitle: MemorySchema.title(for: .general), heading: MemorySchema.blockHeading,
-                snapshots: snapshots, task: "general", model: model.identifier, itemCount: items.count
-            )
             state.lastGeneralAt = now
             try saveState()
             status.lastGeneralAt = now
@@ -358,44 +454,43 @@ public actor Consolidator {
         }
     }
 
-    // MARK: - Helpers
-
-    /// Work 中的一个项目或研究方向，对应 work.md 系统区块里的一个 `### 小节`。
-    struct Project: Equatable {
-        let name: String
-        let items: [MemoryItem]
-    }
-
-    static func projects(from items: [MemoryItem]) -> [Project] {
-        var order: [String] = []
-        var grouped: [String: [MemoryItem]] = [:]
-        for item in items {
-            let name = item.section ?? "其他"
-            if grouped[name] == nil { order.append(name) }
-            grouped[name, default: []].append(item)
+    /// 把各分区条目作为 M 依据加入清单。超出字数预算时按"依据更强、来源更新"排序选取，
+    /// 而不是按文件顺序截取前几条；每个分区先保底几条，避免条目多的分区占满预算。
+    private func addCategoryEvidence(to base: EvidenceLedger, today: String) async -> EvidenceLedger {
+        var ledger = base
+        struct Candidate: Equatable { let category: MemoryCategory; let item: MemoryItem }
+        var candidates: [Candidate] = []
+        for category in Self.dailyCategories {
+            guard let text = await store.read(category.file!), let body = Self.memoryBlock.content(in: text) else { continue }
+            candidates += CategoryUpdater.split(MemoryItems.parse(body)).items.map { Candidate(category: category, item: $0) }
         }
-        return order.map { Project(name: $0, items: grouped[$0]!) }
+        let ranked = candidates.sorted {
+            ($0.item.kind.rank, $0.item.sources.max() ?? "") > ($1.item.kind.rank, $1.item.sources.max() ?? "")
+        }
+        var chosen: [Candidate] = []
+        for category in Self.dailyCategories {
+            chosen += ranked.filter { $0.category == category }.prefix(5)
+        }
+        var used = chosen.reduce(0) { $0 + $1.item.text.count }
+        for c in ranked where !chosen.contains(c) {
+            guard used + c.item.text.count <= options.generalContextChars else { continue }
+            chosen.append(c)
+            used += c.item.text.count
+        }
+        let prefixes: [MemoryCategory: String] = [.work: "MW", .goals: "MG", .health: "MH", .finance: "MF"]
+        for category in Self.dailyCategories {
+            for c in chosen where c.category == category {
+                let label = c.item.section.map { "[\(category.displayName)·\($0)] " } ?? "[\(category.displayName)] "
+                ledger.append(
+                    .memory, prefix: prefixes[category], day: c.item.sources.max() ?? today, text: label + c.item.text,
+                    memoryKind: c.item.kind, sourceDays: c.item.sources
+                )
+            }
+        }
+        return ledger
     }
 
-    /// 替换某个项目的条目，其他项目原样保留；新项目追加在末尾。
-    static func replacingSection(_ name: String, in items: [MemoryItem], with replacement: [MemoryItem]) -> [MemoryItem] {
-        guard let first = items.firstIndex(where: { ($0.section ?? "其他") == name }) else { return items + replacement }
-        var result = items.filter { ($0.section ?? "其他") != name }
-        let insertAt = items[..<first].filter { ($0.section ?? "其他") != name }.count
-        result.insert(contentsOf: replacement, at: insertAt)
-        return result
-    }
-
-    /// 项目名会成为 Markdown 小节标题：去掉换行、标题符号与注释符号，限制长度。
-    static func projectName(_ raw: String) -> String? {
-        let name = raw
-            .replacingOccurrences(of: "\n", with: " ")
-            .replacingOccurrences(of: "<!--", with: "")
-            .replacingOccurrences(of: "-->", with: "")
-            .trimmingCharacters(in: CharacterSet.whitespaces.union(CharacterSet(charactersIn: "#")))
-        guard !name.isEmpty else { return nil }
-        return String(name.prefix(40))
-    }
+    // MARK: - Helpers
 
     private func recentDigests(endingOn date: Date, days: Int) async -> [(day: String, text: String)] {
         var result: [(String, String)] = []
@@ -409,19 +504,19 @@ public actor Consolidator {
         return result
     }
 
-    private func retainsEnough(old: Int, new: Int) -> Bool {
-        guard old >= 4 else { return true }
-        return Double(new) >= Double(old) * options.minRetainedFraction
+    private func saveProgress(_ progress: DayProgress, for dayName: String) throws {
+        state.progress[dayName] = progress
+        try saveState()
     }
 
-    /// 只把已经结束的日子记为已整理；手动整理今天不影响日终的正式整理。
+    /// 只把已经结束的日子记为已整理；手动整理今天不影响日终的正式整理（也不保留今天的路由与进度）。
     private func markDaily(_ dayName: String) throws {
+        state.progress.removeValue(forKey: dayName)
         let today = MemoryDirectory.dayName(for: clock.now(), timeZone: timeZone)
-        guard dayName < today else { return }
-        if state.lastDailyDay.map({ $0 < dayName }) ?? true {
+        if dayName < today, state.lastDailyDay.map({ $0 < dayName }) ?? true {
             state.lastDailyDay = dayName
-            try saveState()
         }
+        try saveState()
         status.lastDailyDay = state.lastDailyDay
     }
 
@@ -444,6 +539,17 @@ public actor Consolidator {
 
     static func titleFromPath(_ path: String) -> String {
         (path as NSString).lastPathComponent.replacingOccurrences(of: ".md", with: "")
+    }
+
+    /// 项目名会成为 Markdown 小节标题：去掉换行、标题符号与注释符号，限制长度。
+    static func projectName(_ raw: String) -> String? {
+        let name = raw
+            .replacingOccurrences(of: "\n", with: " ")
+            .replacingOccurrences(of: "<!--", with: "")
+            .replacingOccurrences(of: "-->", with: "")
+            .trimmingCharacters(in: CharacterSet.whitespaces.union(CharacterSet(charactersIn: "#")))
+        guard !name.isEmpty, name != CategoryPolicy.historySection else { return nil }
+        return String(name.prefix(40))
     }
 
     // MARK: - Digest
@@ -478,18 +584,63 @@ public actor Consolidator {
     struct DigestOutput: Decodable {
         let summary: String?
         let highlights: [String]?
-    }
+        let routes: Routes?
 
-    struct TopicsOutput: Decodable {
-        struct Update: Decodable {
-            let project: String
-            let items: [MemoryItem]
+        private enum CodingKeys: String, CodingKey { case summary, highlights, routes }
+
+        init(from decoder: any Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            summary = try? c.decodeIfPresent(String.self, forKey: .summary)
+            highlights = try? c.decodeIfPresent([String].self, forKey: .highlights)
+            // 路由格式不对不影响摘要本身，由调用方兜底。
+            routes = try? c.decodeIfPresent(Routes.self, forKey: .routes)
         }
-        let updates: [Update]?
     }
 
-    struct GeneralOutput: Decodable {
-        let items: [MemoryItem]?
+    /// 类别路由：四个分区逐一给出判断。任一分区缺失或无法解析时视为整体无效，由调用方兜底。
+    struct Routes: Decodable {
+        struct Route: Decodable {
+            let update: Bool
+
+            private enum CodingKeys: String, CodingKey { case update }
+
+            init(from decoder: any Decoder) throws {
+                let c = try decoder.container(keyedBy: CodingKeys.self)
+                if let b = try? c.decode(Bool.self, forKey: .update) {
+                    update = b
+                    return
+                }
+                let s = try c.decode(String.self, forKey: .update).lowercased()
+                guard ["true", "false", "yes", "no"].contains(s) else {
+                    throw DecodingError.dataCorruptedError(forKey: .update, in: c, debugDescription: "not a boolean")
+                }
+                update = s == "true" || s == "yes"
+            }
+        }
+        let work: Route?
+        let health: Route?
+        let finance: Route?
+        let goals: Route?
+
+        var categories: [MemoryCategory]? {
+            guard let work, let health, let finance, let goals else { return nil }
+            return [(MemoryCategory.work, work), (.goals, goals), (.health, health), (.finance, finance)]
+                .filter { $0.1.update }.map(\.0)
+        }
+
+        private enum CodingKeys: String, CodingKey { case work, health, finance, goals }
+
+        init(from decoder: any Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            work = try? c.decodeIfPresent(Route.self, forKey: .work)
+            health = try? c.decodeIfPresent(Route.self, forKey: .health)
+            finance = try? c.decodeIfPresent(Route.self, forKey: .finance)
+            goals = try? c.decodeIfPresent(Route.self, forKey: .goals)
+        }
+    }
+
+    struct OperationsOutput: Decodable {
+        let operations: [MemoryOperation]?
     }
 
     static func statsLine(_ stats: DayStats, timeZone: TimeZone) -> String {
@@ -529,7 +680,7 @@ public actor Consolidator {
         minutes >= 60 ? "\(minutes / 60) 小时 \(minutes % 60) 分" : "\(minutes) 分"
     }
 
-    private nonisolated static func categoryLabel(_ c: ActivityCategory) -> String {
+    nonisolated static func categoryLabel(_ c: ActivityCategory) -> String {
         switch c {
         case .work: "工作"
         case .research: "研究"
@@ -539,111 +690,5 @@ public actor Consolidator {
         case .idle: "空闲"
         case .other: "其他"
         }
-    }
-}
-
-// MARK: - Prompts
-
-enum Prompts {
-    static let digestSystem = """
-    你在为用户整理一天的电脑活动记录。下面是当天的 daily 记录，其中时间线由系统根据屏幕活动推断生成，用户也可能手写了内容。
-    请输出 JSON：{"summary": "...", "highlights": ["...", "..."]}
-    - summary：2 到 3 句中文，概括这一天主要做了什么。
-    - highlights：3 到 5 条要点，每条一句话，写具体的项目、文档、事情，不要写泛泛的"处理了一些工作"。
-    - 用户手写的内容优先于系统推断；只依据记录内容，不要编造。
-    - 不写密码、密钥、验证码等敏感信息。
-    只输出 JSON。
-    """
-
-    static func digestUser(day: String, stats: Consolidator.DayStats, daily: String) -> String {
-        """
-        日期：\(day)
-        统计（代码计算）：活跃 \(stats.activeMinutes) 分钟；\(stats.byCategory.map { "\($0.0.rawValue) \($0.1) 分钟" }.joined(separator: "，"))
-        daily 记录：
-        \(daily)
-        """
-    }
-
-    static let topicsSystem = """
-    你在维护用户的工作与研究记忆 work.md。文件按项目或研究方向分组，每组是一个小节。
-    根据今天的 daily 记录，决定哪些项目需要更新、是否需要新建项目。
-    规则：
-    - 只记录有长期价值的研究、项目进展、重要决策和未解决问题；琐碎的操作（打开文件、切换窗口、查看邮件）不要记录。
-    - 决策可以写成"〔决策〕…"，未解决的问题写成"〔待解决〕…"。
-    - 已有项目：返回该项目更新后的完整条目列表。保留仍然有效的旧条目（连同它们的 sources），合并重复的，改写已过时的，删除确实无用的。
-    - 新项目：只在今天的记录明确体现了一个持续进行的项目或研究方向时才新建。project 用简短的项目名，已有项目必须沿用原名。
-    - 每条一句中文，写清楚是什么、进展到哪里。sources 写依据的日期（YYYY-MM-DD），新条目写今天的日期。
-    - 没有值得更新的内容时返回 {"updates": []}。
-    - 只依据记录内容，不要编造；不写敏感信息。
-    输出 JSON：{"updates": [{"project": "Amai", "items": [{"text": "...", "sources": ["2026-10-20"]}]}]}
-    只输出 JSON。
-    """
-
-    static func topicsUser(day: String, daily: String, projects: [Consolidator.Project]) -> String {
-        var parts = ["今天：\(day)", "今天的 daily 记录：", daily, "", "已有项目："]
-        if projects.isEmpty { parts.append("（无）") }
-        for p in projects {
-            parts.append("项目「\(p.name)」：")
-            parts.append(p.items.map { "  - \($0.text) [sources: \($0.sources.joined(separator: ","))]" }.joined(separator: "\n"))
-        }
-        return parts.joined(separator: "\n")
-    }
-
-    static let generalSystem = """
-    你在维护用户的综合档案 general.md：个人基本信息、教育背景、偏好、当前状态，以及工作、健康、财务、目标等方面的高层概况。
-    根据最近几天的日终摘要和工作记忆，更新档案中由系统维护的条目。
-    规则：
-    - 只保留稳定、长期有价值的信息。一天内的琐事、一次性事件不要写入。
-    - 各方面只写高层概况，不要复制工作记忆里的具体进展。
-    - 返回更新后的完整条目列表：保留仍然成立的旧条目（连同 sources），合并重复的，修正已经变化的，删除不再成立的。
-    - 用户手写的内容是确定事实：不要重复，也不要与之矛盾。
-    - 姓名、生日、邮箱、住址等基本信息，只在记录中明确出现时才写；没有就不写，不要编造或为了填满小节而猜测。
-    - 区分事实与推测：根据活动推测出的习惯、偏好要写成"似乎""经常"等措辞，不要写成确定事实。
-    - section 取值：\(MemorySchema.generalSections.joined(separator: "、"))。
-    - 每条一句中文。sources 写依据的日期（YYYY-MM-DD）。
-    - 不写敏感信息。
-    输出 JSON：{"items": [{"section": "工作概况", "text": "...", "sources": ["2026-10-19", "2026-10-20"]}]}
-    只输出 JSON。
-    """
-
-    static func generalUser(userWritten: String, existing: [MemoryItem], digests: [(day: String, text: String)], projects: [Consolidator.Project]) -> String {
-        var parts: [String] = []
-        let written = userWritten.trimmingCharacters(in: .whitespacesAndNewlines)
-        parts.append("用户手写的档案内容：")
-        parts.append(written.isEmpty ? "（无）" : written)
-        parts.append("\n当前系统条目：")
-        parts.append(existing.isEmpty ? "（无）" : existing.map { "- [\($0.section ?? "其他")] \($0.text) [sources: \($0.sources.joined(separator: ","))]" }.joined(separator: "\n"))
-        parts.append("\n最近的日终摘要：")
-        for d in digests { parts.append("【\(d.day)】\n\(d.text)") }
-        parts.append("\n工作记忆（work.md）：")
-        if projects.isEmpty { parts.append("（无）") }
-        for p in projects {
-            parts.append("\(p.name)：" + p.items.prefix(8).map(\.text).joined(separator: "；"))
-        }
-        return parts.joined(separator: "\n")
-    }
-}
-
-// MARK: - Output schemas
-
-/// 三个整理任务的输出 Schema。所有字段必填、不允许额外字段，
-/// 同时满足 Anthropic `output_config.format` 与 OpenAI strict `json_schema` 的要求。
-enum Schemas {
-    private static let item = #"{"type":"object","properties":{"text":{"type":"string"},"sources":{"type":"array","items":{"type":"string"}}},"required":["text","sources"],"additionalProperties":false}"#
-
-    static let digest = OutputSchema(name: "daily_digest", json: #"""
-    {"type":"object","properties":{"summary":{"type":"string"},"highlights":{"type":"array","items":{"type":"string"}}},"required":["summary","highlights"],"additionalProperties":false}
-    """#)
-
-    static let topics = OutputSchema(name: "work_topics", json: #"""
-    {"type":"object","properties":{"updates":{"type":"array","items":{"type":"object","properties":{"project":{"type":"string"},"items":{"type":"array","items":\#(item)}},"required":["project","items"],"additionalProperties":false}}},"required":["updates"],"additionalProperties":false}
-    """#)
-
-    static let general = OutputSchema(name: "general_profile", json: #"""
-    {"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"section":{"type":"string","enum":[\#(sectionEnum)]},"text":{"type":"string"},"sources":{"type":"array","items":{"type":"string"}}},"required":["section","text","sources"],"additionalProperties":false}}},"required":["items"],"additionalProperties":false}
-    """#)
-
-    private static var sectionEnum: String {
-        MemorySchema.generalSections.map { "\"\($0)\"" }.joined(separator: ",")
     }
 }

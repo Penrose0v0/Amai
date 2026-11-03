@@ -198,6 +198,19 @@ final class AppModel {
                 await self.refresh()
             }
         }
+        // 开发用：用合成场景评测记忆整理，只在临时目录中运行，不读写真实记忆。
+        // open .build/Amai.app --args --memory-eval <scenarios.json> --eval-output <目录> [--eval-local]
+        if let i = args.firstIndex(of: "--memory-eval"), i + 1 < args.count, let context = modelContext {
+            let scenarios = URL(fileURLWithPath: args[i + 1])
+            let output = args.firstIndex(of: "--eval-output").flatMap { $0 + 1 < args.count ? URL(fileURLWithPath: args[$0 + 1]) : nil }
+                ?? FileManager.default.temporaryDirectory.appendingPathComponent("amai-memory-eval")
+            var config = consolidationModel
+            if args.contains("--eval-local") { config.mode = .local }
+            let model = ConsolidationModelFactory.make(config, context: context)
+            Task.detached {
+                await MemoryEvalCommand.run(scenarios: scenarios, output: output, model: model)
+            }
+        }
     }
 
     // MARK: - Perception actions
@@ -292,7 +305,7 @@ final class AppModel {
         NSWorkspace.shared.open(memoryRoot)
     }
 
-    /// 手动整理今天：生成今天的日终摘要并更新 work.md（不影响凌晨的正式整理）。
+    /// 手动整理今天：生成今天的日终摘要并整理路由到的分区（不影响凌晨的正式整理）。
     func consolidateToday() {
         guard let consolidator, let memorySync, migrationError == nil else { return }
         Task {

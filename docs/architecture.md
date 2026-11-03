@@ -95,6 +95,8 @@ M3 实现（`AmaiMemory`）：`MemoryStore` 写 daily 时间线区块；`MemoryI
 
 Memory Schema v1（ADR-0006）：每个分区一个 Markdown 文件；`MemoryLibrary` 是统一只读接口（按分区读文档与系统条目、读 daily、按分区检索），Browser 与今后的外部 Agent 接入都复用它；`SchemaMigration` 在启动时把旧布局无损迁移到 v1，归档在记忆目录的 `.archive/`。
 
+分区整理（ADR-0006 阶段 2）：`Consolidator` 先做日终摘要与类别路由，再只对路由到的分区调用整理器；整理器通过 `SegmentSource.observations(on:)` 读取抽取层的 `fact` 观察（只用应用名与时间，不读屏幕文字），与片段推断、用户手写内容一起构成依据清单（`EvidenceLedger`），条目的依据类型由代码根据引用推导（`CategoryUpdater`）。评测工具 `AmaiMemoryEval` 只在开发时使用（`amai-memory eval`、App 的 `--memory-eval`），在临时目录中运行。
+
 设计约束：
 - Markdown 是唯一真相来源，索引可随时删除重建。
 - 用户外部编辑 Markdown 必须被尊重（文件监听 + 重新索引，而非覆盖）。

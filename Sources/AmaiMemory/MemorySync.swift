@@ -7,6 +7,13 @@ public protocol SegmentSource: Sendable {
     /// 最近 `days` 天内（含 `endingOn` 当天）有片段在 `after` 之后更新的日期（当天 00:00），以及其中最新的更新时间。
     func daysWithUpdates(after: Date?, endingOn: Date, days: Int) async -> [(day: Date, latestUpdate: Date)]
     func segments(on day: Date) async -> [ActivitySegment]
+    /// 当天的观察。记忆层只使用 `fact` 观察的应用名与时间（作为 observed 依据），
+    /// 不读取其中的屏幕文字，也不接触原始帧。
+    func observations(on day: Date) async -> [Observation]
+}
+
+extension SegmentSource {
+    public func observations(on day: Date) async -> [Observation] { [] }
 }
 
 /// 把活动片段同步进 daily 文件，并刷新索引。

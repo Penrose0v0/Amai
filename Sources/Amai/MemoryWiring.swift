@@ -14,6 +14,10 @@ struct ExtractionSegmentSource: SegmentSource {
     func segments(on day: Date) async -> [ActivitySegment] {
         await store.segments(on: day)
     }
+
+    func observations(on day: Date) async -> [AmaiCoreObservation] {
+        await store.observations(on: day)
+    }
 }
 
 /// 本地模式：用抽取层的 ModelProvider 为记忆整理提供文本生成。不支持结构化输出，Schema 被忽略。

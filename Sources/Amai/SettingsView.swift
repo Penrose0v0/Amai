@@ -72,7 +72,7 @@ private struct AdvancedSettingsView: View {
             Section {
                 Button("立即处理积压的屏幕活动") { model.runExtractionNow() }
                 Button("立即同步记忆") { model.syncMemoryNow() }
-                Button("整理今天（日终摘要与 Work）") { model.consolidateToday() }
+                Button("整理今天（日终摘要与各分区）") { model.consolidateToday() }
                 Button("更新综合档案（General）") { model.updateGeneralNow() }
                 if model.consolidationModel.mode == .chatgptPlan {
                     Button("Manage usage") { model.openChatGPTUsage() }

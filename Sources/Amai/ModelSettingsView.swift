@@ -223,7 +223,7 @@ struct ModelSettingsView: View {
 
     static func privacyNote(_ config: ConsolidationModelConfiguration) -> String {
         """
-        开启后，每天整理与每周更新 General 时会把以下文本发送给 \(config.serviceName)：daily 文件全文（时间线、日终摘要、你手写的笔记）、work.md 的系统条目、general.md 全文（含你手写的部分）。
+        开启后，每天整理与每周更新 General 时会把以下文本发送给 \(config.serviceName)：当天活动片段的标题与摘要、所用应用名、你在 daily 中手写的笔记、日终摘要，以及 general / work / health / finance / goals 五个记忆文件的内容（含你手写的部分）。
         不会发送：截图、屏幕文字识别（OCR）原文、观察记录和任何原始数据。发送前会自动去掉密钥、令牌、银行卡号等凭据。
         数据按该服务的数据政策处理。云端调用失败时不会改用其他模型，当天会在下次重试。
         """

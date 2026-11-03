@@ -12,11 +12,11 @@ func at(_ s: TimeInterval) -> Date { base.addingTimeInterval(s) }
 func segment(
     _ start: TimeInterval, _ end: TimeInterval, _ title: String,
     summary: String = "", category: ActivityCategory = .work, confidence: Double = 0.9,
-    provider: String = "mlx:test", id: UUID = UUID(), updatedAt: Date? = nil
+    provider: String = "mlx:test", id: UUID = UUID(), updatedAt: Date? = nil, observations: [UUID] = []
 ) -> ActivitySegment {
     ActivitySegment(
         id: id, timeRange: TimeRange(start: at(start), end: at(end)), title: title, summary: summary,
-        category: category, apps: [], observations: [], confidence: confidence, provider: provider,
+        category: category, apps: [], observations: observations, confidence: confidence, provider: provider,
         updatedAt: updatedAt ?? at(end)
     )
 }
@@ -265,8 +265,21 @@ struct MemoryIndexTests {
 final class FakeSource: SegmentSource, @unchecked Sendable {
     private let lock = NSLock()
     var byDay: [Date: [ActivitySegment]] = [:]
+    var facts: [Observation] = []
 
     func set(_ segments: [ActivitySegment], on day: Date) { lock.withLock { byDay[day] = segments } }
+
+    /// 一条采集元数据观察（前台应用），返回其 id 供片段引用。
+    func addFact(app: String, at time: TimeInterval) -> UUID {
+        let o = Observation(
+            timeRange: TimeRange(start: at(time), end: at(time + 10)), modality: .screen, kind: .fact,
+            content: "屏幕文字不应进入记忆", confidence: 1, evidence: [], attributes: ["app": app], provider: "perception"
+        )
+        lock.withLock { facts.append(o) }
+        return o.id
+    }
+
+    func observations(on day: Date) async -> [Observation] { lock.withLock { facts } }
 
     func daysWithUpdates(after: Date?, endingOn: Date, days: Int) async -> [(day: Date, latestUpdate: Date)] {
         lock.withLock {
