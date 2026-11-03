@@ -32,6 +32,8 @@ public struct EvalScenario: Codable, Sendable {
         public var category: MemoryCategory
         public var anchors: [String]
         public var kind: MemoryEntryKind?
+        /// 期望所在的小节（例如 Work 的项目名）；写进同一分区的其他小节也算错误归属。
+        public var section: String?
     }
 
     public struct Forbidden: Codable, Sendable {
@@ -60,9 +62,28 @@ public struct EvalScenario: Codable, Sendable {
     public var expectedWorkProjects: Int?
 }
 
+/// 场景中新写入的一条有效记忆，供逐条人工审计（区分正确、事实错误、错误归属、低价值冗余）。
+public struct WrittenItem: Codable, Sendable, Equatable {
+    public var category: MemoryCategory
+    public var section: String?
+    public var text: String
+    public var kind: MemoryEntryKind
+    public var sources: [String]
+    /// 命中的期望事实 ID；未命中为 nil（需人工判断）。
+    public var matchedFact: String?
+}
+
 /// 单个场景的评测结果。
 public struct EvalResult: Codable, Sendable {
     public var scenario: String
+    public var written: [WrittenItem] = []
+    /// 模型输出不是合格 JSON（缺少必需字段）的次数。
+    public var malformedOutputs = 0
+    /// 模型提出的操作总数与被拒绝原因分布（依据引用质量）。
+    public var operationsProposed = 0
+    public var rejectionReasons: [String: Int] = [:]
+    /// 因失败而重试整理的次数（与正式运行一样，每天最多 3 次）。
+    public var retries = 0
     public var routeExpected = 0
     public var routeHit = 0
     public var routeExtra = 0
@@ -107,6 +128,10 @@ public struct EvalSummary: Codable, Sendable {
     public var falseMemoryRate: Double { ratio(\.forbiddenHits, \.forbiddenChecked) }
     public var supersededHandledRate: Double { ratio(\.supersededHandled, \.supersededChecked) }
     public var contradictions: Int { results.reduce(0) { $0 + $1.contradictions } }
+    public var malformedRate: Double {
+        let calls = sum(\.modelCalls)
+        return calls == 0 ? 0 : Double(sum(\.malformedOutputs)) / Double(calls)
+    }
     /// 有效写入中命中期望事实的比例（其余为未标注或错误内容）。
     public var precision: Double {
         let written = results.reduce(0) { $0 + $1.itemsWritten }
@@ -133,14 +158,26 @@ public struct EvalSummary: Codable, Sendable {
             "| 错误记忆（不应出现的内容） | \(sum(\.forbiddenHits))/\(sum(\.forbiddenChecked))（\(pct(falseMemoryRate))） |",
             "| 跨天变化 / 过时信息正确处理 | \(pct(supersededHandledRate))（\(sum(\.supersededHandled))/\(sum(\.supersededChecked))），新旧同时有效 \(contradictions) 处 |",
             "| 有效写入中命中期望事实的比例 | \(pct(precision))（共写入 \(sum(\.itemsWritten)) 条） |",
-            "| 模型调用 | \(sum(\.modelCalls)) 次，被代码拒绝的操作 \(sum(\.rejectedOperations)) 个 |",
+            "| 模型调用 | \(sum(\.modelCalls)) 次（重试 \(sum(\.retries)) 次） |",
+            "| 结构化输出不合格 | \(sum(\.malformedOutputs)) 次（\(pct(malformedRate))） |",
+            "| 提出的操作 / 被代码拒绝 | \(sum(\.operationsProposed)) / \(sum(\.rejectedOperations)) |",
             "",
         ]
+        var reasons: [String: Int] = [:]
+        for r in results { reasons.merge(r.rejectionReasons, uniquingKeysWith: +) }
+        if !reasons.isEmpty {
+            lines.append("被拒绝原因：" + reasons.sorted { $0.value > $1.value }.map { "\($0.key) \($0.value)" }.joined(separator: "；"))
+            lines.append("")
+        }
         for r in results {
             var line = "- \(r.scenario)：路由 \(r.routeHit)/\(r.routeExpected)，事实 \(r.factsFound)/\(r.factsExpected)，错误记忆 \(r.forbiddenHits)，变化处理 \(r.supersededHandled)/\(r.supersededChecked)"
             if let p = r.workProjects, let e = r.expectedWorkProjects { line += "，Work 项目 \(p)（期望 \(e)）" }
             lines.append(line)
             for n in r.notes + r.errors { lines.append("  - \(n)") }
+            for w in r.written {
+                let tag = w.matchedFact.map { "✓\($0)" } ?? "?"
+                lines.append("  - [\(tag)] \(w.category.rawValue)/\(w.section ?? "-")：\(w.text)（\(w.kind.rawValue)）")
+            }
         }
         return lines.joined(separator: "\n")
     }
@@ -158,8 +195,9 @@ public enum MemoryEvaluation {
         return EvalSummary(model: model.identifier, results: results)
     }
 
-    public static func run(_ scenario: EvalScenario, model: any MemoryLanguageModel) async -> EvalResult {
+    public static func run(_ scenario: EvalScenario, model base: any MemoryLanguageModel) async -> EvalResult {
         var result = EvalResult(scenario: scenario.name)
+        let model = InstrumentedModel(base)
         let fm = FileManager.default
         let root = fm.temporaryDirectory.appendingPathComponent("amai-eval-\(UUID().uuidString)")
         defer { try? fm.removeItem(at: root) }
@@ -186,31 +224,35 @@ public enum MemoryEvaluation {
                     let existing = (try? String(contentsOf: path, encoding: .utf8)) ?? "# \(d.date)\n"
                     try (existing + "\n## 我的笔记\n\(notes)\n").write(to: path, atomically: true, encoding: .utf8)
                 }
-                do {
-                    let report = try await consolidator.consolidateDay(date)
-                    result.modelCalls += report.modelCalls
-                    result.rejectedOperations += report.rejected.count
-                    result.notes += report.rejected.map { "\(d.date) 被拒绝：\($0)" }
-                    if report.routingFallback { result.routingFallbacks += 1 }
-                    if let expected = d.routes {
-                        result.routeExpected += expected.count
-                        result.routeHit += expected.filter(report.routed.contains).count
-                        result.routeExtra += report.routed.filter { !expected.contains($0) }.count
-                        let missed = expected.filter { !report.routed.contains($0) }
-                        if !missed.isEmpty { result.notes.append("\(d.date) 漏路由：\(missed.map(\.rawValue).joined(separator: ","))") }
+                // 与正式运行一样：失败的分区下一次 tick 重试，每天最多 3 次。
+                var attempt = 0
+                while true {
+                    attempt += 1
+                    do {
+                        let report = try await consolidator.consolidateDay(date)
+                        record(report, day: d, into: &result)
+                        break
+                    } catch {
+                        if attempt >= 3 {
+                            // 整天失败：期望的路由全部记为未命中，不让失败抬高召回率。
+                            result.routeExpected += d.routes?.count ?? 0
+                            result.errors.append("\(d.date)：\(error)")
+                            break
+                        }
+                        result.retries += 1
                     }
-                } catch {
-                    result.errors.append("\(d.date)：\(error)")
                 }
             }
             if scenario.runGeneral == true {
                 do {
                     _ = try await consolidator.updateGeneral()
-                    result.modelCalls += 1
                 } catch {
                     result.errors.append("General：\(error)")
                 }
             }
+            result.modelCalls = model.calls
+            result.malformedOutputs = model.malformed
+            result.operationsProposed = model.operations
             score(scenario, memory: memory, initial: initial, into: &result)
         } catch {
             result.errors.append("场景准备失败：\(error)")
@@ -218,17 +260,46 @@ public enum MemoryEvaluation {
         return result
     }
 
+    static func record(_ report: Consolidator.DayReport, day d: EvalScenario.Day, into result: inout EvalResult) {
+        result.rejectedOperations += report.rejected.count
+        for r in report.rejected {
+            let reason = r.split(separator: "：").last.map(String.init) ?? r
+            let key = reason.hasPrefix("新依据") || reason.hasPrefix("依据（") ? "依据弱于已有条目"
+                : (reason.hasPrefix("不是用户本人") ? "不是用户本人的数据" : reason)
+            result.rejectionReasons[key, default: 0] += 1
+        }
+        result.notes += report.rejected.map { "\(d.date) 被拒绝：\($0)" }
+        if report.routingFallback { result.routingFallbacks += 1 }
+        if let expected = d.routes {
+            result.routeExpected += expected.count
+            result.routeHit += expected.filter(report.routed.contains).count
+            result.routeExtra += report.routed.filter { !expected.contains($0) }.count
+            let missed = expected.filter { !report.routed.contains($0) }
+            if !missed.isEmpty { result.notes.append("\(d.date) 漏路由：\(missed.map(\.rawValue).joined(separator: ","))") }
+        }
+    }
+
     // MARK: - Scoring
 
     static func score(_ scenario: EvalScenario, memory: URL, initial: Set<String>, into result: inout EvalResult) {
         let active = activeItems(memory)
-        result.itemsWritten = active.filter { !initial.contains("\($0.0.rawValue)|\($0.1.text)") }.count
         func matches(_ item: MemoryItem, _ anchors: [String]) -> Bool {
             anchors.allSatisfy { item.text.localizedCaseInsensitiveContains($0) }
         }
+        result.written = active.filter { !initial.contains("\($0.0.rawValue)|\($0.1.text)") }.map { c, item in
+            WrittenItem(
+                category: c, section: item.section, text: item.text, kind: item.kind, sources: item.sources,
+                matchedFact: (scenario.facts ?? []).first { $0.category == c && matches(item, $0.anchors) }?.id
+            )
+        }
+        result.itemsWritten = result.written.count
         for fact in scenario.facts ?? [] {
             result.factsExpected += 1
-            if let hit = active.first(where: { $0.0 == fact.category && matches($0.1, fact.anchors) }) {
+            let inCategory = active.filter { $0.0 == fact.category && matches($0.1, fact.anchors) }
+            if let expected = fact.section, !inCategory.isEmpty, !inCategory.contains(where: { $0.1.section == expected }) {
+                result.factsMisattributed += 1
+                result.notes.append("\(fact.id) 写进了小节 \(inCategory[0].1.section ?? "-")，期望 \(expected)")
+            } else if let hit = inCategory.first(where: { fact.section == nil || $0.1.section == fact.section }) {
                 result.factsFound += 1
                 if let kind = fact.kind {
                     result.kindChecked += 1
@@ -281,6 +352,41 @@ public enum MemoryEvaluation {
 
     public static func load(_ url: URL) throws -> [EvalScenario] {
         try JSONDecoder().decode([EvalScenario].self, from: Data(contentsOf: url))
+    }
+}
+
+/// 记录调用次数、不合格的结构化输出与提出的操作数。
+final class InstrumentedModel: MemoryLanguageModel, @unchecked Sendable {
+    let base: any MemoryLanguageModel
+    private let lock = NSLock()
+    private(set) var calls = 0
+    private(set) var malformed = 0
+    private(set) var operations = 0
+
+    init(_ base: any MemoryLanguageModel) { self.base = base }
+
+    var identifier: String { base.identifier }
+
+    func complete(system: String, user: String, maxTokens: Int, schema: OutputSchema?) async throws -> String {
+        lock.withLock { calls += 1 }
+        let text = try await base.complete(system: system, user: user, maxTokens: maxTokens, schema: schema)
+        let json = Self.object(text)
+        lock.withLock {
+            switch schema?.name {
+            case "daily_digest":
+                if json?["summary"] == nil || json?["routes"] as? [String: Any] == nil { malformed += 1 }
+            case "memory_operations":
+                if let ops = json?["operations"] as? [Any] { operations += ops.count } else { malformed += 1 }
+            default:
+                break
+            }
+        }
+        return text
+    }
+
+    static func object(_ text: String) -> [String: Any]? {
+        guard let open = text.firstIndex(of: "{"), let close = text.lastIndex(of: "}"), open < close else { return nil }
+        return (try? JSONSerialization.jsonObject(with: Data(text[open...close].utf8))) as? [String: Any]
     }
 }
 

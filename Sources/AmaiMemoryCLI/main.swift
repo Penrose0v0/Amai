@@ -1,5 +1,6 @@
 import AmaiCloud
 import AmaiCore
+import AmaiExtraction
 import AmaiMemory
 import AmaiMemoryEval
 import Foundation
@@ -10,8 +11,9 @@ import Foundation
 //   amai-memory reindex                     增量刷新索引
 //   amai-memory rebuild                     清空后全量重建
 //   amai-memory migrate [--status|--rollback]  Schema v1 迁移、查看迁移记录、回滚（ADR-0006）
-//   amai-memory eval <场景.json> --claude <claude 路径> [--model opus] [--output 目录]
-//                                           用 Claude 订阅（本机 Claude Code）跑记忆整理评测；只用合成数据与临时目录
+//   amai-memory eval <场景.json> (--claude <claude 路径> [--model opus] | --local <模型标签>) [--only 场景,…] [--output 目录]
+//                                           用 Claude 订阅（本机 Claude Code）或本地 MLX 模型跑记忆整理评测；
+//                                           只用合成数据与临时目录，不读写真实记忆目录。本地模型需要二进制旁有 mlx.metallib。
 //
 // 选项：--memory <目录>（默认 ~/.amai/memory）  --index <sqlite>（默认 App 使用的索引）
 
@@ -21,6 +23,7 @@ let usage = """
   amai-memory reindex
   amai-memory rebuild
   amai-memory migrate [--status|--rollback]
+  amai-memory eval <场景.json> (--claude <claude 路径> [--model opus] | --local <模型标签>) [--only 场景,…] [--output 目录]
 选项：--memory <记忆目录>  --index <索引文件>
 """
 
@@ -60,16 +63,32 @@ struct EvalCloudModel: MemoryLanguageModel {
     }
 }
 
+/// 本地模型（与 App 中的 LocalLanguageModel 相同）：不支持结构化输出，Schema 被忽略。
+struct EvalLocalModel: MemoryLanguageModel {
+    let provider: MLXModelProvider
+    var identifier: String { provider.identifier }
+
+    func complete(system: String, user: String, maxTokens: Int, schema: OutputSchema?) async throws -> String {
+        try await provider.generate(ModelRequest(cacheable: system, dynamic: user, maxTokens: maxTokens)).text
+    }
+}
+
 if command == "eval" {
     let claude = option("--claude")
+    let local = option("--local")
     let modelName = option("--model") ?? ClaudeCodeClient.defaultModel
     let only = option("--only")
     let output = URL(fileURLWithPath: option("--output") ?? "eval/memory/results", isDirectory: true)
-    guard args.count >= 2, let claude else { print(usage); exit(1) }
-    let workdir = FileManager.default.temporaryDirectory.appendingPathComponent("amai-eval-claude", isDirectory: true)
-    let model = EvalCloudModel(client: ClaudeCodeClient(
-        executable: URL(fileURLWithPath: (claude as NSString).expandingTildeInPath), model: modelName, workingDirectory: workdir
-    ))
+    guard args.count >= 2, claude != nil || local != nil else { print(usage); exit(1) }
+    let model: any MemoryLanguageModel
+    if let local {
+        model = EvalLocalModel(provider: MLXModelProvider(modelTag: local))
+    } else {
+        let workdir = FileManager.default.temporaryDirectory.appendingPathComponent("amai-eval-claude", isDirectory: true)
+        model = EvalCloudModel(client: ClaudeCodeClient(
+            executable: URL(fileURLWithPath: (claude! as NSString).expandingTildeInPath), model: modelName, workingDirectory: workdir
+        ))
+    }
     do {
         var scenarios = try MemoryEvaluation.load(URL(fileURLWithPath: args[1]))
         if let only { scenarios = scenarios.filter { only.split(separator: ",").map(String.init).contains($0.name) } }

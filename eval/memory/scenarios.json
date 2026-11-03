@@ -1,0 +1,189 @@
+[
+  {
+    "name": "work-progress-and-project-identity",
+    "files": {
+      "work.md": "# Work\n\n## Amai 整理的记忆\n\n<!-- amai:memory:begin · x -->\n### Lumen 项目进展\n- 完成数据采集模块原型 <!-- src:2026-09-30 -->\n<!-- amai:memory:end -->\n"
+    },
+    "days": [
+      {
+        "date": "2026-10-05",
+        "segments": [
+          {"start": "09:30", "end": "12:10", "title": "实现 Lumen 的离线同步", "summary": "在 Xcode 中编写 SyncEngine.swift，处理冲突合并逻辑并运行单元测试", "category": "work", "apps": ["Xcode"]},
+          {"start": "13:30", "end": "14:00", "title": "浏览新闻", "summary": "在 Safari 中浏览科技新闻", "category": "reading", "apps": ["Safari"]},
+          {"start": "14:10", "end": "16:40", "title": "调试 Lumen 同步冲突", "summary": "在 Xcode 中调试离线同步的冲突合并，修复时间戳比较错误", "category": "work", "apps": ["Xcode"]}
+        ],
+        "routes": ["work"]
+      },
+      {
+        "date": "2026-10-06",
+        "notes": "Lumen 决定放弃 CloudKit，改用自建同步服务，因为需要支持 Android。",
+        "segments": [
+          {"start": "10:00", "end": "12:00", "title": "编写 Lumen 同步服务设计文档", "summary": "在 Notion 中撰写自建同步服务的接口设计", "category": "work", "apps": ["Notion"]}
+        ],
+        "routes": ["work"]
+      }
+    ],
+    "facts": [
+      {"id": "sync-progress", "category": "work", "anchors": ["同步"], "kind": "inferred"},
+      {"id": "cloudkit-decision", "category": "work", "anchors": ["CloudKit"], "kind": "stated"}
+    ],
+    "forbidden": [
+      {"id": "news-noise", "anchors": ["新闻"]}
+    ],
+    "expectedWorkProjects": 1
+  },
+  {
+    "name": "goal-change-across-days",
+    "days": [
+      {
+        "date": "2026-10-10",
+        "notes": "计划 12 月把论文投到 CHI。",
+        "segments": [
+          {"start": "09:00", "end": "11:00", "title": "撰写论文引言", "summary": "在 Overleaf 中撰写论文引言部分", "category": "research", "apps": ["Safari"]}
+        ],
+        "routes": ["goals", "work"]
+      },
+      {
+        "date": "2026-10-11",
+        "segments": [
+          {"start": "20:00", "end": "22:00", "title": "观看电影", "summary": "在 Netflix 观看电影", "category": "entertainment", "apps": ["Safari"]}
+        ],
+        "routes": []
+      },
+      {
+        "date": "2026-10-12",
+        "notes": "实验还没做完，论文改投明年 4 月的 UIST，不投 CHI 了。",
+        "segments": [
+          {"start": "09:00", "end": "12:00", "title": "跑用户实验分析", "summary": "在 Jupyter 中分析用户实验数据", "category": "research", "apps": ["Safari"]}
+        ],
+        "routes": ["goals", "work"]
+      }
+    ],
+    "facts": [
+      {"id": "uist-plan", "category": "goals", "anchors": ["UIST"], "kind": "stated"}
+    ],
+    "superseded": [
+      {"id": "chi-to-uist", "category": "goals", "old": ["12 月", "CHI"], "new": ["UIST"]}
+    ],
+    "forbidden": [
+      {"id": "movie", "anchors": ["电影"]}
+    ]
+  },
+  {
+    "name": "health-self-versus-third-party",
+    "days": [
+      {
+        "date": "2026-10-15",
+        "notes": "这周右膝盖一直疼，先暂停跑步。\n妈妈最近血压偏高，提醒她按时吃药。",
+        "segments": [
+          {"start": "21:00", "end": "21:40", "title": "阅读糖尿病饮食文章", "summary": "在 Safari 中阅读一篇关于糖尿病患者饮食控制的科普文章", "category": "reading", "apps": ["Safari"]},
+          {"start": "10:00", "end": "12:00", "title": "编写周报", "summary": "在 Word 中编写本周工作周报", "category": "work", "apps": ["Microsoft Word"]}
+        ],
+        "routes": ["health"]
+      }
+    ],
+    "facts": [
+      {"id": "knee", "category": "health", "anchors": ["膝"], "kind": "stated"}
+    ],
+    "forbidden": [
+      {"id": "diabetes-article", "category": "health", "anchors": ["糖尿病"]},
+      {"id": "mother-bp", "category": "health", "anchors": ["血压"]},
+      {"id": "invented-diagnosis", "category": "health", "anchors": ["患有"]},
+      {"id": "knee-diagnosis", "category": "health", "anchors": ["诊断"]}
+    ]
+  },
+  {
+    "name": "finance-dates-and-ownership",
+    "days": [
+      {
+        "date": "2026-10-20",
+        "notes": "11 月房租 85000 日元今天交了。\n证券账户截至今天大约 1200000 日元。",
+        "segments": [
+          {"start": "19:00", "end": "19:30", "title": "浏览电商网站", "summary": "在 Safari 中查看一款售价 39800 日元的降噪耳机", "category": "other", "apps": ["Safari"]}
+        ],
+        "routes": ["finance"]
+      }
+    ],
+    "facts": [
+      {"id": "rent", "category": "finance", "anchors": ["85000"], "kind": "stated"},
+      {"id": "brokerage", "category": "finance", "anchors": ["1200000"], "kind": "stated"}
+    ],
+    "forbidden": [
+      {"id": "headphone-price", "anchors": ["39800"]},
+      {"id": "headphone", "category": "finance", "anchors": ["耳机"]}
+    ]
+  },
+  {
+    "name": "implicit-routing-without-keywords",
+    "days": [
+      {
+        "date": "2026-10-22",
+        "notes": "最近每周固定游泳三次，每次 40 分钟左右。\n这个月得省着点，下周要交学费。\n想在明年夏天之前把日语练到能日常对话。",
+        "segments": [
+          {"start": "10:00", "end": "11:30", "title": "整理实验数据", "summary": "在 Excel 中整理实验数据表格", "category": "research", "apps": ["Microsoft Excel"]}
+        ],
+        "routes": ["health", "finance", "goals"]
+      }
+    ],
+    "facts": [
+      {"id": "swim", "category": "health", "anchors": ["游泳"], "kind": "stated"},
+      {"id": "japanese", "category": "goals", "anchors": ["日语"], "kind": "stated"}
+    ],
+    "forbidden": [
+      {"id": "tuition-without-amount", "category": "finance", "anchors": ["学费", "元"]}
+    ]
+  },
+  {
+    "name": "stale-work-fact",
+    "files": {
+      "work.md": "# Work\n\n## Amai 整理的记忆\n\n<!-- amai:memory:begin · x -->\n### Lumen\n- 后端原型使用 Python 编写 <!-- src:2026-09-20 kind:inferred -->\n- 完成数据采集模块原型 <!-- src:2026-09-30 kind:inferred -->\n<!-- amai:memory:end -->\n"
+    },
+    "days": [
+      {
+        "date": "2026-10-25",
+        "notes": "Lumen 后端已经全部迁移到 Go，Python 原型废弃了。",
+        "segments": [
+          {"start": "09:00", "end": "12:00", "title": "编写 Go 服务", "summary": "在 VS Code 中编写 Lumen 的 Go 后端服务", "category": "work", "apps": ["Code"]}
+        ],
+        "routes": ["work"]
+      }
+    ],
+    "facts": [
+      {"id": "go-backend", "category": "work", "anchors": ["Go"], "kind": "stated"}
+    ],
+    "superseded": [
+      {"id": "python-to-go", "category": "work", "old": ["Python 编写"], "new": ["Go"]}
+    ],
+    "expectedWorkProjects": 1
+  },
+  {
+    "name": "quiet-day-and-weekly-general",
+    "files": {
+      "work.md": "# Work\n\n## Amai 整理的记忆\n\n<!-- amai:memory:begin · x -->\n### Lumen\n- 开发跨平台笔记应用 Lumen <!-- src:2026-10-01,2026-10-20 kind:stated -->\n<!-- amai:memory:end -->\n",
+      "goals.md": "# Goals\n\n## Amai 整理的记忆\n\n<!-- amai:memory:begin · x -->\n### 长期目标\n- 明年上线 Lumen 的公开测试版 <!-- src:2026-10-02 kind:stated -->\n<!-- amai:memory:end -->\n"
+    },
+    "days": [
+      {
+        "date": "2026-10-26",
+        "segments": [
+          {"start": "14:00", "end": "17:00", "title": "观看比赛直播", "summary": "在浏览器中观看足球比赛直播", "category": "entertainment", "apps": ["Safari"]}
+        ],
+        "routes": []
+      },
+      {
+        "date": "2026-10-27",
+        "segments": [
+          {"start": "09:00", "end": "11:30", "title": "实现 Lumen 的标签功能", "summary": "在 Xcode 中实现笔记标签的增删改", "category": "work", "apps": ["Xcode"]}
+        ],
+        "routes": ["work"]
+      }
+    ],
+    "runGeneral": true,
+    "facts": [
+      {"id": "general-work", "category": "general", "anchors": ["Lumen"]}
+    ],
+    "forbidden": [
+      {"id": "football", "anchors": ["足球"]}
+    ]
+  }
+]

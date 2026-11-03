@@ -49,6 +49,7 @@ struct EvaluationTests {
         #expect(r.factsFound == 1 && r.kindCorrect == 1)
         #expect(r.forbiddenHits == 0 && r.forbiddenChecked == 4)
         #expect(r.rejectedOperations == 2)
+        #expect(r.operationsProposed == 3 && r.malformedOutputs == 0 && r.modelCalls == 2)
         #expect(r.itemsWritten == 1)
     }
 

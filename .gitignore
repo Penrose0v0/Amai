@@ -19,6 +19,8 @@ node_modules/
 # 本地数据：绝不提交任何采集数据或记忆文件
 data/
 memory/
+# 例外：合成的记忆整理评测场景与审计（不含真实个人数据）
+!eval/memory/
 *.sqlite
 *.sqlite-*
 *.log

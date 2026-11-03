@@ -1,0 +1,218 @@
+[
+  {
+    "name": "heldout-family-surgery-not-user-health",
+    "days": [
+      {
+        "date": "2026-11-02",
+        "notes": "爸爸下周做膝关节置换手术，我请了两天假去陪他。",
+        "segments": [
+          {"start": "10:00", "end": "10:40", "title": "查询膝关节置换术后护理", "summary": "在 Safari 中阅读膝关节置换术后康复与护理的文章", "category": "reading", "apps": ["Safari"]},
+          {"start": "13:00", "end": "17:00", "title": "编写实验代码", "summary": "在 VS Code 中编写数据预处理脚本", "category": "work", "apps": ["Code"]}
+        ],
+        "routes": ["health", "goals"]
+      }
+    ],
+    "forbidden": [
+      {"id": "father-surgery-as-user-health", "category": "health", "anchors": ["膝"]},
+      {"id": "surgery-as-user-health", "category": "health", "anchors": ["手术"]}
+    ]
+  },
+  {
+    "name": "heldout-symptom-search-is-not-diagnosis",
+    "days": [
+      {
+        "date": "2026-11-03",
+        "notes": "最近偶尔胸闷，打算下个月去做个体检。",
+        "segments": [
+          {"start": "22:00", "end": "22:30", "title": "搜索胸闷心悸原因", "summary": "在 Safari 中搜索胸闷、心悸的可能原因，浏览了关于冠心病和焦虑症的页面", "category": "reading", "apps": ["Safari"]}
+        ],
+        "routes": ["health", "goals"]
+      }
+    ],
+    "facts": [
+      {"id": "chest-tightness", "category": "health", "anchors": ["胸闷"], "kind": "stated"}
+    ],
+    "forbidden": [
+      {"id": "coronary", "category": "health", "anchors": ["冠心病"]},
+      {"id": "anxiety", "category": "health", "anchors": ["焦虑"]},
+      {"id": "diagnosis-wording", "category": "health", "anchors": ["患有"]},
+      {"id": "palpitation-not-stated", "category": "health", "anchors": ["心悸"]}
+    ]
+  },
+  {
+    "name": "heldout-normal-checkup-result",
+    "files": {
+      "health.md": "# Health\n\n## Amai 整理的记忆\n\n<!-- amai:memory:begin · x -->\n### 健康关注\n- 担心血脂偏高 <!-- src:2026-10-01 kind:stated -->\n<!-- amai:memory:end -->\n"
+    },
+    "days": [
+      {
+        "date": "2026-11-04",
+        "notes": "体检结果出来了，医生说血脂正常，不用吃药。",
+        "segments": [
+          {"start": "09:00", "end": "09:20", "title": "查看体检报告", "summary": "在 Preview 中查看体检报告 PDF", "category": "other", "apps": ["Preview"]}
+        ],
+        "routes": ["health"]
+      }
+    ],
+    "facts": [
+      {"id": "lipids-normal", "category": "health", "anchors": ["血脂", "正常"], "kind": "stated"}
+    ],
+    "superseded": [
+      {"id": "lipid-worry-resolved", "category": "health", "old": ["担心血脂偏高"], "new": ["血脂", "正常"]}
+    ],
+    "forbidden": [
+      {"id": "hyperlipidemia", "category": "health", "anchors": ["高血脂"]},
+      {"id": "medication", "category": "health", "anchors": ["服药"]}
+    ]
+  },
+  {
+    "name": "heldout-pet-vet-bill",
+    "days": [
+      {
+        "date": "2026-11-05",
+        "notes": "猫最近不吃东西，今天带它去了宠物医院，花了 12000 日元。",
+        "segments": [
+          {"start": "15:00", "end": "15:20", "title": "查询猫咪食欲不振原因", "summary": "在 Safari 中阅读猫咪食欲不振的常见原因", "category": "reading", "apps": ["Safari"]}
+        ],
+        "routes": ["health", "finance"]
+      }
+    ],
+    "facts": [
+      {"id": "vet-expense", "category": "finance", "anchors": ["12000"], "kind": "stated"}
+    ],
+    "forbidden": [
+      {"id": "cat-in-health", "category": "health", "anchors": ["猫"]},
+      {"id": "appetite-as-user", "category": "health", "anchors": ["食欲"]},
+      {"id": "not-eating-as-user", "category": "health", "anchors": ["不吃东西"]}
+    ]
+  },
+  {
+    "name": "heldout-finance-ownership-and-ambiguity",
+    "days": [
+      {
+        "date": "2026-11-06",
+        "notes": "替实验室垫付了会议注册费 45000 日元，下个月报销。\n朋友说他还有 200 万日元的助学贷款没还完。\n听说今年工资会涨 3 万。",
+        "segments": [
+          {"start": "08:30", "end": "08:50", "title": "查看股票行情", "summary": "在 Safari 中查看 AAPL 股价，当前 245 美元", "category": "other", "apps": ["Safari"]}
+        ],
+        "routes": ["finance"]
+      }
+    ],
+    "facts": [
+      {"id": "advance-payment", "category": "finance", "anchors": ["45000"], "kind": "stated"}
+    ],
+    "forbidden": [
+      {"id": "friend-loan", "category": "finance", "anchors": ["200"]},
+      {"id": "stock-quote", "anchors": ["245"]},
+      {"id": "raise-invented-currency", "category": "finance", "anchors": ["30000"]},
+      {"id": "raise-hearsay", "category": "finance", "anchors": ["涨"]}
+    ]
+  },
+  {
+    "name": "heldout-similar-project-names",
+    "files": {
+      "work.md": "# Work\n\n## Amai 整理的记忆\n\n<!-- amai:memory:begin · x -->\n### Lumen <!-- project:p-111111 -->\n- 开发跨平台笔记应用 Lumen 的同步功能 <!-- src:2026-10-20 kind:inferred -->\n### Lumen Lab 官网 <!-- project:p-222222 -->\n- 维护实验室官网 Lumen Lab 的新闻页面 <!-- src:2026-10-21 kind:inferred -->\n<!-- amai:memory:end -->\n"
+    },
+    "days": [
+      {
+        "date": "2026-11-07",
+        "segments": [
+          {"start": "10:00", "end": "12:30", "title": "改版 Lumen Lab 官网首页", "summary": "在 VS Code 中重写实验室官网 Lumen Lab 的首页布局并更新成员列表", "category": "work", "apps": ["Code"]},
+          {"start": "14:00", "end": "16:00", "title": "实现 Lumen 笔记导出", "summary": "在 Xcode 中为笔记应用 Lumen 实现 Markdown 导出", "category": "work", "apps": ["Xcode"]}
+        ],
+        "routes": ["work"]
+      }
+    ],
+    "facts": [
+      {"id": "lab-site", "category": "work", "anchors": ["首页"], "section": "Lumen Lab 官网"},
+      {"id": "notes-export", "category": "work", "anchors": ["导出"], "section": "Lumen"}
+    ],
+    "expectedWorkProjects": 2
+  },
+  {
+    "name": "heldout-project-rename",
+    "files": {
+      "work.md": "# Work\n\n## Amai 整理的记忆\n\n<!-- amai:memory:begin · x -->\n### Atlas <!-- project:p-333333 -->\n- 搭建 Atlas 的数据标注工具 <!-- src:2026-10-25 kind:inferred -->\n<!-- amai:memory:end -->\n"
+    },
+    "days": [
+      {
+        "date": "2026-11-08",
+        "notes": "Atlas 项目正式改名为 Orbit，仓库也一起改了名。",
+        "segments": [
+          {"start": "10:00", "end": "11:00", "title": "重命名代码仓库", "summary": "在终端中把 atlas 仓库重命名为 orbit 并更新 CI 配置", "category": "work", "apps": ["Terminal"]}
+        ],
+        "routes": ["work"]
+      },
+      {
+        "date": "2026-11-09",
+        "segments": [
+          {"start": "09:00", "end": "12:00", "title": "为 Orbit 增加批量标注", "summary": "在 Xcode 中为 Orbit 标注工具实现批量标注功能", "category": "work", "apps": ["Xcode"]}
+        ],
+        "routes": ["work"]
+      }
+    ],
+    "facts": [
+      {"id": "batch-labeling", "category": "work", "anchors": ["批量标注"]}
+    ],
+    "expectedWorkProjects": 1
+  },
+  {
+    "name": "heldout-helping-a-friend-is-not-a-project",
+    "days": [
+      {
+        "date": "2026-11-10",
+        "segments": [
+          {"start": "20:00", "end": "21:00", "title": "帮朋友修改简历", "summary": "在 Word 中修改朋友的求职简历", "category": "other", "apps": ["Microsoft Word"]},
+          {"start": "21:10", "end": "21:50", "title": "浏览招聘网站", "summary": "在 Safari 中浏览 LinkedIn 上的软件工程师招聘信息", "category": "reading", "apps": ["Safari"]}
+        ],
+        "routes": []
+      }
+    ],
+    "forbidden": [
+      {"id": "resume-project", "category": "work", "anchors": ["简历"]},
+      {"id": "job-search-goal", "category": "goals", "anchors": ["求职"]},
+      {"id": "job-change-goal", "category": "goals", "anchors": ["换工作"]},
+      {"id": "job-hop-goal", "category": "goals", "anchors": ["跳槽"]},
+      {"id": "recruiting-goal", "category": "goals", "anchors": ["招聘"]}
+    ]
+  },
+  {
+    "name": "heldout-reading-is-not-intent",
+    "days": [
+      {
+        "date": "2026-11-11",
+        "segments": [
+          {"start": "07:30", "end": "08:10", "title": "阅读马拉松训练计划", "summary": "在 Safari 中阅读一篇关于 16 周全程马拉松训练计划的文章", "category": "reading", "apps": ["Safari"]},
+          {"start": "09:00", "end": "12:00", "title": "撰写论文相关工作章节", "summary": "在 Overleaf 中撰写论文的相关工作章节", "category": "research", "apps": ["Safari"]}
+        ],
+        "routes": ["work"]
+      }
+    ],
+    "forbidden": [
+      {"id": "marathon-goal", "category": "goals", "anchors": ["马拉松"]},
+      {"id": "marathon-health", "category": "health", "anchors": ["马拉松"]}
+    ]
+  },
+  {
+    "name": "heldout-negation-and-hypothetical",
+    "days": [
+      {
+        "date": "2026-11-12",
+        "notes": "想清楚了，不打算读博，毕业后直接工作。\n要是能中彩票我就辞职去环游世界，哈哈。",
+        "segments": [
+          {"start": "14:00", "end": "15:00", "title": "浏览博士项目招生页面", "summary": "在 Safari 中浏览几所大学的博士项目招生页面", "category": "reading", "apps": ["Safari"]}
+        ],
+        "routes": ["goals"]
+      }
+    ],
+    "facts": [
+      {"id": "no-phd", "category": "goals", "anchors": ["不", "读博"], "kind": "stated"}
+    ],
+    "forbidden": [
+      {"id": "quit-job", "category": "goals", "anchors": ["辞职"]},
+      {"id": "travel", "category": "goals", "anchors": ["环游"]},
+      {"id": "lottery", "anchors": ["彩票"]},
+      {"id": "phd-application", "category": "goals", "anchors": ["申请博士"]}
+    ]
+  }
+]

@@ -92,7 +92,8 @@ public struct EvidenceLedger: Sendable, Equatable {
                 kind = Self.coverage(of: text, in: e.text) >= Self.statementCoverage ? .stated : .inferred
             case .observation:
                 guard e.apps.contains(where: { text.localizedCaseInsensitiveContains($0) }) else { continue }
-                kind = .observed
+                // F 只能证明"某时段使用了某应用"。条目说的比这更多（做了什么、为什么），多出的部分是推断。
+                kind = Self.onlyStatesAppUsage(text, apps: e.apps) ? .observed : .inferred
             case .inference, .digest:
                 kind = .inferred
             case .memory:
@@ -114,16 +115,43 @@ public struct EvidenceLedger: Sendable, Equatable {
     static func coverage(of text: String, in source: String) -> Double {
         // 日期与"用户表示"这类转述框架不构成新的说法，计算覆盖率前去掉。
         let framed = text.replacingOccurrences(of: framingPattern, with: "", options: .regularExpression)
-        let a = Array(MemoryItems.normalize(framed))
-        let b = MemoryItems.normalize(source)
+        let a = units(framed)
+        let b = units(source)
         guard a.count >= 2 else { return a.isEmpty ? 0 : (b.contains(a[0]) ? 1 : 0) }
         var sourceGrams = Set<String>()
-        let bs = Array(b)
-        if bs.count >= 2 { for i in 0..<(bs.count - 1) { sourceGrams.insert(String(bs[i...i + 1])) } }
+        if b.count >= 2 { for i in 0..<(b.count - 1) { sourceGrams.insert(b[i] + "|" + b[i + 1]) } }
         var hit = 0
-        for i in 0..<(a.count - 1) where sourceGrams.contains(String(a[i...i + 1])) { hit += 1 }
+        for i in 0..<(a.count - 1) where sourceGrams.contains(a[i] + "|" + a[i + 1]) { hit += 1 }
         return Double(hit) / Double(a.count - 1)
     }
+
+    /// 计算覆盖率的单位：连续的拉丁字母 / 数字算一个单位（整个词），其他文字逐字。
+    /// 否则一个共同的英文专名（Orbit、Lumen）会贡献多个字符二元组，把加了推测的条目带过门槛。
+    static func units(_ text: String) -> [String] {
+        var result: [String] = []
+        var word = ""
+        for ch in MemoryItems.normalize(text) {
+            if ch.isASCII {
+                word.append(ch)
+            } else {
+                if !word.isEmpty { result.append(word); word = "" }
+                result.append(String(ch))
+            }
+        }
+        if !word.isEmpty { result.append(word) }
+        return result
+    }
+
+    /// 条目是否只陈述了"在某时段使用了某应用（多久）"。去掉应用名、时间、时长与"使用 / 在…中"等
+    /// 框架词后，剩下的内容不超过 2 个字才算。
+    static func onlyStatesAppUsage(_ text: String, apps: [String]) -> Bool {
+        var rest = text
+        for app in apps { rest = rest.replacingOccurrences(of: app, with: "", options: .caseInsensitive) }
+        rest = rest.replacingOccurrences(of: appUsageFrame, with: "", options: .regularExpression)
+        return MemoryItems.normalize(rest).count <= 2
+    }
+
+    static let appUsageFrame = #"[\d:：–\-~～.]+|大约|左右|累计|总计|共计|使用了|使用|用了|打开了|打开|前台|应用|时段|期间|小时|分钟|半|一|两|三|四|五|六|七|八|九|十|个|约|共|在|中|里|上|了|的"#
 
     // MARK: - Building
 

@@ -78,10 +78,10 @@ let package = Package(
             dependencies: ["AmaiCore", "AmaiPerception", "AmaiExtraction", "AmaiMemory", "AmaiMemoryEval", "AmaiCloud"]
         ),
 
-        // 开发用记忆检索命令行：swift run amai-memory search <查询>；eval 子命令用 Claude Code 跑记忆整理评测。
+        // 开发用记忆检索命令行：swift run amai-memory search <查询>；eval 子命令用 Claude Code 或本地模型跑记忆整理评测。
         .executableTarget(
             name: "AmaiMemoryCLI",
-            dependencies: ["AmaiMemory", "AmaiMemoryEval", "AmaiCloud"]
+            dependencies: ["AmaiMemory", "AmaiMemoryEval", "AmaiCloud", "AmaiExtraction"]
         ),
 
         .testTarget(name: "AmaiCoreTests", dependencies: ["AmaiCore"]),

@@ -37,8 +37,11 @@ public actor Consolidator {
     public static let memoryBlock = SystemBlock(
         name: "memory", note: "由 Amai 根据每日记录自动维护；区块内的修改会在下次整理时被覆盖，需要保留的内容请写在区块外"
     )
-    /// 每天按此顺序整理路由到的分区。
+    /// 每天整理的分区。
     public static let dailyCategories: [MemoryCategory] = [.work, .goals, .health, .finance]
+    /// 实际整理顺序：领域明确的分区在前，Goals 最后。同一句话只写进先整理的分区（跨分区去重），
+    /// 避免健康、财务、项目上的陈述被 Goals 抢先收走。
+    static let processingOrder: [MemoryCategory] = [.health, .finance, .work, .goals]
 
     public struct Options: Sendable {
         /// 本地时间几点之后整理前一天。
@@ -288,7 +291,7 @@ public actor Consolidator {
             report.routed = Self.dailyCategories.filter { progress.routes?.contains($0.rawValue) == true }
 
             // 2. 分区整理
-            for category in report.routed where !progress.done.contains(category.rawValue) {
+            for category in Self.processingOrder where report.routed.contains(category) && !progress.done.contains(category.rawValue) {
                 let policy = CategoryPolicy.policy(for: category)
                 if !policy.allowsInferred && !ledger.hasUserStatements {
                     report.skipped.append(category)
@@ -321,7 +324,7 @@ public actor Consolidator {
             }
             try markDaily(dayName)
             status.lastError = report.failed.isEmpty ? nil
-                : "整理 \(dayName) 的 \(report.failed.map(\.displayName).joined(separator: "、")) 多次失败，已跳过"
+                : "整理 \(dayName) 的\(report.failed.map(\.localizedName).joined(separator: "、"))记忆多次失败，已跳过"
             log.info("daily consolidated: digest=\(report.digestWritten) routed=\(report.routed.count) updated=\(report.updated.count) rejected=\(report.rejected.count)")
             return report
         } catch {
@@ -363,6 +366,10 @@ public actor Consolidator {
         var updater = CategoryUpdater(policy: policy, ledger: ledger, day: dayName)
         updater.maxItemsPerSection = options.maxItemsPerSection
         updater.maxNewProjects = options.maxNewProjectsPerDay
+        for other in Self.dailyCategories where other != category {
+            guard let t = await store.read(other.file!), let b = Self.memoryBlock.content(in: t) else { continue }
+            updater.otherCategories += CategoryUpdater.split(MemoryItems.parse(b)).items.map { (other, $0.text) }
+        }
         updater.minRetainedFraction = options.minRetainedFraction
         let result = updater.apply(output.operations ?? [], to: all, sectionMeta: meta)
         var outcome = CategoryOutcome(rejected: result.rejected)

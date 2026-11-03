@@ -146,6 +146,8 @@ struct CategoryUpdater {
     var maxItemsPerSection = 40
     var maxNewProjects = 3
     var minRetainedFraction = 0.5
+    /// 其他分区已有的有效条目。新增内容与其中某条几乎相同时拒绝，避免同一句话写进多个分区。
+    var otherCategories: [(category: MemoryCategory, text: String)] = []
 
     /// 已有条目（不含变更记录）按顺序编号为 #1、#2…，与提示词中的编号一致。
     static func split(_ all: [MemoryItem]) -> (items: [MemoryItem], history: [MemoryItem]) {
@@ -191,6 +193,9 @@ struct CategoryUpdater {
                     section = s
                 }
                 guard let candidate = candidate(op, section: section, reject: reject) else { continue }
+                if let other = duplicateElsewhere(candidate.text) {
+                    reject(op, "已记录在\(other.localizedName)分区"); continue
+                }
                 if let dup = (slots.compactMap { $0 } + appended).firstIndex(where: {
                     MemoryItems.normalize($0.text) == MemoryItems.normalize(candidate.text) && $0.kind == candidate.kind
                 }) {
@@ -335,6 +340,13 @@ struct CategoryUpdater {
         return MemoryItem(text: text, sources: d.sources, section: section, kind: d.kind, attributes: attributes)
     }
 
+    /// 两段文字互相覆盖都达到 80% 视为同一条记忆。
+    private func duplicateElsewhere(_ text: String) -> MemoryCategory? {
+        otherCategories.first {
+            EvidenceLedger.coverage(of: text, in: $0.text) >= 0.8 && EvidenceLedger.coverage(of: $0.text, in: text) >= 0.8
+        }?.category
+    }
+
     private func validSection(_ raw: String) -> String? {
         guard let sections = policy.sections else { return nil }
         let s = raw.trimmingCharacters(in: CharacterSet.whitespaces.union(CharacterSet(charactersIn: "#")))
@@ -363,8 +375,8 @@ struct CategoryUpdater {
         return id
     }
 
-    /// 解析 add 操作的项目：ID 精确匹配；`new:名称` 或纯名称先与已有名称、别名比对，
-    /// 命中则并入已有项目，否则在当日上限内新建。
+    /// 解析 add 操作的项目：ID 精确匹配；`new:名称` 或纯名称只与已有名称、明确别名做规范化后的精确比对，
+    /// 命中则并入已有项目，否则在当日上限内新建。不做前缀或相似度合并：名字相近的不同项目不能被合并。
     private func resolveProject(_ op: MemoryOperation, meta: inout [String: [String: String]], newProjects: inout Int) -> String? {
         let raw = op.project.isEmpty ? op.section : op.project
         if let name = meta.first(where: { $0.value["project"] == raw })?.key { return name }
@@ -377,16 +389,13 @@ struct CategoryUpdater {
         return name
     }
 
-    /// 规范化后相等，或一方是另一方的前缀且较短的一方至少 4 个字符（"Amai" ↔ "Amai 项目进展"）。
+    /// 与已有项目名或明确别名规范化后（忽略大小写、空格与标点）完全相同。
     static func matchProject(_ name: String, meta: [String: [String: String]]) -> String? {
         let n = MemoryItems.normalize(name)
         guard !n.isEmpty else { return nil }
         for (existing, m) in meta.sorted(by: { $0.key < $1.key }) {
-            for candidate in [existing] + (m["aka"].map(aliases) ?? []) {
-                let c = MemoryItems.normalize(candidate)
-                if c == n { return existing }
-                let (short, long) = c.count < n.count ? (c, n) : (n, c)
-                if short.count >= 4, long.hasPrefix(short) { return existing }
+            for candidate in [existing] + (m["aka"].map(aliases) ?? []) where MemoryItems.normalize(candidate) == n {
+                return existing
             }
         }
         return nil

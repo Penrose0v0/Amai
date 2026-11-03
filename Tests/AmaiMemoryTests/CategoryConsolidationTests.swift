@@ -61,7 +61,9 @@ struct EvidenceLedgerTests {
         #expect(ledger.derive(text: "计划周五前提交初稿", citing: ["S1"])?.kind == .stated)
         #expect(ledger.derive(text: "计划在周五前提交初稿", citing: ["S1"])?.kind == .stated)
         #expect(ledger.derive(text: "下周要答辩", citing: ["S1"])?.kind == .inferred)
-        #expect(ledger.derive(text: "计划周五前提交初稿，在 Xcode 中准备", citing: ["S1", "F1"])?.kind == .observed)
+        // F 只能证明用了 Xcode，"在 Xcode 中准备初稿"超出了这一点，取最弱即推断。
+        #expect(ledger.derive(text: "计划周五前提交初稿，在 Xcode 中准备", citing: ["S1", "F1"])?.kind == .inferred)
+        #expect(ledger.derive(text: "使用 Xcode", citing: ["S1", "F1"])?.kind == .inferred)
         #expect(ledger.derive(text: "成为研究者", citing: ["MG1"]) == .init(kind: .stated, sources: ["2026-10-14", "2026-10-15"], cited: ["MG1"]))
         #expect(ledger.derive(text: "x", citing: ["Z9", "F1"]) == nil)
         #expect(ledger.derive(text: "x", citing: []) == nil)
@@ -131,13 +133,14 @@ struct CategoryUpdaterTests {
         #expect(sections.first?.meta == ["project": "p-abc123", "aka": "Amai 项目进展|Amai"])
     }
 
-    @Test("project matching uses exact names, aliases and long prefixes only")
+    @Test("project matching uses exact names and explicit aliases only, never prefixes")
     func projectMatching() {
-        let meta: [String: [String: String]] = ["Amai 项目进展": ["project": "p-1"], "AI": ["project": "p-2", "aka": "Artificial"]]
+        let meta: [String: [String: String]] = ["Amai 项目进展": ["project": "p-1", "aka": "Amai"], "Lumen": ["project": "p-2"]]
         #expect(CategoryUpdater.matchProject("amai", meta: meta) == "Amai 项目进展")
-        #expect(CategoryUpdater.matchProject("Artificial", meta: meta) == "AI")
-        #expect(CategoryUpdater.matchProject("AI 安全", meta: meta) == nil)
-        #expect(CategoryUpdater.matchProject("Ama", meta: meta) == nil)
+        #expect(CategoryUpdater.matchProject("AMAI 项目进展", meta: meta) == "Amai 项目进展")
+        #expect(CategoryUpdater.matchProject("Lumen Lab", meta: meta) == nil)
+        #expect(CategoryUpdater.matchProject("Lum", meta: meta) == nil)
+        #expect(CategoryUpdater.matchProject("Amai 评测", meta: meta) == nil)
     }
 }
 
@@ -148,5 +151,40 @@ struct StatementCoverageTests {
         let s = "这周右膝盖一直疼，先暂停跑步。"
         #expect(EvidenceLedger.coverage(of: "用户自述2026年10月中旬那一周右膝盖一直疼，因此先暂停跑步", in: s) >= EvidenceLedger.statementCoverage)
         #expect(EvidenceLedger.coverage(of: "右膝半月板撕裂需要手术", in: s) < EvidenceLedger.statementCoverage)
+    }
+}
+
+@Suite("Kind derivation fixes")
+struct KindDerivationFixTests {
+    @Test("a shared English name does not carry an embellished entry over the statement threshold")
+    func properNoun() {
+        let note = "Atlas 项目正式改名为 Orbit，仓库也一起改了名。"
+        #expect(EvidenceLedger.coverage(of: "搭建 Orbit 的数据标注工具", in: note) < EvidenceLedger.statementCoverage)
+        #expect(EvidenceLedger.coverage(of: "Atlas 项目改名为 Orbit", in: note) >= EvidenceLedger.statementCoverage)
+        #expect(EvidenceLedger.units("用 Xcode 写 SyncEngine2") == ["用", "xcode", "写", "syncengine2"])
+    }
+
+    @Test("app-usage evidence supports only app-usage claims")
+    func appUsage() {
+        #expect(EvidenceLedger.onlyStatesAppUsage("09:00–11:30 使用 Xcode 约两个半小时", apps: ["Xcode"]))
+        #expect(!EvidenceLedger.onlyStatesAppUsage("在 Safari 中阅读马拉松训练计划", apps: ["Safari"]))
+        var ledger = EvidenceLedger()
+        ledger.append(.observation, day: "2026-11-11", text: "07:30–08:10 前台应用：Safari", apps: ["Safari"])
+        #expect(ledger.derive(text: "阅读马拉松训练计划（Safari）", citing: ["F1"])?.kind == .inferred)
+        #expect(ledger.derive(text: "使用 Safari 约 40 分钟", citing: ["F1"])?.kind == .observed)
+    }
+
+    @Test("an entry already recorded in another category is not added again")
+    func crossCategory() {
+        var ledger = EvidenceLedger()
+        ledger.append(.userStatement, day: "2026-10-15", text: "这周右膝盖一直疼，先暂停跑步。")
+        var updater = CategoryUpdater(policy: .policy(for: .goals), ledger: ledger, day: "2026-10-15")
+        updater.otherCategories = [(.health, "这周右膝盖一直疼，先暂停跑步。")]
+        let r = updater.apply([
+            MemoryOperation(op: "add", section: "决策", text: "这周右膝盖一直疼，先暂停跑步", evidence: ["S1"]),
+            MemoryOperation(op: "add", section: "计划", text: "膝盖好之前先暂停跑步，之后恢复每周训练", evidence: ["S1"]),
+        ], to: [], sectionMeta: [:])
+        #expect(r.rejected == ["add 这周右膝盖一直疼，先暂停跑步：已记录在健康分区"])
+        #expect(r.items.count == 1)
     }
 }

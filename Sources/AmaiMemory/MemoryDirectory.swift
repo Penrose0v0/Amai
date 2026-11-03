@@ -18,6 +18,19 @@ public enum MemoryCategory: String, Sendable, CaseIterable, Codable {
         self == .daily ? nil : "\(rawValue).md"
     }
 
+    /// 界面与提示中给用户看的名称（简体中文）。文件标题等 Markdown 内容不受影响。
+    public var localizedName: String {
+        switch self {
+        case .general: "综合"
+        case .work: "工作"
+        case .health: "健康"
+        case .finance: "财务"
+        case .goals: "目标"
+        case .daily: "每日记录"
+        }
+    }
+
+    /// Markdown 文件标题与内部标识（不直接显示在界面上）。
     public var displayName: String {
         switch self {
         case .general: "General"

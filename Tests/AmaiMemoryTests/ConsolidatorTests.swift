@@ -241,7 +241,8 @@ struct ConsolidatorTests {
         try await f.seedDay(notes: "决定把 Amai 的记忆层改成按分区维护")
         f.model.operations[.work] = Responses.ops([
             ["op": "add", "project": "new:Amai", "text": "决定把 Amai 的记忆层改成按分区维护", "evidence": ["S1"]],
-            ["op": "add", "project": "new:Amai", "text": "在 Xcode 中开发采集代码约一小时", "evidence": ["F1"]],
+            ["op": "add", "project": "new:Amai", "text": "使用 Xcode 约一小时", "evidence": ["F1"]],
+            ["op": "add", "project": "new:Amai", "text": "在 Xcode 中开发采集代码", "evidence": ["F1"]],
             ["op": "add", "project": "new:Amai", "text": "修改了 ScreenFrameSource.swift", "evidence": ["I1"]],
             ["op": "add", "project": "new:Amai", "text": "Amai 已经有一百个用户", "evidence": ["S1"]],
             ["op": "add", "project": "new:Amai", "text": "在 Safari 中查资料", "evidence": ["F1"]],
@@ -249,16 +250,17 @@ struct ConsolidatorTests {
         ])
         let report = try await f.consolidator.consolidateDay(f.day)
         let items = try f.items(.work)
-        #expect(items.map(\.kind) == [.stated, .observed, .inferred, .inferred])
+        // 只说"用了 Xcode"才是观察；说了在做什么就超出了 F 能证明的范围。
+        #expect(items.map(\.kind) == [.stated, .observed, .inferred, .inferred, .inferred])
         #expect(items.allSatisfy { $0.sources == ["2026-10-19"] && $0.section == "Amai" })
         // 转述超出原话的内容被降为推断；F 依据与内容无关、没有依据的条目被拒绝。
-        #expect(items[3].text == "Amai 已经有一百个用户")
+        #expect(items[4].text == "Amai 已经有一百个用户")
         #expect(report.rejected.count == 2)
         let work = try f.read("work.md")
         #expect(work.contains(#"### Amai <!-- project:p-"#))
     }
 
-    @Test("Work projects keep stable IDs: a new name matching an existing project or alias joins it")
+    @Test("Work projects keep stable IDs: only an exact name or explicit alias joins an existing project")
     func projects() async throws {
         let f = try Fixture()
         defer { f.cleanup() }
@@ -276,11 +278,13 @@ struct ConsolidatorTests {
         """)
         try await f.seedDay()
         f.model.operations[.work] = Responses.ops([
-            ["op": "add", "project": "new:Amai", "text": "编辑采集代码", "evidence": ["I1"]],
+            ["op": "add", "project": "new:amai 项目进展", "text": "编辑采集代码", "evidence": ["I1"]],
             ["op": "add", "project": "new:maws eval", "text": "查阅论文", "evidence": ["I2"]],
+            // 名字相近但不同的项目不合并：前缀相同也新建。
+            ["op": "add", "project": "new:MAWS-Eval 2", "text": "查阅论文并记录", "evidence": ["I2"]],
         ])
         try await f.consolidator.consolidateDay(f.day)
-        #expect(try f.items(.work).map(\.section) == ["Amai 项目进展", "Amai 项目进展", "MAWS-Eval", "MAWS-Eval"])
+        #expect(try f.items(.work).map(\.section) == ["Amai 项目进展", "Amai 项目进展", "MAWS-Eval", "MAWS-Eval", "MAWS-Eval 2"])
         let prompt = try #require(f.model.prompts[.work])
         let ids = MemoryItems.sections(Consolidator.memoryBlock.content(in: try f.read("work.md"))!)
         let amaiID = try #require(ids.first { $0.name == "Amai 项目进展" }?.meta["project"])
