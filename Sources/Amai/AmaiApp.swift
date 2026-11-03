@@ -21,9 +21,11 @@ struct AmaiApp: App {
         }
 
         Window("记忆", id: "memory") {
-            MemoryBrowserView(env: model.memoryBrowserEnvironment)
+            MemoryBrowserView(env: model.memoryBrowserEnvironment, controller: model.memoryBrowser)
         }
         .defaultSize(width: 960, height: 640)
+        // 隔离预览模式（--memory-preview）启动后直接打开记忆窗口。
+        .defaultLaunchBehavior(model.isMemoryPreview ? .presented : .automatic)
 
         Window("活动检查器", id: "inspector") {
             InspectorView(model: model)

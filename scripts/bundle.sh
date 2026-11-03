@@ -8,6 +8,8 @@
 # 用法：
 #   ./scripts/bundle.sh            # debug
 #   ./scripts/bundle.sh release    # release
+#   AMAI_APP_DIR=.build/preview/Amai.app ./scripts/bundle.sh
+#                                  # 打到其他位置（开发预览）：不替换、也不退出正在运行的 Amai
 #
 set -euo pipefail
 
@@ -15,7 +17,8 @@ cd "$(dirname "$0")/.."
 
 CONFIG="${1:-debug}"
 APP_NAME="Amai"
-APP_DIR=".build/${APP_NAME}.app"
+DEFAULT_APP_DIR=".build/${APP_NAME}.app"
+APP_DIR="${AMAI_APP_DIR:-${DEFAULT_APP_DIR}}"
 
 echo "→ swift build -c ${CONFIG}"
 swift build -c "${CONFIG}"
@@ -30,7 +33,7 @@ fi
 
 # 先退出正在运行的 Amai：替换 bundle 后旧进程的磁盘代码与签名不再一致，
 # 它下一次截图时系统会按"未授权程序"弹出屏幕录制授权框。
-if pgrep -x "${APP_NAME}" >/dev/null; then
+if [ "${APP_DIR}" = "${DEFAULT_APP_DIR}" ] && pgrep -x "${APP_NAME}" >/dev/null; then
     echo "→ quitting running ${APP_NAME}"
     osascript -e "quit app \"${APP_NAME}\"" >/dev/null 2>&1 || true
     for _ in 1 2 3 4 5 6 7 8 9 10; do
@@ -42,6 +45,7 @@ fi
 
 echo "→ assembling ${APP_DIR}"
 rm -rf "${APP_DIR}"
+mkdir -p "$(dirname "${APP_DIR}")"
 mkdir -p "${APP_DIR}/Contents/MacOS"
 mkdir -p "${APP_DIR}/Contents/Resources"
 

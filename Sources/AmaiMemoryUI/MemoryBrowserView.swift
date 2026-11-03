@@ -1,5 +1,7 @@
-import AmaiCore
+// 只按需导入：AmaiCore 的 `Observation` 类型会与 @Observable 宏依赖的 Observation 模块同名冲突。
+import enum AmaiCore.MemoryEntryKind
 import AmaiMemory
+import Observation
 import SwiftUI
 
 /// 记忆窗口：浏览 Amai 整理的长期记忆（docs/memory.md §3.5）。
@@ -12,33 +14,34 @@ import SwiftUI
 /// 只读：不在这里修改记忆。与活动检查器（时间线、片段）相互独立。
 public struct MemoryBrowserView: View {
     let env: MemoryBrowserEnvironment
+    @Bindable var controller: MemoryBrowserController
 
-    public init(env: MemoryBrowserEnvironment, initial: MemoryCategory = .general) {
+    public init(env: MemoryBrowserEnvironment, controller: MemoryBrowserController) {
         self.env = env
-        _selection = State(initialValue: initial)
+        self.controller = controller
     }
 
-    @State private var selection: MemoryCategory?
+    public init(env: MemoryBrowserEnvironment, initial: MemoryCategory = .general) {
+        self.init(env: env, controller: MemoryBrowserController(selection: initial))
+    }
+
     @State private var document: MemoryDocument?
     @State private var loadedAt: Date?
-    @State private var query = ""
-    @State private var hits: [MemoryHit]?
-    @State private var searching = false
 
     public var body: some View {
         NavigationSplitView {
-            List(MemoryCategory.documents, id: \.self, selection: $selection) { category in
+            List(MemoryCategory.documents, id: \.self, selection: $controller.selection) { category in
                 Label(category.localizedName, systemImage: category.symbol)
             }
             .navigationSplitViewColumnWidth(min: 150, ideal: 170, max: 220)
         } detail: {
             Group {
-                if let hits {
-                    SearchResultsView(env: env, query: query, hits: hits) { category in
-                        clearSearch()
-                        selection = category
+                if let hits = controller.hits {
+                    SearchResultsView(env: env, query: controller.query, hits: hits) { category in
+                        controller.clearSearch()
+                        controller.selection = category
                     }
-                } else if let category = selection {
+                } else if let category = controller.selection {
                     if let document {
                         MemoryDocumentView(env: env, document: document)
                     } else {
@@ -52,11 +55,11 @@ public struct MemoryBrowserView: View {
                     ContentUnavailableView("选择一个分区", systemImage: "sidebar.left")
                 }
             }
-            .navigationTitle(hits != nil ? "搜索结果" : (selection?.localizedName ?? "记忆"))
+            .navigationTitle(controller.hits != nil ? "搜索结果" : (controller.selection?.localizedName ?? "记忆"))
         }
-        .searchable(text: $query, placement: .toolbar, prompt: "搜索记忆")
-        .onSubmit(of: .search) { Task { await search() } }
-        .onChange(of: query) { if query.isEmpty { hits = nil } }
+        .searchable(text: $controller.query, placement: .toolbar, prompt: "搜索记忆")
+        .onSubmit(of: .search) { Task { await controller.search(env) } }
+        .onChange(of: controller.query) { if controller.query.isEmpty { controller.hits = nil } }
         .toolbar {
             ToolbarItemGroup {
                 Button {
@@ -65,7 +68,7 @@ public struct MemoryBrowserView: View {
                     Label("在编辑器中打开", systemImage: "square.and.pencil")
                 }
                 .help("用默认的 Markdown 编辑器打开这个文件")
-                .disabled(document == nil || hits != nil)
+                .disabled(document == nil || controller.hits != nil)
 
                 Button {
                     env.reveal(document?.url)
@@ -75,19 +78,20 @@ public struct MemoryBrowserView: View {
                 .help("在访达中显示记忆文件夹")
             }
         }
-        .task(id: selection) { reload() }
+        .environment(controller)
+        .task(id: controller.selection) { reload() }
         .task {
             // 用户可能在编辑器里修改文件；只比较修改时间，开销很小。
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(2))
-                if let category = selection, modifiedAt(category) != loadedAt { reload() }
+                if let category = controller.selection, modifiedAt(category) != loadedAt { reload() }
             }
         }
         .frame(minWidth: 760, minHeight: 500)
     }
 
     private func reload() {
-        guard let category = selection else { document = nil; return }
+        guard let category = controller.selection else { document = nil; return }
         document = env.library.document(category)
         loadedAt = document?.modifiedAt
     }
@@ -96,19 +100,36 @@ public struct MemoryBrowserView: View {
         let url = env.library.url(for: category)
         return try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
     }
+}
 
-    private func search() async {
-        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !q.isEmpty else { hits = nil; return }
-        searching = true
-        hits = await env.search(q)
-        searching = false
+/// 记忆窗口的界面状态。由 App 持有，可以从外部切换分区、发起搜索（例如今后从通知直接打开某个分区）。
+@MainActor
+@Observable
+public final class MemoryBrowserController {
+    public var selection: MemoryCategory?
+    public var query = ""
+    /// 非 nil 时右侧显示搜索结果。
+    public var hits: [MemoryHit]?
+    /// 正在显示的来源弹窗（`条目文字|日期`）。
+    public var presentedSource: String?
+    public var historyExpanded = false
+
+    public init(selection: MemoryCategory? = .general) {
+        self.selection = selection
     }
 
-    private func clearSearch() {
+    public func search(_ env: MemoryBrowserEnvironment) async {
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !q.isEmpty else { hits = nil; return }
+        hits = await env.search(q)
+    }
+
+    public func clearSearch() {
         query = ""
         hits = nil
     }
+
+    static func sourceKey(_ item: MemoryItem, _ day: String) -> String { "\(item.text)|\(day)" }
 }
 
 /// 记忆窗口与 App 之间的接口：只读的记忆库，以及检索、打开文件、在访达中显示三个操作。
@@ -149,6 +170,13 @@ public struct MemoryDocumentPage: View {
 private struct MemoryDocumentView: View {
     let env: MemoryBrowserEnvironment
     let document: MemoryDocument
+    @Environment(MemoryBrowserController.self) private var controller: MemoryBrowserController?
+    @State private var localHistoryExpanded = false
+
+    private var historyExpanded: Binding<Bool> {
+        guard let controller else { return $localHistoryExpanded }
+        return Binding(get: { controller.historyExpanded }, set: { controller.historyExpanded = $0 })
+    }
 
     private var userMarkdown: String { Self.userContent(document) }
     private var current: [MemoryItem] { document.systemItems.filter { $0.section != MemorySchema.historySection } }
@@ -171,20 +199,29 @@ private struct MemoryDocumentView: View {
                         .foregroundStyle(.secondary)
                 }
                 if !history.isEmpty {
-                    DisclosureGroup("变更记录（\(history.count)）") {
-                        VStack(alignment: .leading, spacing: 8) {
+                    // 不用 DisclosureGroup：它在 macOS 上会把内容额外缩进，与标题对不齐。
+                    VStack(alignment: .leading, spacing: 10) {
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.15)) { historyExpanded.wrappedValue.toggle() }
+                        } label: {
+                            Label("变更记录（\(history.count)）", systemImage: historyExpanded.wrappedValue ? "chevron.down" : "chevron.right")
+                                .labelStyle(.titleAndIcon)
+                        }
+                        .buttonStyle(.plain)
+                        if historyExpanded.wrappedValue {
                             ForEach(Array(history.reversed().enumerated()), id: \.offset) { _, item in
                                 MemoryItemRow(env: env, item: item)
                             }
+                            .padding(.leading, 20)
                         }
-                        .padding(.top, 6)
                     }
                     .foregroundStyle(.secondary)
                 }
             }
             .padding(24)
             .frame(maxWidth: 760, alignment: .leading)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            // 宽窗口里正文居中，避免右侧留下大片空白。
+            .frame(maxWidth: .infinity)
     }
 
     private var header: some View {
@@ -258,7 +295,7 @@ private struct MemoryItemRow: View {
                 Text(item.kind.label)
                     .help(item.kind.explanation)
                 ForEach(item.sources, id: \.self) { day in
-                    SourceButton(env: env, day: day)
+                    SourceButton(env: env, key: MemoryBrowserController.sourceKey(item, day), day: day)
                 }
             }
             .font(.caption)
@@ -270,14 +307,24 @@ private struct MemoryItemRow: View {
 /// 来源日期：点开显示当天的日终摘要，可打开当天的记录文件。
 private struct SourceButton: View {
     let env: MemoryBrowserEnvironment
+    let key: String
     let day: String
-    @State private var showing = false
+    @Environment(MemoryBrowserController.self) private var controller: MemoryBrowserController?
+    @State private var localShowing = false
+
+    private var showing: Binding<Bool> {
+        guard let controller else { return $localShowing }
+        return Binding(
+            get: { controller.presentedSource == key },
+            set: { controller.presentedSource = $0 ? key : (controller.presentedSource == key ? nil : controller.presentedSource) }
+        )
+    }
 
     var body: some View {
-        Button(Self.short(day)) { showing = true }
+        Button(Self.short(day)) { showing.wrappedValue = true }
             .buttonStyle(.link)
             .help("查看 \(day) 的记录")
-            .popover(isPresented: $showing, arrowEdge: .bottom) {
+            .popover(isPresented: showing, arrowEdge: .bottom) {
                 SourcePopover(env: env, day: day)
             }
     }
@@ -317,7 +364,7 @@ private struct SourcePopover: View {
 
 // MARK: - Search
 
-private struct SearchResultsView: View {
+struct SearchResultsView: View {
     let env: MemoryBrowserEnvironment
     let query: String
     let hits: [MemoryHit]
@@ -335,7 +382,7 @@ private struct SearchResultsView: View {
                         Text(location(hit))
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                        Text(hit.excerpt)
+                        Text(Self.highlighted(Self.plain(hit.excerpt), query: query))
                             .foregroundStyle(.primary)
                             .multilineTextAlignment(.leading)
                     }
@@ -346,6 +393,38 @@ private struct SearchResultsView: View {
                 .buttonStyle(.plain)
             }
         }
+    }
+
+    /// 检索摘录来自 Markdown 原文：去掉标题、加粗、链接、列表等标记，只留文字。
+    static func plain(_ excerpt: String) -> String {
+        var s = excerpt
+        let rules: [(String, String)] = [
+            (#"\[([^\]]*)\]\([^)]*\)"#, "$1"),
+            (#"(^|\s)#{1,6}\s+"#, "$1"),
+            (#"\*\*|__|`"#, ""),
+            (#"(^|\s)[-*+]\s+"#, "$1· "),
+            (#"^·\s*"#, ""),
+            (#"\s{2,}"#, " "),
+        ]
+        for (pattern, template) in rules {
+            s = s.replacingOccurrences(of: pattern, with: template, options: .regularExpression)
+        }
+        return s.trimmingCharacters(in: .whitespaces)
+    }
+
+    /// 命中的关键词加粗。
+    static func highlighted(_ text: String, query: String) -> AttributedString {
+        var result = AttributedString(text)
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !q.isEmpty else { return result }
+        var searchStart = result.startIndex
+        while searchStart < result.endIndex,
+              let range = result[searchStart...].range(of: q, options: .caseInsensitive) {
+            result[range].inlinePresentationIntent = .stronglyEmphasized
+            result[range].foregroundColor = .accentColor
+            searchStart = range.upperBound
+        }
+        return result
     }
 
     private func location(_ hit: MemoryHit) -> String {

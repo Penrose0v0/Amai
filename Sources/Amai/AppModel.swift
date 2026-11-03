@@ -53,6 +53,17 @@ final class AppModel {
     let memoryIndex: MemoryIndex?
     private var pollTask: Task<Void, Never>?
 
+    /// 开发用的隔离预览模式（`--memory-preview <目录>`）：只打开记忆窗口浏览该目录下的 memory/。
+    let isMemoryPreview: Bool
+
+    private enum PreviewMode: Error { case ready }
+
+    private static func memoryPreviewDirectory() -> URL? {
+        let args = CommandLine.arguments
+        guard let i = args.firstIndex(of: "--memory-preview"), i + 1 < args.count else { return nil }
+        return URL(fileURLWithPath: (args[i + 1] as NSString).expandingTildeInPath, isDirectory: true)
+    }
+
     init() {
         var paths: AmaiPaths?
         var coordinator: PerceptionCoordinator?
@@ -64,8 +75,8 @@ final class AppModel {
         var consolidator: Consolidator?
         var localModel: MLXModelProvider?
         let keychain = KeychainStore()
-        // 浏览器授权：用系统默认浏览器打开 OpenAI 授权页。
-        let chatGPT = ChatGPTSession(store: keychain, openURL: { url in
+        // 浏览器授权：用系统默认浏览器打开 OpenAI 授权页。预览模式不读钥匙串。
+        let chatGPT = ChatGPTSession(store: Self.memoryPreviewDirectory() == nil ? keychain : InMemorySecretStore(), openURL: { url in
             await MainActor.run { _ = NSWorkspace.shared.open(url) }
         })
         var claudeWorkdir = FileManager.default.temporaryDirectory.appendingPathComponent("amai-claude-cli")
@@ -73,7 +84,20 @@ final class AppModel {
         var startupError: String?
         var migrationError: String?
         var config = AppConfiguration.default
+        let preview = Self.memoryPreviewDirectory()
         do {
+            if let preview {
+                // 隔离预览：只浏览给定目录中的记忆。不读真实配置，不创建采集、抽取、同步、整理与任何模型客户端。
+                let resolved = AmaiPaths(root: preview.appendingPathComponent("support", isDirectory: true))
+                try resolved.ensureDirectories()
+                paths = resolved
+                config.memory = MemoryConfiguration(root: preview.appendingPathComponent("memory", isDirectory: true).path)
+                memoryIndex = MemoryIndex(
+                    root: config.memory.rootURL,
+                    database: try MemoryIndexDatabase(path: resolved.index.appendingPathComponent("memory.sqlite").path)
+                )
+                throw PreviewMode.ready
+            }
             let resolved = try AmaiPaths.standard()
             try resolved.ensureDirectories()
             let loaded = ConfigStore.load(from: resolved.config)
@@ -140,6 +164,8 @@ final class AppModel {
                 stateURL: resolved.index.appendingPathComponent("consolidation.json"),
                 shouldRun: heavyWorkAllowed
             )
+        } catch PreviewMode.ready {
+            AmaiLog.logger("app").info("memory preview mode")
         } catch {
             startupError = "初始化失败：\(error)"
             AmaiLog.logger("app").error("startup failed: \(String(describing: error), privacy: .public)")
@@ -163,6 +189,7 @@ final class AppModel {
         self.migrationError = migrationError
         self.modelTag = config.extraction.modelTag
         self.modelInstalled = LocalInferenceBackend.isInstalled(tag: config.extraction.modelTag)
+        self.isMemoryPreview = preview != nil
 
         if let pipeline {
             let extraction = config.extraction
@@ -198,6 +225,10 @@ final class AppModel {
                 await memorySync.syncOnce()
                 await self.refresh()
             }
+        }
+        if isMemoryPreview, let i = args.firstIndex(of: "--memory-preview-tour"), i + 1 < args.count {
+            let output = URL(fileURLWithPath: args[i + 1], isDirectory: true)
+            Task { await MemoryPreviewTour.run(model: self, output: output) }
         }
         // 开发用：用合成场景评测记忆整理，只在临时目录中运行，不读写真实记忆。
         // open .build/Amai.app --args --memory-eval <scenarios.json> --eval-output <目录> [--eval-local]
@@ -307,6 +338,9 @@ final class AppModel {
     }
 
     // MARK: - Memory browser
+
+    /// 记忆窗口的界面状态（当前分区、搜索等），窗口关闭再打开时保留。
+    let memoryBrowser = MemoryBrowserController()
 
     /// 记忆窗口使用的只读接口（与今后的外部 Agent 接入共用）。
     var memoryLibrary: MemoryLibrary {
@@ -637,7 +671,8 @@ final class AppModel {
         if let pipeline { extractionStatus = await pipeline.status }
         if let memorySync { memoryStatus = await memorySync.status }
         if let consolidator { consolidationStatus = await consolidator.status }
-        chatGPTStatus = await chatGPT.status
+        // 预览模式不读取钥匙串中的账号信息。
+        if !isMemoryPreview { chatGPTStatus = await chatGPT.status }
     }
 }
 

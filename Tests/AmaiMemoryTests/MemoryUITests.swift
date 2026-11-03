@@ -108,3 +108,13 @@ struct MemoryBrowserRenderingTests {
         layout(MemoryBrowserView(env: env, initial: .health), size: CGSize(width: 1000, height: 680))
     }
 }
+
+@Suite("Search excerpt")
+struct SearchExcerptTests {
+    @Test("Markdown markers are removed from search excerpts")
+    func plain() {
+        #expect(SearchResultsView.plain("…Amai 不会改动**。 - 每周五整理 - 参考 [设计文档](https://example.com) - 同步协议草案")
+            == "…Amai 不会改动。 · 每周五整理 · 参考 设计文档 · 同步协议草案")
+        #expect(SearchResultsView.plain("### Lumen - 〔决策〕放弃 CloudKit") == "Lumen · 〔决策〕放弃 CloudKit")
+    }
+}

@@ -123,7 +123,7 @@ private struct MarkdownBlockView: View {
                 Text(block.text).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
         case .code:
-            Text(block.text)
+            Text(String(block.text.characters).trimmingCharacters(in: .newlines))
                 .font(.system(.callout, design: .monospaced))
                 .padding(8)
                 .frame(maxWidth: .infinity, alignment: .leading)
