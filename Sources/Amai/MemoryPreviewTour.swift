@@ -79,6 +79,22 @@ enum MemoryPreviewTour {
         try? await Task.sleep(for: .seconds(3))
         await shot("11-external-edit")
 
+        // 时间线与每日总结：跳到样本中最近的一天。
+        let daily = model.memoryRoot.appendingPathComponent("daily", isDirectory: true)
+        let latest = ((try? fm.contentsOfDirectory(atPath: daily.path)) ?? []).filter { $0.hasSuffix(".md") }.max()
+        let parser = DateFormatter()
+        parser.calendar = Calendar(identifier: .gregorian)
+        parser.dateFormat = "yyyy-MM-dd"
+        if let latest, let day = parser.date(from: String(latest.dropLast(3))) {
+            browser.day = day
+            browser.selection = .timeline
+            await shot("12-timeline")
+            browser.selection = .dailySummary
+            await shot("13-daily-summary")
+        } else {
+            log.append("timeline：样本中没有每日记录")
+        }
+
         try? log.joined(separator: "\n").write(to: output.appendingPathComponent("tour.log"), atomically: true, encoding: .utf8)
         NSApp.terminate(nil)
     }

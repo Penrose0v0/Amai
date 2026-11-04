@@ -27,7 +27,7 @@ struct ActivityTimelineView: View {
                     ContentUnavailableView {
                         Label("这一天没有活动记录", systemImage: "clock")
                     } description: {
-                        Text(model.isMemoryPreview ? "预览模式没有活动数据。" : "Amai 记录屏幕活动后，会在这里按时间显示。")
+                        Text(model.isMemoryPreview ? "预览样本中没有这一天的活动数据。" : "Amai 记录屏幕活动后，会在这里按时间显示。")
                     }
                 } else {
                     ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)

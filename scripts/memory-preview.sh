@@ -2,7 +2,8 @@
 #
 # 用合成示例数据打开记忆窗口（隔离预览，开发用）。
 #
-# - 每次把 samples/memory-preview/ 复制到新的临时目录，预览中的修改不影响样本；
+# - 每次把 samples/memory-preview/（记忆）与 samples/timeline-preview/（时间线片段）复制到新的临时目录，
+#   预览中的修改不影响样本；
 # - 预览版打在 .build/preview/Amai.app，不替换、不退出正在运行的 Amai；
 # - 预览模式不读写真实记忆、配置与钥匙串，不启动采集、抽取、同步、整理或任何模型调用。
 #
@@ -22,6 +23,8 @@ fi
 DIR="$(mktemp -d -t amai-memory-preview)"
 mkdir -p "${DIR}/memory"
 cp -R samples/memory-preview/. "${DIR}/memory/"
+mkdir -p "${DIR}/support/extracted"
+cp -R samples/timeline-preview/. "${DIR}/support/extracted/"
 echo "→ 示例记忆：${DIR}/memory"
 
 open -n "${APP}" --args --memory-preview "${DIR}"

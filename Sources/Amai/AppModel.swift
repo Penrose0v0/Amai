@@ -53,7 +53,8 @@ final class AppModel {
     let memoryIndex: MemoryIndex?
     private var pollTask: Task<Void, Never>?
 
-    /// 开发用的隔离预览模式（`--memory-preview <目录>`）：只打开记忆窗口浏览该目录下的 memory/。
+    /// 开发用的隔离预览模式（`--memory-preview <目录>`）：只打开记忆窗口浏览该目录下的 memory/，
+    /// 时间线读取 support/extracted/ 中的合成片段。
     let isMemoryPreview: Bool
 
     private enum PreviewMode: Error { case ready }
@@ -96,6 +97,8 @@ final class AppModel {
                     root: config.memory.rootURL,
                     database: try MemoryIndexDatabase(path: resolved.index.appendingPathComponent("memory.sqlite").path)
                 )
+                // 只读取预览目录中已有的合成片段供时间线展示；没有抽取流水线写入。
+                store = try ExtractionStore(root: resolved.extracted)
                 throw PreviewMode.ready
             }
             let resolved = try AmaiPaths.standard()
