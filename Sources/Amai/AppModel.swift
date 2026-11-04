@@ -40,7 +40,18 @@ final class AppModel {
     private let claudeWorkdir: URL
     private var configuration: AppConfiguration
     private let localModel: MLXModelProvider?
+    /// 本次启动实际使用的本地模型。设置中改选后写入配置，重启后生效。
     let modelTag: String
+    /// 配置中选定的本地模型（可能与 `modelTag` 不同，等待重启）。
+    var selectedModelTag: String { configuration.extraction.modelTag }
+    /// 正在进行的模型下载：标签 → 进度（nil 表示准备中）。
+    private(set) var modelDownloads: [String: Double?] = [:]
+    private(set) var modelDownloadErrors: [String: String] = [:]
+    /// 已安装状态的版本号：下载完成后递增，让设置页重新检查磁盘。
+    private(set) var installedModelsVersion = 0
+    private var downloadTasks: [String: Task<Void, Never>] = [:]
+    /// 递增时主窗口打开设置窗口（供开发预览的截图流程使用）。
+    var settingsRequests = 0
     let memoryRoot: URL
 
     private let paths: AmaiPaths?
@@ -425,6 +436,52 @@ final class AppModel {
         return nil
     }
 
+    // MARK: - Local model
+
+    /// 保存选定的本地模型。模型实例由抽取与本地整理共用，启动时创建，所以重启后生效。返回错误说明（成功为 nil）。
+    func selectLocalModel(_ tag: String) -> String? {
+        guard let paths, !isMemoryPreview else { return "预览模式不能修改设置" }
+        var updated = configuration
+        updated.extraction.modelTag = tag
+        do {
+            try ConfigStore.save(updated, to: paths.config)
+        } catch {
+            return "保存配置失败：\(error)"
+        }
+        configuration = updated
+        AmaiLog.logger("app").info("local model selected: \(tag, privacy: .public)")
+        return nil
+    }
+
+    func downloadLocalModel(_ tag: String) {
+        guard downloadTasks[tag] == nil else { return }
+        modelDownloads[tag] = .some(nil)
+        modelDownloadErrors[tag] = nil
+        downloadTasks[tag] = Task { [weak self] in
+            do {
+                for try await event in LocalModelDownloader.download(tag: tag) {
+                    switch event {
+                    case .preparing: self?.modelDownloads[tag] = .some(nil)
+                    case .downloading(let fraction): self?.modelDownloads[tag] = fraction
+                    case .finished: break
+                    }
+                }
+            } catch {
+                self?.modelDownloadErrors[tag] = "下载失败：\(error.localizedDescription)"
+            }
+            guard let self else { return }
+            self.modelDownloads[tag] = nil
+            self.downloadTasks[tag] = nil
+            self.installedModelsVersion += 1
+            if tag == self.modelTag { self.modelInstalled = LocalInferenceBackend.isInstalled(tag: tag) }
+        }
+    }
+
+    /// 取消后已下载的部分留在缓存中，再次下载时继续。
+    func cancelLocalModelDownload(_ tag: String) {
+        downloadTasks[tag]?.cancel()
+    }
+
     /// 用一个极小的请求测试连接，不发送任何记忆内容。
     func testConnection(_ config: ConsolidationModelConfiguration, apiKey: String?) async -> String {
         guard let context = modelContext else { return "应用未正确初始化" }
@@ -627,11 +684,11 @@ final class AppModel {
             }
         }
         if !modelInstalled {
-            list.append(AppIssue(id: "model", message: "本地模型未安装，无法整理屏幕活动", action: .openSettings))
+            list.append(AppIssue(id: "model", message: "本地模型未安装，无法整理屏幕活动", action: .openLocalModels))
         } else if let e = extractionStatus {
             switch e.state {
             case .modelUnavailable:
-                list.append(AppIssue(id: "model", message: e.lastError ?? "本地模型不可用", action: .openSettings))
+                list.append(AppIssue(id: "model", message: e.lastError ?? "本地模型不可用", action: .openLocalModels))
             case .retrying:
                 list.append(AppIssue(id: "extraction", message: "处理屏幕活动时出错，稍后会自动重试", action: .openStatus))
             default:
@@ -684,6 +741,7 @@ struct AppIssue: Identifiable, Equatable {
     enum Action: Equatable {
         case grantScreenRecording
         case openSettings
+        case openLocalModels
         case openStatus
         case revealConfig
         case relaunch
@@ -692,6 +750,7 @@ struct AppIssue: Identifiable, Equatable {
             switch self {
             case .grantScreenRecording: "打开屏幕录制设置…"
             case .openSettings: "打开设置…"
+            case .openLocalModels: "选择本地模型…"
             case .openStatus: "查看运行状态…"
             case .revealConfig: "显示配置文件"
             case .relaunch: "重新启动 Amai"

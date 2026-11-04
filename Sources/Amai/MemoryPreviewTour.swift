@@ -95,6 +95,22 @@ enum MemoryPreviewTour {
             log.append("timeline：样本中没有每日记录")
         }
 
+        // 设置窗口的本地模型页。
+        model.settingsRequests += 1
+        try? await Task.sleep(for: .milliseconds(1200))
+        // SwiftUI 的设置窗口没有 identifier：取主窗口之外的可见普通窗口。
+        if let settings = NSApp.windows.first(where: { $0.isVisible && $0.identifier?.rawValue.contains("main") != true && $0.frame.width > 300 }) {
+            let path = output.appendingPathComponent("14-local-models.png").path
+            let p = Process()
+            p.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+            p.arguments = ["-x", "-o", "-l\(settings.windowNumber)", path]
+            try? p.run()
+            p.waitUntilExit()
+            log.append("14-local-models：\(p.terminationStatus == 0 ? "ok" : "截图失败 \(p.terminationStatus)")")
+        } else {
+            log.append("14-local-models：找不到设置窗口 \(NSApp.windows.map { $0.identifier?.rawValue ?? "-" })")
+        }
+
         try? log.joined(separator: "\n").write(to: output.appendingPathComponent("tour.log"), atomically: true, encoding: .utf8)
         NSApp.terminate(nil)
     }

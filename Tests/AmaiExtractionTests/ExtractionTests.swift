@@ -405,3 +405,22 @@ struct ExtractionStoreTests {
         #expect(await store.loadState().processedUntil == at(42))
     }
 }
+
+@Suite("Local model catalog")
+struct LocalModelCatalogTests {
+    @Test("Recommends the largest verified model within a third of RAM")
+    func recommendation() {
+        #expect(LocalModelCatalog.recommended(forMemoryGB: 8).tag == "mlx-community/gemma-4-e2b-it-4bit")
+        #expect(LocalModelCatalog.recommended(forMemoryGB: 16).tag == "mlx-community/gemma-4-e2b-it-4bit")
+        #expect(LocalModelCatalog.recommended(forMemoryGB: 24).tag == LocalInferenceBackend.defaultModelTag)
+        // 12B 未验证，48 GB 仍推荐 E4B。
+        #expect(LocalModelCatalog.recommended(forMemoryGB: 48).tag == LocalInferenceBackend.defaultModelTag)
+        #expect(LocalModelCatalog.recommended(forMemoryGB: 64).tag == LocalInferenceBackend.largeModelTag)
+        #expect(LocalModelCatalog.recommended(forMemoryGB: 128).tag == LocalInferenceBackend.largeModelTag)
+    }
+
+    @Test("Default model is in the catalog and verified")
+    func defaultModel() {
+        #expect(LocalModelCatalog.option(for: ExtractionConfiguration.default.modelTag)?.verified == true)
+    }
+}

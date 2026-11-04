@@ -25,17 +25,18 @@ struct AmaiApp: App {
             MemoryBrowserView(env: model.memoryBrowserEnvironment, controller: model.memoryBrowser) { day in
                 ActivityTimelineView(model: model, day: day)
             }
+            .background(SettingsRequestListener(model: model))
         }
         .defaultSize(width: 1100, height: 720)
         // 隔离预览模式（--memory-preview）启动后直接打开主窗口。
         .defaultLaunchBehavior(model.isMemoryPreview ? .presented : .automatic)
 
         Settings {
-            // 预览模式不显示真实设置：模型设置页会读写钥匙串中的 API Key。
+            // 预览模式只显示本地模型页（只读磁盘上的安装状态，下载与改选被禁用）：
+            // 记忆整理模型页会读写钥匙串中的 API Key。
             if model.isMemoryPreview {
-                Text("记忆预览模式下没有设置。")
-                    .foregroundStyle(.secondary)
-                    .frame(width: 360, height: 120)
+                LocalModelSettingsView(model: model)
+                    .frame(width: 580)
             } else {
                 SettingsView(model: model)
             }
@@ -50,6 +51,16 @@ struct AmaiApp: App {
         case .permissionMissing, .error: return "exclamationmark.triangle"
         case .stopped, nil: return "circle.dotted"
         }
+    }
+}
+
+/// 开发预览的截图流程需要打开设置窗口，而 SwiftUI 只允许从视图里调用 `openSettings`。
+private struct SettingsRequestListener: View {
+    let model: AppModel
+    @Environment(\.openSettings) private var openSettings
+
+    var body: some View {
+        Color.clear.onChange(of: model.settingsRequests) { openSettings() }
     }
 }
 
@@ -135,6 +146,7 @@ private struct MenuContent: View {
         switch action {
         case .grantScreenRecording: model.requestScreenRecording()
         case .openSettings: showSettings()
+        case .openLocalModels: showSettings(tab: .localModel)
         case .openStatus: showSettings(tab: .status)
         case .revealConfig: model.revealConfig()
         case .relaunch: model.relaunch()

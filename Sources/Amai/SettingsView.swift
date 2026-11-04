@@ -4,11 +4,11 @@ import SwiftUI
 
 /// 设置窗口的标签页。菜单中的"查看运行状态…"会直接打开运行状态页。
 enum SettingsTab: String {
-    case general, model, status, advanced
+    case general, localModel, model, status, advanced
     static let storageKey = "settings.tab"
 }
 
-/// 原生"设置"窗口（⌘,）：通用、记忆整理模型、运行状态、高级。
+/// 原生"设置"窗口（⌘,）：通用、本地模型、记忆整理模型、运行状态、高级。
 struct SettingsView: View {
     let model: AppModel
     @AppStorage(SettingsTab.storageKey) private var tab = SettingsTab.general.rawValue
@@ -18,6 +18,9 @@ struct SettingsView: View {
             GeneralSettingsView(model: model)
                 .tabItem { Label("通用", systemImage: "gearshape") }
                 .tag(SettingsTab.general.rawValue)
+            LocalModelSettingsView(model: model)
+                .tabItem { Label("本地模型", systemImage: "cpu") }
+                .tag(SettingsTab.localModel.rawValue)
             ModelSettingsView(model: model)
                 .tabItem { Label("记忆整理", systemImage: "brain") }
                 .tag(SettingsTab.model.rawValue)

@@ -19,8 +19,11 @@ public actor MLXModelProvider: ModelProvider {
     public nonisolated let sendsDataOffDevice = false
     public nonisolated let modelTag: String
 
+    /// 与 LocalModelCatalog 保持一致。
     private static let knownConfigurations: [String: ModelConfiguration] = [
+        "mlx-community/gemma-4-e2b-it-4bit": VLMRegistry.gemma4_E2B_it_4bit,
         "mlx-community/gemma-4-e4b-it-4bit": VLMRegistry.gemma4_E4B_it_4bit,
+        "mlx-community/gemma-3-12b-it-qat-4bit": VLMRegistry.gemma3_12B_qat_4bit,
         "mlx-community/gemma-4-26b-a4b-it-4bit": VLMRegistry.gemma4_26BA4B_it_4bit,
     ]
 
