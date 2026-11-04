@@ -341,7 +341,7 @@ public struct MemoryDocumentPage: View {
     public var body: some View { MemoryDocumentView(env: env, document: document).content }
 }
 
-private struct MemoryDocumentView: View {
+struct MemoryDocumentView: View {
     let env: MemoryBrowserEnvironment
     let document: MemoryDocument
     @Environment(MemoryBrowserController.self) private var controller: MemoryBrowserController?
@@ -425,7 +425,7 @@ private struct MemoryDocumentView: View {
                     if let section {
                         Text(section).font(.title3.bold())
                     }
-                    ForEach(Array(current.filter { $0.section == section }.enumerated()), id: \.offset) { _, item in
+                    ForEach(Array(Self.newestFirst(current.filter { $0.section == section }).enumerated()), id: \.offset) { _, item in
                         MemoryItemRow(env: env, item: item)
                     }
                 }
@@ -440,6 +440,17 @@ private struct MemoryDocumentView: View {
         var order: [String?] = []
         for item in current where !order.contains(item.section) { order.append(item.section) }
         return order
+    }
+
+    /// 同一小节内按最近来源日期倒序显示（最新的在上）；日期相同或没有来源时保持文件中的顺序。
+    /// 只影响显示，不改动 Markdown 文件。
+    nonisolated static func newestFirst(_ items: [MemoryItem]) -> [MemoryItem] {
+        items.enumerated()
+            .sorted { a, b in
+                let da = a.element.sources.max() ?? "", db = b.element.sources.max() ?? ""
+                return da != db ? da > db : a.offset < b.offset
+            }
+            .map(\.element)
     }
 
     /// 用户手写部分：去掉系统生成的一级标题与系统区块标题（区块本身已被 MemoryLibrary 去掉）。

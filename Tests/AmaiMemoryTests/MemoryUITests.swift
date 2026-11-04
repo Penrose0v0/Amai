@@ -118,3 +118,18 @@ struct SearchExcerptTests {
         #expect(SearchResultsView.plain("### Lumen - 〔决策〕放弃 CloudKit") == "Lumen · 〔决策〕放弃 CloudKit")
     }
 }
+
+@Suite("Entry order")
+struct EntryOrderTests {
+    @Test("entries are shown newest first by latest source; ties and missing sources keep file order")
+    func newestFirst() {
+        let items = [
+            MemoryItem(text: "A", sources: ["2026-10-01"]),
+            MemoryItem(text: "B", sources: ["2026-10-01", "2026-11-02"]),
+            MemoryItem(text: "C", sources: []),
+            MemoryItem(text: "D", sources: ["2026-10-20"]),
+            MemoryItem(text: "E", sources: ["2026-10-20"]),
+        ]
+        #expect(MemoryDocumentView.newestFirst(items).map(\.text) == ["B", "D", "E", "A", "C"])
+    }
+}
