@@ -8,6 +8,8 @@ import Foundation
 public actor MemoryStore {
     public let root: URL
     private let timeZone: TimeZone
+    /// 记忆语言：时间线区块的说明、标题与低置信标记。只影响之后重写的内容。
+    private var language: MemoryLanguage = .default
     private let log = AmaiLog.logger("memory.store")
 
     public enum WriteError: Error, Equatable, CustomStringConvertible {
@@ -22,10 +24,15 @@ public actor MemoryStore {
         case malformedBlock(String)
     }
 
-    public init(root: URL, timeZone: TimeZone = .current) throws {
+    public init(root: URL, timeZone: TimeZone = .current, language: MemoryLanguage = .default) throws {
         self.root = root
         self.timeZone = timeZone
+        self.language = language
         try MemoryDirectory.ensureDirectories(at: root)
+    }
+
+    public func setLanguage(_ language: MemoryLanguage) {
+        self.language = language
     }
 
     /// 用给定片段重写某天 daily 文件的时间线区块。返回文件是否发生变化。
@@ -46,7 +53,7 @@ public actor MemoryStore {
             existing = nil
         }
 
-        let body = TimelineBlock.render(segments, timeZone: timeZone)
+        let body = TimelineBlock.render(segments, timeZone: timeZone, language: language)
         if existing == nil && body.isEmpty { return false }
 
         let updated: String
@@ -54,7 +61,8 @@ public actor MemoryStore {
             updated = try TimelineBlock.splice(
                 body: body,
                 into: existing,
-                dayTitle: MemoryDirectory.dayName(for: day, timeZone: timeZone)
+                dayTitle: MemoryDirectory.dayName(for: day, timeZone: timeZone),
+                language: language
             )
         } catch {
             log.error("daily block markers malformed, refusing to write")

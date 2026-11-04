@@ -341,7 +341,7 @@ public enum MemoryEvaluation {
         let library = MemoryLibrary(root: memory, index: nil, timeZone: utc)
         return MemoryCategory.documents.flatMap { c in
             (library.document(c)?.systemItems ?? [])
-                .filter { $0.section != MemorySchema.historySection }
+                .filter { !MemorySchema.isHistory($0.section) }
                 .map { (c, $0) }
         }
     }

@@ -31,12 +31,32 @@ public struct OutputSchema: Sendable, Equatable {
 /// 能否覆盖已有事实、分区专属校验与防大量丢失都由代码决定（`CategoryUpdater`）。
 /// 只写系统区块，用户手写内容永不覆盖；每次改写前存快照。
 public actor Consolidator {
-    public static let digestBlock = SystemBlock(
-        name: "digest", note: "由 Amai 每日整理自动生成，区块内的修改会被覆盖"
-    )
-    public static let memoryBlock = SystemBlock(
-        name: "memory", note: "由 Amai 根据每日记录自动维护；区块内的修改会在下次整理时被覆盖，需要保留的内容请写在区块外"
-    )
+    public static let digestBlock = digestBlock(.zhHans)
+    public static let memoryBlock = memoryBlock(.zhHans)
+
+    /// 区块按名称识别，说明文字随记忆语言写出（解析不依赖说明）。
+    public static func digestBlock(_ lang: MemoryLanguage) -> SystemBlock {
+        SystemBlock(name: "digest", note: lang.pick(
+            "由 Amai 每日整理自动生成，区块内的修改会被覆盖",
+            "Generated daily by Amai; edits inside this block will be overwritten",
+            "Amai が毎日自動生成します。このブロック内の編集は上書きされます"
+        ))
+    }
+
+    public static func memoryBlock(_ lang: MemoryLanguage) -> SystemBlock {
+        SystemBlock(name: "memory", note: lang.pick(
+            "由 Amai 根据每日记录自动维护；区块内的修改会在下次整理时被覆盖，需要保留的内容请写在区块外",
+            "Maintained by Amai from daily records; edits inside this block are overwritten at the next consolidation, so keep your own notes outside it",
+            "Amai が日々の記録から自動で管理します。このブロック内の編集は次回の整理で上書きされるため、残したい内容はブロックの外に書いてください"
+        ))
+    }
+
+    /// daily 文件中日终摘要所在小节的标题。
+    public static func digestHeading(_ lang: MemoryLanguage) -> String {
+        lang.pick("## 摘要", "## Summary", "## まとめ")
+    }
+
+    public static let allDigestHeadings: Set<String> = Set(MemoryLanguage.allCases.map(digestHeading))
     /// 每天整理的分区。
     public static let dailyCategories: [MemoryCategory] = [.work, .goals, .health, .finance]
     /// 实际整理顺序：领域明确的分区在前，Goals 最后。同一句话只写进先整理的分区（跨分区去重），
@@ -59,6 +79,8 @@ public actor Consolidator {
         public var maxCategoryAttempts = 3
         /// General 汇总时提供给模型的分区条目总字数上限。
         public var generalContextChars = 14_000
+        /// 记忆语言：提示词与写入的文字使用的语言（`setLanguage` 可在运行中切换）。
+        public var language: MemoryLanguage = .default
 
         public init() {}
     }
@@ -145,7 +167,8 @@ public actor Consolidator {
     private let clock: any AmaiClock
     private let timeZone: TimeZone
     private let shouldRun: @Sendable () -> Bool
-    private let options: Options
+    private var options: Options
+    private var lang: MemoryLanguage { options.language }
     private let log = AmaiLog.logger("memory.consolidate")
     private var state: State
     private var loop: Task<Void, Never>?
@@ -185,6 +208,11 @@ public actor Consolidator {
     }
 
     public var modelIdentifier: String { model.identifier }
+
+    /// 切换记忆语言：之后新写入或修改的内容使用新语言，已有内容不翻译。
+    public func setLanguage(_ language: MemoryLanguage) {
+        options.language = language
+    }
 
     // MARK: - Scheduling
 
@@ -264,15 +292,15 @@ public actor Consolidator {
             let segments = await source.segments(on: day)
             let ledger = EvidenceLedger.forDay(
                 day: dayName, daily: daily, segments: segments,
-                observations: await source.observations(on: day), timeZone: timeZone
+                observations: await source.observations(on: day), timeZone: timeZone, language: lang
             )
             let stats = Self.stats(for: segments)
             var progress = state.progress[dayName] ?? DayProgress()
 
             // 1. 日终摘要与类别路由（每次都重写摘要；路由只在第一次成功时确定，续跑沿用）。
             let digestRaw = try await model.complete(
-                system: Prompts.digestSystem,
-                user: Prompts.digestUser(day: dayName, stats: stats, ledger: ledger),
+                system: Prompts.digestSystem(lang),
+                user: Prompts.digestUser(day: dayName, stats: stats, ledger: ledger, language: lang),
                 maxTokens: 1200,
                 schema: Schemas.digest
             )
@@ -280,10 +308,10 @@ public actor Consolidator {
             guard let digest = ModelJSON.decode(DigestOutput.self, from: digestRaw) else {
                 throw ConsolidationError.unparsableModelOutput("digest")
             }
-            let digestBody = Self.renderDigest(stats: stats, digest: digest, timeZone: timeZone)
+            let digestBody = Self.renderDigest(stats: stats, digest: digest, timeZone: timeZone, language: lang)
             report.digestWritten = try await store.writeBlock(
-                Self.digestBlock, body: digestBody, file: file, newFileTitle: dayName,
-                heading: "## 摘要", insertBeforeHeading: TimelineBlock.heading,
+                Self.digestBlock(lang), body: digestBody, file: file, newFileTitle: dayName,
+                heading: Self.digestHeading(lang), insertBeforeHeading: TimelineBlock.heading(in: daily) ?? TimelineBlock.heading(lang),
                 snapshots: snapshots, task: "daily-digest", model: model.identifier, itemCount: digest.highlights?.count ?? 0
             )
             if progress.routes == nil {
@@ -301,7 +329,7 @@ public actor Consolidator {
 
             // 2. 分区整理
             for category in Self.processingOrder where report.routed.contains(category) && !progress.done.contains(category.rawValue) {
-                let policy = CategoryPolicy.policy(for: category)
+                let policy = CategoryPolicy.policy(for: category, language: lang)
                 if !policy.allowsInferred && !ledger.hasUserStatements {
                     report.skipped.append(category)
                     progress.done.append(category.rawValue)
@@ -351,7 +379,7 @@ public actor Consolidator {
     /// 整理一个分区：把当天依据、分区手写内容（U）与已有条目交给模型，按代码规则应用返回的操作。
     private func updateCategory(_ category: MemoryCategory, dayName: String, ledger base: EvidenceLedger) async throws -> CategoryOutcome {
         let path = category.file!
-        let policy = CategoryPolicy.policy(for: category)
+        let policy = CategoryPolicy.policy(for: category, language: lang)
         let text = await store.read(path)
         let body = text.flatMap(Self.memoryBlock.content(in:)) ?? ""
         let all = MemoryItems.parse(body)
@@ -365,7 +393,7 @@ public actor Consolidator {
         }
         let raw = try await model.complete(
             system: Prompts.categorySystem(policy),
-            user: Prompts.categoryUser(day: dayName, ledger: ledger, items: items, history: history, projects: policy.sections == nil ? meta : nil),
+            user: Prompts.categoryUser(day: dayName, ledger: ledger, items: items, history: history, projects: policy.sections == nil ? meta : nil, language: lang),
             maxTokens: 2400,
             schema: Schemas.operations
         )
@@ -384,25 +412,27 @@ public actor Consolidator {
         var outcome = CategoryOutcome(rejected: result.rejected)
         guard result.changed else { return outcome }
         outcome.written = try await store.writeBlock(
-            Self.memoryBlock, body: Self.renderCategory(result.items, policy: policy, meta: result.sectionMeta),
-            file: path, newFileTitle: MemorySchema.title(for: category), heading: MemorySchema.blockHeading,
+            Self.memoryBlock(lang), body: Self.renderCategory(result.items, policy: policy, meta: result.sectionMeta),
+            file: path, newFileTitle: MemorySchema.title(for: category, language: lang), heading: MemorySchema.blockHeading(lang),
             snapshots: snapshots, task: category.rawValue, model: model.identifier, itemCount: result.items.count
         )
         return outcome
     }
 
     /// 小节顺序：推荐小节 → 其他已有小节（迁移来的、Work 的项目）→ 变更记录。
+    /// 推荐小节与变更记录的标题换成当前记忆语言（任一语言的写法都认得），条目文字不变。
     static func renderCategory(_ items: [MemoryItem], policy: CategoryPolicy, meta: [String: [String: String]]) -> String {
+        let other = MemorySchema.localizedSection("其他", in: MemorySchema.generalSectionList, to: policy.language)
         let normalized = items.map { item -> MemoryItem in
             var item = item
-            if item.section == nil { item.section = "其他" }
+            item.section = policy.localize(item.section ?? other)
             return item
         }
         var order = policy.sections ?? []
-        for s in normalized.compactMap(\.section) where !order.contains(s) && s != CategoryPolicy.historySection {
+        for s in normalized.compactMap(\.section) where !order.contains(s) && !MemorySchema.isHistory(s) {
             order.append(s)
         }
-        order.append(CategoryPolicy.historySection)
+        order.append(policy.historySection)
         return MemoryItems.render(normalized, sections: order, sectionMeta: meta)
     }
 
@@ -433,11 +463,11 @@ public actor Consolidator {
             let body = current.flatMap(Self.memoryBlock.content(in:)) ?? ""
             let all = MemoryItems.parse(body)
             let (items, history) = CategoryUpdater.split(all)
-            let policy = CategoryPolicy.policy(for: .general)
+            let policy = CategoryPolicy.policy(for: .general, language: lang)
 
             let raw = try await model.complete(
                 system: Prompts.categorySystem(policy),
-                user: Prompts.categoryUser(day: today, ledger: ledger, items: items, history: history, projects: nil),
+                user: Prompts.categoryUser(day: today, ledger: ledger, items: items, history: history, projects: nil, language: lang),
                 maxTokens: 3000,
                 schema: Schemas.operations
             )
@@ -453,8 +483,8 @@ public actor Consolidator {
             var changed = false
             if result.changed {
                 changed = try await store.writeBlock(
-                    Self.memoryBlock, body: Self.renderCategory(result.items, policy: policy, meta: [:]),
-                    file: path, newFileTitle: MemorySchema.title(for: .general), heading: MemorySchema.blockHeading,
+                    Self.memoryBlock(lang), body: Self.renderCategory(result.items, policy: policy, meta: [:]),
+                    file: path, newFileTitle: MemorySchema.title(for: .general, language: lang), heading: MemorySchema.blockHeading(lang),
                     snapshots: snapshots, task: "general", model: model.identifier, itemCount: result.items.count
                 )
             }
@@ -496,7 +526,8 @@ public actor Consolidator {
         let prefixes: [MemoryCategory: String] = [.work: "MW", .goals: "MG", .health: "MH", .finance: "MF"]
         for category in Self.dailyCategories {
             for c in chosen where c.category == category {
-                let label = c.item.section.map { "[\(category.displayName)·\($0)] " } ?? "[\(category.displayName)] "
+                let name = MemorySchema.title(for: category, language: lang)
+                let label = c.item.section.map { "[\(name)·\($0)] " } ?? "[\(name)] "
                 ledger.append(
                     .memory, prefix: prefixes[category], day: c.item.sources.max() ?? today, text: label + c.item.text,
                     memoryKind: c.item.kind, sourceDays: c.item.sources
@@ -564,7 +595,7 @@ public actor Consolidator {
             .replacingOccurrences(of: "<!--", with: "")
             .replacingOccurrences(of: "-->", with: "")
             .trimmingCharacters(in: CharacterSet.whitespaces.union(CharacterSet(charactersIn: "#")))
-        guard !name.isEmpty, name != CategoryPolicy.historySection else { return nil }
+        guard !name.isEmpty, !MemorySchema.isHistory(name) else { return nil }
         return String(name.prefix(40))
     }
 
@@ -659,23 +690,23 @@ public actor Consolidator {
         let operations: [MemoryOperation]?
     }
 
-    static func statsLine(_ stats: DayStats, timeZone: TimeZone) -> String {
+    static func statsLine(_ stats: DayStats, timeZone: TimeZone, language lang: MemoryLanguage = .zhHans) -> String {
         guard stats.activeMinutes > 0 else { return "" }
-        let cats = stats.byCategory.prefix(4).map { "\(categoryLabel($0.0)) \(hm($0.1))" }.joined(separator: " · ")
-        var line = "活跃 \(hm(stats.activeMinutes))（\(cats)）"
+        let cats = stats.byCategory.prefix(4).map { "\(categoryLabel($0.0, lang)) \(hm($0.1, lang))" }.joined(separator: " · ")
+        var line = lang.pick("活跃 \(hm(stats.activeMinutes, lang))（\(cats)）", "Active \(hm(stats.activeMinutes, lang)) (\(cats))", "アクティブ \(hm(stats.activeMinutes, lang))（\(cats)）")
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = timeZone
         if let first = stats.first, let last = stats.last {
             let f = calendar.dateComponents([.hour, .minute], from: first)
             let l = calendar.dateComponents([.hour, .minute], from: last)
-            line += String(format: "，%02d:%02d–%02d:%02d", f.hour ?? 0, f.minute ?? 0, l.hour ?? 0, l.minute ?? 0)
+            line += String(format: lang.pick("，%02d:%02d–%02d:%02d", ", %02d:%02d–%02d:%02d", "、%02d:%02d–%02d:%02d"), f.hour ?? 0, f.minute ?? 0, l.hour ?? 0, l.minute ?? 0)
         }
-        return line + "。"
+        return line + lang.pick("。", ".", "。")
     }
 
-    nonisolated static func renderDigest(stats: DayStats, digest: DigestOutput, timeZone: TimeZone = .current) -> String {
+    nonisolated static func renderDigest(stats: DayStats, digest: DigestOutput, timeZone: TimeZone = .current, language: MemoryLanguage = .zhHans) -> String {
         var parts: [String] = []
-        let line = statsLine(stats, timeZone: timeZone)
+        let line = statsLine(stats, timeZone: timeZone, language: language)
         if !line.isEmpty { parts.append(line) }
         if let summary = digest.summary.map(clean), !summary.isEmpty { parts.append(summary) }
         let highlights = (digest.highlights ?? []).map(clean).filter { !$0.isEmpty }.prefix(6)
@@ -692,19 +723,21 @@ public actor Consolidator {
         ).text
     }
 
-    private nonisolated static func hm(_ minutes: Int) -> String {
-        minutes >= 60 ? "\(minutes / 60) 小时 \(minutes % 60) 分" : "\(minutes) 分"
+    private nonisolated static func hm(_ minutes: Int, _ lang: MemoryLanguage) -> String {
+        minutes >= 60
+            ? lang.pick("\(minutes / 60) 小时 \(minutes % 60) 分", "\(minutes / 60) h \(minutes % 60) min", "\(minutes / 60) 時間 \(minutes % 60) 分")
+            : lang.pick("\(minutes) 分", "\(minutes) min", "\(minutes) 分")
     }
 
-    nonisolated static func categoryLabel(_ c: ActivityCategory) -> String {
+    nonisolated static func categoryLabel(_ c: ActivityCategory, _ lang: MemoryLanguage = .zhHans) -> String {
         switch c {
-        case .work: "工作"
-        case .research: "研究"
-        case .communication: "沟通"
-        case .reading: "阅读"
-        case .entertainment: "娱乐"
-        case .idle: "空闲"
-        case .other: "其他"
+        case .work: lang.pick("工作", "work", "仕事")
+        case .research: lang.pick("研究", "research", "調査")
+        case .communication: lang.pick("沟通", "communication", "連絡")
+        case .reading: lang.pick("阅读", "reading", "読書")
+        case .entertainment: lang.pick("娱乐", "entertainment", "娯楽")
+        case .idle: lang.pick("空闲", "idle", "離席")
+        case .other: lang.pick("其他", "other", "その他")
         }
     }
 }

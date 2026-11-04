@@ -1,6 +1,7 @@
 // 只按需导入：AmaiCore 的 `Observation` 类型会与 @Observable 宏依赖的 Observation 模块同名冲突。
 import struct AmaiCore.ActivitySegment
 import enum AmaiCore.AmaiLog
+import enum AmaiCore.MemoryLanguage
 import struct AmaiCore.AmaiPaths
 import struct AmaiCore.Evidence
 import enum AmaiCore.FrameAvailability
@@ -39,6 +40,8 @@ final class AppModel {
     private(set) var chatGPTStatus: ChatGPTSession.Status?
     private let claudeWorkdir: URL
     private var configuration: AppConfiguration
+    /// 设置界面只读展示用（截图间隔、原始数据保留、排除的应用）。这些项在配置文件中修改，重启后生效。
+    var perceptionConfiguration: PerceptionConfiguration { configuration.perception }
     private let localModel: MLXModelProvider?
     /// 本次启动实际使用的本地模型。设置中改选后写入配置，重启后生效。
     let modelTag: String
@@ -60,6 +63,7 @@ final class AppModel {
     let extractionStore: ExtractionStore?
     private let pipeline: ExtractionPipeline?
     private let memorySync: MemorySync?
+    private let memoryStore: MemoryStore?
     private let consolidator: Consolidator?
     let memoryIndex: MemoryIndex?
     private var pollTask: Task<Void, Never>?
@@ -83,6 +87,7 @@ final class AppModel {
         var store: ExtractionStore?
         var pipeline: ExtractionPipeline?
         var memorySync: MemorySync?
+        var store_: MemoryStore?
         var memoryIndex: MemoryIndex?
         var consolidator: Consolidator?
         var localModel: MLXModelProvider?
@@ -136,13 +141,15 @@ final class AppModel {
                 case .saver, .paused: false
                 }
             }
+            var extractionOptions = ExtractionPipeline.Options()
+            extractionOptions.language = config.memory.language
             let built = ExtractionPipeline(dependencies: .init(
                 reader: spoolReader,
                 model: model,
                 ocr: VisionTextRecognizer(),
                 store: extractedStore,
                 shouldRun: heavyWorkAllowed
-            ))
+            ), options: extractionOptions)
             pipeline = built
 
             // 先把旧布局（summary.md、work/ 等）迁移到 Schema v1，再启动同步与整理，避免整理读写到一半迁移的文件。
@@ -155,7 +162,8 @@ final class AppModel {
                 migrationError = "记忆迁移未完成，旧文件已原样保留：\(error)"
                 AmaiLog.logger("app").error("memory migration failed: \(String(describing: error), privacy: .public)")
             }
-            let memoryStore = try MemoryStore(root: config.memory.rootURL)
+            let memoryStore = try MemoryStore(root: config.memory.rootURL, language: config.memory.language)
+            store_ = memoryStore
             let index = MemoryIndex(
                 root: config.memory.rootURL,
                 database: try MemoryIndexDatabase(path: resolved.index.appendingPathComponent("memory.sqlite").path)
@@ -167,6 +175,8 @@ final class AppModel {
                 index: index,
                 stateURL: resolved.index.appendingPathComponent("memory-sync.json")
             )
+            var consolidationOptions = Consolidator.Options()
+            consolidationOptions.language = config.memory.language
             consolidator = Consolidator(
                 store: memoryStore,
                 source: ExtractionSegmentSource(store: extractedStore),
@@ -176,6 +186,7 @@ final class AppModel {
                 )),
                 snapshots: SnapshotStore(root: resolved.root.appendingPathComponent("snapshots", isDirectory: true)),
                 stateURL: resolved.index.appendingPathComponent("consolidation.json"),
+                options: consolidationOptions,
                 shouldRun: heavyWorkAllowed
             )
         } catch PreviewMode.ready {
@@ -190,6 +201,7 @@ final class AppModel {
         self.extractionStore = store
         self.pipeline = pipeline
         self.memorySync = memorySync
+        self.memoryStore = store_
         self.memoryIndex = memoryIndex
         self.consolidator = consolidator
         self.localModel = localModel
@@ -439,6 +451,33 @@ final class AppModel {
     // MARK: - Local model
 
     /// 保存选定的本地模型。模型实例由抽取与本地整理共用，启动时创建，所以重启后生效。返回错误说明（成功为 nil）。
+    // MARK: - Memory language
+
+    /// 记忆语言（之后新写入或修改的记忆内容使用的语言）。
+    var memoryLanguage: MemoryLanguage { configuration.memory.language }
+
+    /// 切换记忆语言：保存到配置，立即对之后的抽取与整理生效；已写入的内容不变。
+    func setMemoryLanguage(_ language: MemoryLanguage) -> String? {
+        guard let paths, !isMemoryPreview else { return "预览模式不能修改设置" }
+        guard language != configuration.memory.language else { return nil }
+        var updated = configuration
+        updated.memory.language = language
+        do {
+            try ConfigStore.save(updated, to: paths.config)
+        } catch {
+            return "保存配置失败：\(error)"
+        }
+        configuration = updated
+        let (pipeline, consolidator, store) = (pipeline, consolidator, memoryStore)
+        Task {
+            await pipeline?.setLanguage(language)
+            await consolidator?.setLanguage(language)
+            await store?.setLanguage(language)
+        }
+        AmaiLog.logger("app").info("memory language set to \(language.rawValue, privacy: .public)")
+        return nil
+    }
+
     func selectLocalModel(_ tag: String) -> String? {
         guard let paths, !isMemoryPreview else { return "预览模式不能修改设置" }
         var updated = configuration

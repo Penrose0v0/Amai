@@ -110,7 +110,7 @@ public struct EvidenceLedger: Sendable, Equatable {
 
     /// 条目文字中有多少比例的字符二元组出现在陈述里。只用来**降低**依据等级，不用来授予依据。
     static let statementCoverage = 0.4
-    static let framingPattern = #"\d{4}\s*[-年./]\s*\d{1,2}\s*(月|[-./])?\s*(\d{1,2}\s*日?)?(中旬|上旬|下旬)?(那一周|那周|当天)?|用户(本人)?(自述|表示|提到|称|说)?|自述|据用户"#
+    static let framingPattern = #"\d{4}\s*[-年./]\s*\d{1,2}\s*(月|[-./])?\s*(\d{1,2}\s*日?)?(中旬|上旬|下旬)?(那一周|那周|当天)?|用户(本人)?(自述|表示|提到|称|说)?|自述|据用户|(?i:\bthe user (said|says|stated|states|mentioned|mentions|reported|reports)( that)?\b|\baccording to the user\b)|ユーザー(本人)?(によると|は|が)?(述べた|言った|話した)?"#
 
     static func coverage(of text: String, in source: String) -> Double {
         // 日期与"用户表示"这类转述框架不构成新的说法，计算覆盖率前去掉。
@@ -151,7 +151,7 @@ public struct EvidenceLedger: Sendable, Equatable {
         return MemoryItems.normalize(rest).count <= 2
     }
 
-    static let appUsageFrame = #"[\d:：–\-~～.]+|大约|左右|累计|总计|共计|使用了|使用|用了|打开了|打开|前台|应用|时段|期间|小时|分钟|半|一|两|三|四|五|六|七|八|九|十|个|约|共|在|中|里|上|了|的"#
+    static let appUsageFrame = #"[\d:：–\-~～.]+|大约|左右|累计|总计|共计|使用了|使用|用了|打开了|打开|前台|应用|时段|期间|小时|分钟|半|一|两|三|四|五|六|七|八|九|十|个|约|共|在|中|里|上|了|的|(?i:\b(used|using|use|opened|open|in|the|app|application|for|about|around|roughly|approximately|total|during|from|to|and|a|an|half|one|two|three|four|five|six|seven|eight|nine|ten|hours?|minutes?|mins?|hrs?|h|m)\b)|を|で|に|約|時間|分間|分|使用|使った|利用|起動|アプリ|ほど|ごろ"#
 
     // MARK: - Building
 
@@ -162,7 +162,8 @@ public struct EvidenceLedger: Sendable, Equatable {
         daily: String?,
         segments: [ActivitySegment],
         observations: [Observation],
-        timeZone: TimeZone
+        timeZone: TimeZone,
+        language lang: MemoryLanguage = .zhHans
     ) -> EvidenceLedger {
         var ledger = EvidenceLedger()
         for line in userLines(inDaily: daily ?? "") {
@@ -182,7 +183,7 @@ public struct EvidenceLedger: Sendable, Equatable {
                 }
             }
             if !apps.isEmpty {
-                ledger.append(.observation, day: day, text: "\(range) 前台应用：\(apps.joined(separator: "、"))", apps: apps)
+                ledger.append(.observation, day: day, text: "\(range) " + lang.pick("前台应用：", "frontmost apps: ", "最前面のアプリ：") + apps.joined(separator: lang.pick("、", ", ", "、")), apps: apps)
             }
             guard !TimelineBlock.isLowConfidence(s) else { continue }
             let summary = TimelineBlock.sanitize(s.summary)
@@ -221,32 +222,32 @@ public struct EvidenceLedger: Sendable, Equatable {
         guard let body = TimelineBlock.block.content(in: daily) else { return [] }
         return body.split(separator: "\n").compactMap { raw in
             let line = raw.trimmingCharacters(in: .whitespaces)
-            guard line.hasPrefix("- "), !line.contains(TimelineBlock.lowConfidenceTag) else { return nil }
+            guard line.hasPrefix("- "), !TimelineBlock.allLowConfidenceTags.contains(where: { line.contains($0) }) else { return nil }
             let text = line.dropFirst(2).replacingOccurrences(of: #"<!--.*?-->"#, with: "", options: .regularExpression)
             return text.trimmingCharacters(in: .whitespaces)
         }
     }
 
     /// 给模型看的依据清单。
-    public func render() -> String {
+    public func render(_ lang: MemoryLanguage = .zhHans) -> String {
         let groups: [(EvidenceEntry.Basis, String)] = [
-            (.userStatement, "用户本人写下的内容（S/U，用户陈述）"),
-            (.observation, "采集元数据（F，可直接核对的事实：时段与前台应用）"),
-            (.inference, "屏幕活动的模型描述（I，推断）"),
-            (.digest, "日终摘要（D，推断）"),
-            (.memory, "已有记忆条目（M，括号内为该条目的依据类型）"),
+            (.userStatement, lang.pick("用户本人写下的内容（S/U，用户陈述）", "Written by the user (S/U, user statements)", "ユーザー本人が書いた内容（S/U、ユーザーの発言）")),
+            (.observation, lang.pick("采集元数据（F，可直接核对的事实：时段与前台应用）", "Capture metadata (F, verifiable facts: time ranges and frontmost apps)", "記録メタデータ（F、確認できる事実：時間帯と最前面のアプリ）")),
+            (.inference, lang.pick("屏幕活动的模型描述（I，推断）", "Model descriptions of screen activity (I, inferences)", "画面活動のモデルによる説明（I、推測）")),
+            (.digest, lang.pick("日终摘要（D，推断）", "Daily summaries (D, inferences)", "1 日のまとめ（D、推測）")),
+            (.memory, lang.pick("已有记忆条目（M，括号内为该条目的依据类型）", "Existing memory entries (M, basis in parentheses)", "既存の記憶項目（M、括弧内はその項目の根拠の種類）")),
         ]
         var parts: [String] = []
         for (basis, title) in groups {
             let list = entries.filter { $0.basis == basis }
             guard !list.isEmpty else { continue }
-            parts.append(title + "：")
+            parts.append(title + lang.pick("：", ":", "："))
             for e in list {
-                let kind = e.memoryKind.map { "（\($0.rawValue)）" } ?? ""
+                let kind = e.memoryKind.map { lang.pick("（\($0.rawValue)）", " (\($0.rawValue))", "（\($0.rawValue)）") } ?? ""
                 parts.append("[\(e.id)] \(e.day) \(e.text)\(kind)")
             }
         }
-        return parts.isEmpty ? "（无）" : parts.joined(separator: "\n")
+        return parts.isEmpty ? lang.pick("（无）", "(none)", "（なし）") : parts.joined(separator: "\n")
     }
 
     private static func hhmm(_ date: Date, _ timeZone: TimeZone) -> String {

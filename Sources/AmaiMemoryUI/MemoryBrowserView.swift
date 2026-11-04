@@ -295,7 +295,7 @@ struct DailySummaryView: View {
 
     /// daily 文件中用户手写的部分：去掉一级标题与系统生成的小节标题。
     static func notes(_ userMarkdown: String) -> String {
-        let generated: Set<String> = ["## 摘要", TimelineBlock.heading]
+        let generated = Consolidator.allDigestHeadings.union(TimelineBlock.allHeadings)
         return userMarkdown.components(separatedBy: "\n")
             .filter { line in
                 let t = line.trimmingCharacters(in: .whitespaces)
@@ -353,8 +353,8 @@ struct MemoryDocumentView: View {
     }
 
     private var userMarkdown: String { Self.userContent(document) }
-    private var current: [MemoryItem] { document.systemItems.filter { $0.section != MemorySchema.historySection } }
-    private var history: [MemoryItem] { document.systemItems.filter { $0.section == MemorySchema.historySection } }
+    private var current: [MemoryItem] { document.systemItems.filter { !MemorySchema.isHistory($0.section) } }
+    private var history: [MemoryItem] { document.systemItems.filter { MemorySchema.isHistory($0.section) } }
 
     var body: some View {
         ScrollView { content }
@@ -457,10 +457,11 @@ struct MemoryDocumentView: View {
     static func userContent(_ document: MemoryDocument) -> String {
         var lines = document.userMarkdown.components(separatedBy: "\n")
         if let first = lines.firstIndex(where: { !$0.trimmingCharacters(in: .whitespaces).isEmpty }),
-           lines[first].trimmingCharacters(in: .whitespaces) == "# \(MemorySchema.title(for: document.category))" {
+           lines[first].hasPrefix("# "),
+           MemorySchema.isGeneratedTitle(String(lines[first].trimmingCharacters(in: .whitespaces).dropFirst(2)), for: document.category) {
             lines.remove(at: first)
         }
-        lines.removeAll { $0.trimmingCharacters(in: .whitespaces) == MemorySchema.blockHeading }
+        lines.removeAll { MemorySchema.allBlockHeadings.contains($0.trimmingCharacters(in: .whitespaces)) }
         return lines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
@@ -636,7 +637,7 @@ struct SearchResultsView: View {
         switch hit.category {
         case .daily:
             let name = String(hit.file.dropFirst(MemoryDirectory.dailyDirectory.count + 1).dropLast(3))
-            controller?.show(hit.heading == "时间线" ? .timeline : .dailySummary, dayName: name)
+            controller?.show(TimelineBlock.allHeadings.contains("## " + hit.heading) ? .timeline : .dailySummary, dayName: name)
         case let c?:
             controller?.clearSearch()
             controller?.selection = .category(c)

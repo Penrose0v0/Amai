@@ -1,9 +1,9 @@
 import AmaiCloud
 import SwiftUI
 
-/// 记忆整理模型设置（ADR-0004 / ADR-0005）：本地、API Key、ChatGPT 订阅、Claude 订阅四种来源。
-/// 从本地切换到任一云端来源时，先确认会发送哪些数据、发往哪里。
-struct ModelSettingsView: View {
+/// 模型页的「记忆整理」（ADR-0004 / ADR-0005）：本地、API Key、ChatGPT 订阅、Claude 订阅四种来源。
+/// 只显示当前选中来源的配置；从本地切换到云端来源时，先确认会发送哪些数据、发往哪里。
+struct ConsolidationModelSections: View {
     let model: AppModel
 
     @State private var draft = ConsolidationModelConfiguration.default
@@ -25,15 +25,15 @@ struct ModelSettingsView: View {
     @State private var customClaudeModel = false
 
     var body: some View {
-        Form {
+        Group {
             Section {
-                Picker("整理模型", selection: $draft.mode) {
+                Picker("来源", selection: $draft.mode) {
                     ForEach(ConsolidationModelConfiguration.Mode.allCases, id: \.self) { Text($0.title).tag($0) }
                 }
-                .pickerStyle(.radioGroup)
-                Text("只影响日终摘要、各分区记忆与综合档案的整理。屏幕抽取始终在本机运行，截图与屏幕文字不会发送到任何服务。")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            } header: {
+                Text("记忆整理")
+            } footer: {
+                Text("用于日终摘要、各分区记忆与综合档案的整理。屏幕理解始终在本机进行。")
             }
 
             switch draft.mode {
@@ -43,32 +43,27 @@ struct ModelSettingsView: View {
             case .claudeCode: claudeSections
             }
 
-            if draft.mode.isCloud {
-                Section("隐私") {
-                    Text(Self.privacyNote(draft))
-                        .font(.caption)
-                        .fixedSize(horizontal: false, vertical: true)
+            Section {
+                LabeledContent("当前生效", value: model.consolidationModelLabel)
+                if let message {
+                    Text(message).foregroundStyle(.secondary).textSelection(.enabled)
                 }
-            }
-
-            if let message {
-                Text(message).font(.callout).textSelection(.enabled)
-            }
-
-            HStack {
-                Text("当前：\(model.consolidationModelLabel)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Spacer()
+                HStack {
+                    Spacer()
+                    if draft.mode.isCloud {
+                        Button("测试连接") { test() }.disabled(busy || signingIn)
+                    }
+                    Button("保存并应用") { save() }
+                        .keyboardShortcut(.defaultAction)
+                        .disabled(busy || signingIn)
+                }
+            } footer: {
                 if draft.mode.isCloud {
-                    Button("测试连接") { test() }.disabled(busy || signingIn)
+                    Text("整理时会把记忆相关的文本发送给 \(draft.serviceName)，不发送截图与屏幕文字。")
+                        .help(Self.privacyNote(draft))
                 }
-                Button("保存并应用") { save() }
-                    .keyboardShortcut(.defaultAction)
-                    .disabled(busy || signingIn)
             }
         }
-        .formStyle(.grouped)
         .onAppear(perform: load)
         .onChange(of: draft.mode) { onModeChange() }
         .alert("开启云端整理？", isPresented: $confirmCloud) {
@@ -93,7 +88,7 @@ struct ModelSettingsView: View {
 
     @ViewBuilder
     private var apiKeySections: some View {
-        Section("提供商") {
+        Section("API") {
             Picker("提供商", selection: $draft.provider) {
                 ForEach(CloudProvider.allCases, id: \.self) { Text($0.displayName).tag($0) }
             }
@@ -101,30 +96,38 @@ struct ModelSettingsView: View {
             switch draft.provider {
             case .anthropic:
                 TextField("模型", text: $draft.anthropicModel, prompt: Text(AnthropicClient.defaultModel))
-                Picker("推理强度（effort）", selection: $draft.anthropicEffort) {
+                Picker("推理强度", selection: $draft.anthropicEffort) {
                     ForEach(AnthropicClient.efforts, id: \.self) { Text($0).tag($0) }
                 }
             case .openai:
                 TextField("模型", text: $draft.openaiModel, prompt: Text("必填，你账户可用的模型 ID"))
-                Picker("推理强度（reasoning_effort）", selection: $draft.openaiReasoningEffort) {
+                Picker("推理强度", selection: $draft.openaiReasoningEffort) {
                     ForEach(OpenAIClient.reasoningEfforts, id: \.self) { Text($0.isEmpty ? "不发送" : $0).tag($0) }
                 }
                 TextField("API 地址", text: $draft.openaiBaseURL)
             }
         }
-        Section("API Key（保存在 macOS 钥匙串）") {
+        Section {
             if let stored = storedKeys[draft.provider] {
-                HStack {
-                    Text("已保存 \(KeychainStore.masked(stored))")
-                    Spacer()
-                    Button("删除", role: .destructive) { deleteKey() }
+                LabeledContent("已保存") {
+                    HStack(spacing: 10) {
+                        Text(KeychainStore.masked(stored)).foregroundStyle(.secondary)
+                        Button("删除", role: .destructive) { deleteKey() }
+                    }
                 }
             }
-            HStack {
-                SecureField(storedKeys[draft.provider] == nil ? "粘贴 API Key" : "替换 API Key", text: $keyInput)
-                Button("保存 Key") { saveKey() }
-                    .disabled(keyInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            LabeledContent(storedKeys[draft.provider] == nil ? "API Key" : "替换") {
+                HStack(spacing: 10) {
+                    SecureField("", text: $keyInput, prompt: Text("粘贴 API Key"))
+                        .labelsHidden()
+                    Button("保存") { saveKey() }
+                        .disabled(keyInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
             }
+        } header: {
+            Text("API Key")
+        } footer: {
+            Text("保存在 macOS 钥匙串中。")
         }
     }
 
@@ -132,41 +135,51 @@ struct ModelSettingsView: View {
 
     @ViewBuilder
     private var chatGPTSections: some View {
-        Section("ChatGPT 账号") {
+        Section {
             let status = model.chatGPTStatus
             if let status, status.signedIn {
+                LabeledContent("账号", value: status.email ?? "ChatGPT 账号")
+                LabeledContent("套餐用量") {
+                    Text(status.planUsageGranted ? "Using ChatGPT plan" : "未授予，请退出后重新登录并允许")
+                        .foregroundStyle(status.planUsageGranted ? Color.secondary : Color.orange)
+                }
                 HStack {
-                    VStack(alignment: .leading) {
-                        Text("已登录：\(status.email ?? "ChatGPT 账号")")
-                        Text(status.planUsageGranted ? "Using ChatGPT plan" : "未授予套餐用量：请退出后重新登录并允许")
-                            .font(.caption)
-                            .foregroundStyle(status.planUsageGranted ? Color.secondary : Color.orange)
-                    }
                     Spacer()
                     Button("Manage usage") { model.openChatGPTUsage() }
                     Button("退出登录") { signOutChatGPT() }.disabled(busy)
                 }
             } else {
-                Text("用你的 ChatGPT 订阅额度做记忆整理。点击下方按钮会打开浏览器，在 OpenAI 页面登录并授权 Amai；Amai 不会看到你的密码，也无法访问你的 ChatGPT 对话。")
-                    .font(.caption)
-                    .fixedSize(horizontal: false, vertical: true)
-                Button(signingIn ? "等待浏览器授权…" : "Continue with ChatGPT") { signInChatGPT() }
-                    .disabled(signingIn)
+                LabeledContent("账号") {
+                    Button(signingIn ? "等待浏览器授权…" : "Continue with ChatGPT") { signInChatGPT() }
+                        .disabled(signingIn)
+                }
+            }
+        } header: {
+            Text("ChatGPT 账号")
+        } footer: {
+            if model.chatGPTStatus?.signedIn != true {
+                Text("在浏览器中登录 OpenAI 并授权。Amai 看不到你的密码和对话。")
             }
         }
         if model.chatGPTStatus?.signedIn == true {
             Section("模型") {
-                if chatGPTModels.isEmpty {
-                    TextField("模型 slug", text: $draft.chatgptModel, prompt: Text("点击“刷新列表”获取可用模型"))
-                } else {
-                    Picker("模型", selection: $draft.chatgptModel) {
-                        ForEach(chatGPTModels) { Text($0.displayName).tag($0.slug) }
-                        if !draft.chatgptModel.isEmpty, !chatGPTModels.contains(where: { $0.slug == draft.chatgptModel }) {
-                            Text(draft.chatgptModel).tag(draft.chatgptModel)
+                LabeledContent("模型") {
+                    HStack(spacing: 10) {
+                        if chatGPTModels.isEmpty {
+                            TextField("", text: $draft.chatgptModel, prompt: Text("点击刷新获取可用模型"))
+                                .labelsHidden()
+                        } else {
+                            Picker("", selection: $draft.chatgptModel) {
+                                ForEach(chatGPTModels) { Text($0.displayName).tag($0.slug) }
+                                if !draft.chatgptModel.isEmpty, !chatGPTModels.contains(where: { $0.slug == draft.chatgptModel }) {
+                                    Text(draft.chatgptModel).tag(draft.chatgptModel)
+                                }
+                            }
+                            .labelsHidden()
                         }
+                        Button("刷新") { loadChatGPTModels() }.disabled(busy)
                     }
                 }
-                Button("刷新列表") { loadChatGPTModels() }.disabled(busy)
             }
         }
     }
@@ -175,47 +188,57 @@ struct ModelSettingsView: View {
 
     @ViewBuilder
     private var claudeSections: some View {
-        Section("本机 Claude Code") {
-            switch claudeStatus {
-            case .none:
-                Text("正在检测…").font(.caption)
-            case .failure(let error):
-                Text(error.description).foregroundStyle(.orange)
-                Text("请先安装 Claude Code，或在下方指定 claude 程序路径。").font(.caption)
-            case .success(let status):
-                Text("\(status.executable.path)\n版本 \(status.version)")
-                    .font(.caption)
-                    .textSelection(.enabled)
-                if status.usesSubscription {
-                    Text("已用 Claude 订阅登录" + (status.subscriptionType.map { "（\($0)）" } ?? ""))
-                } else if status.loggedIn {
-                    Text("Claude Code 当前不是用 Claude 订阅登录（\(status.authMethod ?? "未知")），调用不会使用订阅额度。")
-                        .foregroundStyle(.orange)
-                } else {
-                    Text("Claude Code 尚未登录：请在终端运行 claude，然后执行 /login。Amai 不会读取或保存你的登录凭据。")
-                        .foregroundStyle(.orange)
-                        .fixedSize(horizontal: false, vertical: true)
+        Section {
+            LabeledContent("状态") {
+                HStack(spacing: 10) {
+                    claudeStatusText
+                    Button("重新检测") { loadClaudeStatus() }
                 }
             }
-            TextField("claude 程序路径", text: $draft.claudeCodePath, prompt: Text("留空自动查找"))
-            Button("重新检测") { loadClaudeStatus() }
+            if case .success(let status) = claudeStatus {
+                LabeledContent("程序", value: "\(status.executable.lastPathComponent) \(status.version)")
+                    .help(status.executable.path)
+            }
+            TextField("程序路径", text: $draft.claudeCodePath, prompt: Text("留空自动查找"))
+        } header: {
+            Text("本机 Claude Code")
+        } footer: {
+            Text("仅限个人使用：在本机以只生成文字的方式调用你已登录的 Claude Code。")
+                .help("Amai 启动 claude -p，不启用任何工具，不加载你的全局配置与插件，也不读取或保存你的登录凭据。Anthropic 未对第三方应用以这种方式调用 Claude Code 作出明确许可，向他人分发包含此功能的版本前需要取得 Anthropic 的书面确认。")
         }
         Section("模型") {
-            Picker("模型", selection: $draft.claudeCodeModel) {
-                ForEach(ClaudeCodeClient.modelAliases, id: \.self) { Text($0).tag($0) }
-                if !ClaudeCodeClient.modelAliases.contains(draft.claudeCodeModel) {
-                    Text(draft.claudeCodeModel).tag(draft.claudeCodeModel)
+            if customClaudeModel {
+                TextField("模型 ID", text: $draft.claudeCodeModel, prompt: Text("例如 claude-opus-5-5"))
+            } else {
+                Picker("模型", selection: $draft.claudeCodeModel) {
+                    ForEach(ClaudeCodeClient.modelAliases, id: \.self) { Text($0).tag($0) }
+                    if !ClaudeCodeClient.modelAliases.contains(draft.claudeCodeModel) {
+                        Text(draft.claudeCodeModel).tag(draft.claudeCodeModel)
+                    }
                 }
             }
             Toggle("使用完整模型 ID", isOn: $customClaudeModel)
-            if customClaudeModel {
-                TextField("模型 ID", text: $draft.claudeCodeModel, prompt: Text("例如 claude-opus-5-5"))
-            }
         }
-        Section {
-            Text("个人使用：Amai 在本机启动你已登录的 Claude Code（claude -p），只生成文字，不启用任何工具，不加载你的全局配置与插件。Anthropic 未对第三方应用以这种方式调用 Claude Code 作出明确许可，向他人分发包含此功能的版本前需要取得 Anthropic 的书面确认。")
-                .font(.caption)
-                .fixedSize(horizontal: false, vertical: true)
+    }
+
+    @ViewBuilder
+    private var claudeStatusText: some View {
+        switch claudeStatus {
+        case .none:
+            Text("正在检测…").foregroundStyle(.secondary)
+        case .failure(let error):
+            Text("未找到").foregroundStyle(.orange)
+                .help("\(error.description)\n请先安装 Claude Code，或在下方指定 claude 程序路径。")
+        case .success(let status):
+            if status.usesSubscription {
+                Text("已用 Claude 订阅登录" + (status.subscriptionType.map { "（\($0)）" } ?? "")).foregroundStyle(.secondary)
+            } else if status.loggedIn {
+                Text("未使用订阅登录").foregroundStyle(.orange)
+                    .help("Claude Code 当前的登录方式是 \(status.authMethod ?? "未知")，调用不会使用订阅额度。")
+            } else {
+                Text("尚未登录").foregroundStyle(.orange)
+                    .help("请在终端运行 claude，然后执行 /login。")
+            }
         }
     }
 

@@ -17,15 +17,39 @@ import Foundation
 /// - 时间线里的内容都是模型推断，低置信度片段在行首加〔低置信〕标记；
 /// - 空闲与隐私跳过片段不写入。
 public enum TimelineBlock {
-    public static let block = SystemBlock(
-        name: "timeline",
-        note: "由 Amai 根据屏幕活动自动维护，均为模型推断；区块内的修改会被覆盖，需要保留的内容请写在区块外"
-    )
+    public static let block = block(.zhHans)
     public static var beginPrefix: String { block.beginPrefix }
     public static var endMarker: String { block.endMarker }
     public static var beginMarker: String { block.beginMarker }
-    public static let heading = "## 时间线"
-    public static let lowConfidenceTag = "〔低置信〕"
+    public static let heading = heading(.zhHans)
+    public static let lowConfidenceTag = lowConfidenceTag(.zhHans)
+
+    /// 区块按名称识别；说明、小节标题与低置信标记随记忆语言写出，解析时三种语言都认得。
+    public static func block(_ lang: MemoryLanguage) -> SystemBlock {
+        SystemBlock(name: "timeline", note: lang.pick(
+            "由 Amai 根据屏幕活动自动维护，均为模型推断；区块内的修改会被覆盖，需要保留的内容请写在区块外",
+            "Maintained by Amai from screen activity; all entries are model inferences. Edits inside this block are overwritten, so keep your own notes outside it",
+            "Amai が画面の活動から自動で管理します。すべてモデルによる推測です。このブロック内の編集は上書きされるため、残したい内容はブロックの外に書いてください"
+        ))
+    }
+
+    public static func heading(_ lang: MemoryLanguage) -> String {
+        lang.pick("## 时间线", "## Timeline", "## タイムライン")
+    }
+
+    public static let allHeadings: Set<String> = Set(MemoryLanguage.allCases.map(heading))
+
+    /// daily 文件中已有的时间线小节标题（任一语言）。
+    public static func heading(in text: String?) -> String? {
+        guard let text else { return nil }
+        return MemoryLanguage.allCases.map(heading).first { text.contains("\n" + $0 + "\n") || text.hasPrefix($0 + "\n") }
+    }
+
+    public static func lowConfidenceTag(_ lang: MemoryLanguage) -> String {
+        lang.pick("〔低置信〕", "[low confidence] ", "〔低信頼度〕")
+    }
+
+    public static let allLowConfidenceTags: [String] = MemoryLanguage.allCases.map(lowConfidenceTag)
     public static let lowConfidenceThreshold = 0.5
 
     public enum SpliceError: Error, Equatable {
@@ -45,17 +69,17 @@ public enum TimelineBlock {
     }
 
     /// 渲染区块正文（不含首尾标记），按开始时间排序。
-    public static func render(_ segments: [ActivitySegment], timeZone: TimeZone) -> String {
+    public static func render(_ segments: [ActivitySegment], timeZone: TimeZone, language: MemoryLanguage = .zhHans) -> String {
         segments
             .filter(includes)
             .sorted { $0.timeRange.start < $1.timeRange.start }
-            .map { line(for: $0, timeZone: timeZone) }
+            .map { line(for: $0, timeZone: timeZone, language: language) }
             .joined(separator: "\n")
     }
 
-    static func line(for segment: ActivitySegment, timeZone: TimeZone) -> String {
+    static func line(for segment: ActivitySegment, timeZone: TimeZone, language: MemoryLanguage = .zhHans) -> String {
         let time = "\(hhmm(segment.timeRange.start, timeZone))–\(hhmm(segment.timeRange.end, timeZone))"
-        let tag = isLowConfidence(segment) ? lowConfidenceTag : ""
+        let tag = isLowConfidence(segment) ? lowConfidenceTag(language) : ""
         let title = sanitize(segment.title)
         let meta = String(format: "seg:%@ conf:%.2f src:%@", segment.id.uuidString, segment.confidence, segment.provider)
         var text = "- \(time) \(tag)\(title) <!-- \(meta) -->"
@@ -67,9 +91,9 @@ public enum TimelineBlock {
     }
 
     /// 把渲染结果放进文件内容中（规则见 `SystemBlock.splice`）。
-    public static func splice(body: String, into existing: String?, dayTitle: String) throws -> String {
+    public static func splice(body: String, into existing: String?, dayTitle: String, language: MemoryLanguage = .zhHans) throws -> String {
         do {
-            return try block.splice(body: body, into: existing, newFileTitle: dayTitle, heading: heading)
+            return try block(language).splice(body: body, into: existing, newFileTitle: dayTitle, heading: heading(language))
         } catch {
             throw SpliceError.malformedMarkers
         }

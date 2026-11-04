@@ -249,3 +249,43 @@ struct PipelineTests {
         #expect(await pipeline.runOnce(force: true) == 1)
     }
 }
+
+@Suite("Extraction memory language")
+struct ExtractionLanguageTests {
+    @Test("in English, prompts, timeline labels and rule segments are English")
+    func english() async throws {
+        let events = dualDisplayFrames(count: 90, focus: { _ in 1 }, idle: { _ in 2 })
+        let h = try PipelineTests.Harness(events: events, now: at(2000))
+        defer { h.cleanup() }
+        await h.pipeline.setLanguage(.en)
+        h.model.segmentation = ["""
+        [{"start":"\(hms(0))","end":"\(hms(900))","title":"Editing capture code","summary":"Edited code in Xcode","category":"work","confidence":0.8}]
+        """]
+        #expect(await h.pipeline.runOnce() == 1)
+        let prompt = h.model.lastSegmentPrompt
+        #expect(prompt.hasPrefix("Previous segment: none\nTimeline range: "))
+        #expect(prompt.contains("[Display 1 · focused] [Xcode] screen: "))
+        #expect(prompt.contains("[display overview] Display 1: focused about 100% of the time, screen changed in 0/89 screenshots; Display 2:"))
+        #expect(h.model.describePrompts.contains { $0.hasPrefix("Time: ") })
+
+        // 规则片段也使用英文。
+        let first = frame(1000, idle: 200)
+        let idle = [first] + (1...30).map { frame(1000 + Double($0) * 10, idle: 200, duplicateOf: first.id) }
+        let h2 = try PipelineTests.Harness(events: idle, now: at(3000))
+        defer { h2.cleanup() }
+        await h2.pipeline.setLanguage(.en)
+        #expect(await h2.pipeline.runOnce() == 1)
+        #expect(await h2.store.segments(on: at(0)).map(\.title) == ["Away from computer"])
+    }
+
+    @Test("system prompts exist for every language and keep the JSON contract")
+    func prompts() {
+        for lang in MemoryLanguage.allCases {
+            let s = Prompts.segmentationSystem(lang)
+            #expect(s.contains(#""continues_previous":false"#))
+            #expect(s.contains("work") && s.contains("idle"))
+            #expect(!Prompts.frameDescriptionSystem(lang).isEmpty)
+        }
+        #expect(Prompts.segmentationSystem(.ja).contains("JSON 配列だけを出力"))
+    }
+}

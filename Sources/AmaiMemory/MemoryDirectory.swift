@@ -1,3 +1,4 @@
+import AmaiCore
 import Foundation
 
 /// 记忆分区（Memory Schema v1，ADR-0006）。每个主要分区对应记忆根目录下的一个 Markdown 文件，
@@ -105,11 +106,14 @@ public enum MemoryDirectory {
 public struct MemoryConfiguration: Codable, Sendable, Equatable {
     /// 记忆根目录，支持 `~` 开头。
     public var root: String
+    /// 记忆语言：之后新写入或修改的记忆内容使用的语言。
+    public var language: MemoryLanguage
 
     public static let `default` = MemoryConfiguration(root: "~/.amai/memory")
 
-    public init(root: String) {
+    public init(root: String, language: MemoryLanguage = .default) {
         self.root = root
+        self.language = language
     }
 
     public var rootURL: URL {
@@ -128,10 +132,11 @@ public struct MemoryConfiguration: Codable, Sendable, Equatable {
         guard trimmed.hasPrefix("/") || trimmed.hasPrefix("~") else { throw ValidationError.relativeRoot(trimmed) }
     }
 
-    private enum CodingKeys: String, CodingKey { case root }
+    private enum CodingKeys: String, CodingKey { case root, language }
 
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         root = try c.decodeIfPresent(String.self, forKey: .root) ?? Self.default.root
+        language = (try? c.decodeIfPresent(MemoryLanguage.self, forKey: .language)) ?? .default
     }
 }

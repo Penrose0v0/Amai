@@ -32,11 +32,12 @@ struct AmaiApp: App {
         .defaultLaunchBehavior(model.isMemoryPreview ? .presented : .automatic)
 
         Settings {
-            // 预览模式只显示本地模型页（只读磁盘上的安装状态，下载与改选被禁用）：
-            // 记忆整理模型页会读写钥匙串中的 API Key。
+            // 预览模式只显示屏幕理解（只读磁盘上的安装状态，下载与改选被禁用）：
+            // 记忆整理会读写钥匙串中的 API Key。
             if model.isMemoryPreview {
-                LocalModelSettingsView(model: model)
-                    .frame(width: 580)
+                Form { LocalModelSection(model: model) }
+                    .formStyle(.grouped)
+                    .frame(width: 620, height: 420)
             } else {
                 SettingsView(model: model)
             }
@@ -146,7 +147,7 @@ private struct MenuContent: View {
         switch action {
         case .grantScreenRecording: model.requestScreenRecording()
         case .openSettings: showSettings()
-        case .openLocalModels: showSettings(tab: .localModel)
+        case .openLocalModels: showSettings(tab: .model)
         case .openStatus: showSettings(tab: .status)
         case .revealConfig: model.revealConfig()
         case .relaunch: model.relaunch()

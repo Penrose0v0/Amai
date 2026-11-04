@@ -34,7 +34,8 @@ struct RuntimeStatusView: View {
                 if s.screen.displays > 0 {
                     LabeledContent("显示器", value: "\(s.screen.displays) 块")
                 }
-                LabeledContent("跳过", value: "\(s.screen.skipped)（暂停、密码输入、排除的应用）")
+                LabeledContent("跳过", value: "\(s.screen.skipped)")
+                    .help("暂停、密码输入、排除的应用等原因跳过的截图次数。")
                 LabeledContent("失败", value: "\(s.screen.failures)")
                 if let last = s.screen.lastCaptureAt {
                     LabeledContent("上次截图", value: last.formatted(date: .omitted, time: .standard))
@@ -44,7 +45,7 @@ struct RuntimeStatusView: View {
                 }
                 LabeledContent("应用切换", value: "\(s.focusChanges)")
                 LabeledContent("原始数据缓冲", value: ByteCountFormatter.string(fromByteCount: s.spoolBytes, countStyle: .file))
-                LabeledContent("电源档位", value: "\(s.powerProfile.rawValue) · 间隔 \(s.effectiveInterval.isFinite ? "\(Int(s.effectiveInterval)) 秒" : "暂停")")
+                LabeledContent("电源档位", value: "\(label(s.powerProfile)) · 间隔 \(s.effectiveInterval.isFinite ? "\(Int(s.effectiveInterval)) 秒" : "暂停")")
                 if s.systemBlocked {
                     LabeledContent("系统", value: "睡眠或锁屏，暂不截图")
                 }
@@ -59,7 +60,7 @@ struct RuntimeStatusView: View {
 
     @ViewBuilder
     private var extractionSection: some View {
-        Section("活动整理（本地模型）") {
+        Section("屏幕理解") {
             LabeledContent("模型", value: model.modelTag + (model.modelInstalled ? "" : "（未安装）"))
             if let e = model.extractionStatus {
                 LabeledContent("状态", value: label(e.state))
@@ -68,6 +69,7 @@ struct RuntimeStatusView: View {
                 }
                 LabeledContent("待处理窗口", value: "\(e.pendingBatches)")
                 LabeledContent("累计", value: "窗口 \(e.batchesProcessed) · 片段 \(e.segmentsWritten) · 描述帧 \(e.framesDescribed) · 兜底 \(e.fallbackBatches)")
+                    .help("处理的时间窗口、生成的活动片段、由模型描述的截图，以及模型失败时用元数据兜底的窗口数。")
                 if let seconds = e.lastBatchSeconds {
                     LabeledContent("上一个窗口耗时", value: "\(Int(seconds)) 秒")
                 }
@@ -86,7 +88,6 @@ struct RuntimeStatusView: View {
     @ViewBuilder
     private var memorySection: some View {
         Section("记忆同步") {
-            LabeledContent("位置", value: model.memoryRoot.path)
             if let updated = model.lastMemoryUpdate {
                 LabeledContent("文件上次修改", value: updated.formatted(date: .abbreviated, time: .standard))
             }
@@ -130,6 +131,15 @@ struct RuntimeStatusView: View {
         case .paused: "已暂停"
         case .permissionMissing: "缺少屏幕录制权限"
         case .error: "截图连续失败"
+        }
+    }
+
+    private func label(_ profile: PowerProfile) -> String {
+        switch profile {
+        case .performance: "高性能"
+        case .balanced: "平衡"
+        case .saver: "省电"
+        case .paused: "暂停"
         }
     }
 

@@ -15,6 +15,7 @@ final class ScriptedModel: MemoryLanguageModel, @unchecked Sendable {
     var failing: Set<MemoryCategory> = []
     private(set) var prompts: [MemoryCategory: String] = [:]
     private(set) var lastDigestPrompt = ""
+    private(set) var systems: [String] = []
     private(set) var calls = 0
     private(set) var categoryCalls: [MemoryCategory] = []
 
@@ -23,9 +24,10 @@ final class ScriptedModel: MemoryLanguageModel, @unchecked Sendable {
     func complete(system: String, user: String, maxTokens: Int, schema: OutputSchema?) async throws -> String {
         try lock.withLock {
             calls += 1
+            systems.append(system)
             if let schema { schemaNames.append(schema.name) }
-            if system == Prompts.digestSystem { lastDigestPrompt = user; return digest }
-            guard let category = MemoryCategory.documents.first(where: { system.contains("（\($0.rawValue).md）") }) else {
+            if MemoryLanguage.allCases.contains(where: { system == Prompts.digestSystem($0) }) { lastDigestPrompt = user; return digest }
+            guard let category = MemoryCategory.documents.first(where: { system.contains("（\($0.rawValue).md）") || system.contains("(\($0.rawValue).md)") }) else {
                 return "{}"
             }
             categoryCalls.append(category)

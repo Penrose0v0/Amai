@@ -86,6 +86,8 @@ public actor ExtractionPipeline {
         public var descriptionMaxTokens = 160
         public var segmentationMaxTokens = 1200
         public var ocrPromptChars = 600
+        /// 记忆语言：提示词与写入的片段文字使用的语言。运行中可用 `setLanguage` 切换。
+        public var language: MemoryLanguage = .default
         public var ocrStoreChars = 4000
         public var evidencePerSegment = 24
         /// 短于此时长的模型片段并入相邻片段（小模型常常切得过碎）。
@@ -111,6 +113,14 @@ public actor ExtractionPipeline {
         self.deps = dependencies
         self.options = options
     }
+
+    /// 切换记忆语言：只影响之后处理的窗口，已写入的片段不变。
+    public func setLanguage(_ language: MemoryLanguage) {
+        options.language = language
+        descriptionCache.removeAll()
+    }
+
+    private var text: ExtractionText { ExtractionText(lang: options.language) }
 
     public func apply(_ configuration: ExtractionConfiguration) {
         enabled = configuration.enabled
@@ -211,7 +221,7 @@ public actor ExtractionPipeline {
         }
 
         let selected = FrameSelector.select(batch.frames, options: options.selection)
-        let displays = DisplayLabels(batch.frames)
+        let displays = DisplayLabels(batch.frames, text: text)
         var observations: [Observation] = []
         var timeline: [(Date, String)] = []
 
@@ -302,13 +312,14 @@ public actor ExtractionPipeline {
         if let cached = descriptionCache[frame.id] { return cached }
         let excerpt = String(ocrText.prefix(options.ocrPromptChars))
         let request = ModelRequest(
-            cacheable: Prompts.frameDescriptionSystem,
+            cacheable: Prompts.frameDescriptionSystem(options.language),
             dynamic: Prompts.frameDescriptionUser(
                 time: clock(frame.wallTime),
                 app: frame.metadata.app,
                 idleSeconds: frame.metadata.idleSeconds,
                 onFocusDisplay: frame.metadata.isOnFocusDisplay,
-                ocrExcerpt: excerpt
+                ocrExcerpt: excerpt,
+                language: options.language
             ),
             images: [jpeg],
             maxTokens: options.descriptionMaxTokens
@@ -327,11 +338,12 @@ public actor ExtractionPipeline {
         let user = Prompts.segmentationUser(
             previous: previousText,
             rangeText: "\(clock(batch.range.start))–\(clock(batch.range.end))",
-            timeline: timeline
+            timeline: timeline,
+            language: options.language
         )
         for attempt in 0..<2 {
             let response = try await deps.model.generate(ModelRequest(
-                cacheable: Prompts.segmentationSystem,
+                cacheable: Prompts.segmentationSystem(options.language),
                 dynamic: user,
                 maxTokens: options.segmentationMaxTokens,
                 temperature: attempt == 0 ? 0.2 : 0
@@ -406,15 +418,6 @@ public actor ExtractionPipeline {
 
     private enum SkipReasonLabel: String {
         case userPaused, secureInput, excludedApp, other
-
-        var title: String {
-            switch self {
-            case .userPaused: "采集已暂停"
-            case .secureInput: "隐私跳过：密码输入"
-            case .excludedApp: "隐私跳过：排除的应用"
-            case .other: "隐私跳过"
-            }
-        }
     }
 
     private func dominantSkipReason(_ batch: ExtractionBatch) -> SkipReasonLabel {
@@ -429,12 +432,12 @@ public actor ExtractionPipeline {
         case .idle:
             // 副屏画面变化单独记一笔，不影响"离开"的判定。
             let secondary = (IdleClassifier.secondaryChangeFraction(batch) ?? 0) >= 0.5
-                ? "其他屏幕的画面仍在变化（可能在自动播放）。" : ""
+                ? text.otherScreensChanging : ""
             (title, summary, category, confidence, provider) =
-                ("离开电脑", "键鼠长时间无输入且焦点屏画面基本不变。" + secondary, .idle, 0.8, "rule:idle")
+                (text.awayTitle, text.awaySummary + secondary, .idle, 0.8, "rule:idle")
         case .privacy(let reason):
             (title, summary, category, confidence, provider) =
-                (reason.title, "此时段按隐私设置未采集画面。", .other, 1, "rule:privacy")
+                (text.skipTitle(reason.rawValue), text.privacySummary, .other, 1, "rule:privacy")
         }
         let evidence = batch.frames.first.map { [Evidence(event: $0)] } ?? []
         let apps = uniqueApps(batch.frames)
@@ -489,11 +492,11 @@ public actor ExtractionPipeline {
         let now = deps.clock.now()
         for run in runs {
             guard let first = run.first, let last = run.last else { continue }
-            let name = first.metadata.app ?? first.metadata.bundleId ?? "未知应用"
+            let name = first.metadata.app ?? first.metadata.bundleId ?? text.unknownApp
             try await deps.store.upsert(ActivitySegment(
                 timeRange: TimeRange(start: first.wallTime, end: last.wallTime.addingTimeInterval(options.batching.frameSpan)),
-                title: "使用 \(name)",
-                summary: "模型处理失败，仅根据前台应用记录。",
+                title: text.fallbackTitle(name),
+                summary: text.fallbackSummary,
                 category: .other,
                 apps: uniqueApps(run),
                 observations: [],
@@ -559,7 +562,7 @@ public actor ExtractionPipeline {
             let app = event.metadata.app ?? event.metadata.bundleId
             guard let app, app != lastApp else { continue }
             lastApp = app
-            lines.append((event.wallTime, "\(clock(event.wallTime)) 切换到 \(app)"))
+            lines.append((event.wallTime, "\(clock(event.wallTime)) \(text.switchedTo(app))"))
         }
         // 连续的隐私跳过合并成一个时段。
         var runStart: PerceptionEvent?
@@ -568,7 +571,7 @@ public actor ExtractionPipeline {
             guard let s = runStart, let e = runEnd else { return }
             let reason = SkipReasonLabel(rawValue: s.metadata.skipReason ?? "") ?? .other
             let span = s.id == e.id ? clock(s.wallTime) : "\(clock(s.wallTime))–\(clock(e.wallTime))"
-            lines.append((s.wallTime, "\(span) [隐私跳过] \(reason.title)"))
+            lines.append((s.wallTime, "\(span) \(text.privacySkipped) \(text.skipTitle(reason.rawValue))"))
         }
         for event in batch.skipped.sorted(by: { $0.wallTime < $1.wallTime }) {
             if let e = runEnd, event.metadata.skipReason == e.metadata.skipReason,
@@ -588,10 +591,13 @@ public actor ExtractionPipeline {
     private struct DisplayLabels {
         private let names: [UInt32: String]
 
-        init(_ frames: [PerceptionEvent]) {
+        private let text: ExtractionText
+
+        init(_ frames: [PerceptionEvent], text: ExtractionText) {
+            self.text = text
             let ids = Set(frames.compactMap(\.metadata.displayId)).sorted()
             names = ids.count > 1
-                ? Dictionary(uniqueKeysWithValues: ids.enumerated().map { ($1, "屏幕\($0 + 1)") })
+                ? Dictionary(uniqueKeysWithValues: ids.enumerated().map { ($1, text.displayName($0 + 1)) })
                 : [:]
         }
 
@@ -600,7 +606,7 @@ public actor ExtractionPipeline {
 
         func tag(_ frame: PerceptionEvent) -> String? {
             guard let id = frame.metadata.displayId, let name = names[id] else { return nil }
-            return "[\(name)·\(frame.metadata.isOnFocusDisplay ? "焦点" : "副屏")]"
+            return text.displayTag(name, focused: frame.metadata.isOnFocusDisplay)
         }
     }
 
@@ -615,11 +621,12 @@ public actor ExtractionPipeline {
             let focused = Set(own.filter(\.metadata.isOnFocusDisplay).map(\.wallTime)).count
             let comparable = own.filter { $0.metadata.changeDistance != nil }
             let changed = comparable.filter { $0.metadata.duplicateOf == nil }.count
-            var text = "\(name)：焦点约 \(Int((Double(focused) / Double(max(1, ticks)) * 100).rounded()))% 的时间"
-            if !comparable.isEmpty { text += "，画面变化 \(changed)/\(comparable.count) 次截图" }
-            parts.append(text)
+            parts.append(text.overview(
+                name, focusPercent: Int((Double(focused) / Double(max(1, ticks)) * 100).rounded()),
+                changed: comparable.isEmpty ? nil : changed, of: comparable.count
+            ))
         }
-        return [(batch.range.start, "\(clock(batch.range.start)) [屏幕概况] " + parts.joined(separator: "；"))]
+        return [(batch.range.start, "\(clock(batch.range.start)) \(text.overviewTag) " + parts.joined(separator: text.overviewSeparator))]
     }
 
     private func timelineLine(_ frame: PerceptionEvent, displays: DisplayLabels, description: String?, ocrText: String) -> String {
@@ -627,18 +634,18 @@ public actor ExtractionPipeline {
         if let tag = displays.tag(frame) { line += " \(tag)" }
         // 前台应用只对焦点屏有意义；副屏上显示的通常是别的应用。
         if frame.metadata.isOnFocusDisplay {
-            line += " [\(frame.metadata.app ?? "未知应用")]"
+            line += " [\(frame.metadata.app ?? text.unknownApp)]"
         }
         if let description, !description.isEmpty {
-            line += " 画面：\(description)"
+            line += text.screen(description)
         } else if !ocrText.isEmpty {
             let hint = ocrText.replacingOccurrences(of: "\n", with: " ").prefix(120)
-            line += "（截图已清理）文字线索：\(hint)"
+            line += text.expiredWithText(String(hint))
         } else {
-            line += frame.metadata.isOnFocusDisplay ? "（截图已清理，仅知前台应用）" : "（截图已清理）"
+            line += frame.metadata.isOnFocusDisplay ? text.expiredFocused : text.expired
         }
         if frame.metadata.isOnFocusDisplay, let idle = frame.metadata.idleSeconds, idle >= 60 {
-            line += "（已 \(Int(idle)) 秒无键鼠输入）"
+            line += text.idleFor(Int(idle))
         }
         return line
     }

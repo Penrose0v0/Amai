@@ -162,7 +162,7 @@ struct SchemaMigrationTests {
         #expect(report.itemsCarried == 4 + 45 + 1 + 1)
 
         let general = try f.read("general.md")
-        #expect(general.hasPrefix("# General\n\n## Amai 整理的记忆\n\n<!-- amai:memory:begin"))
+        #expect(general.hasPrefix("# 综合\n\n## Amai 整理的记忆\n\n<!-- amai:memory:begin"))
         #expect(general.contains("### 基本信息\n- 某大学研究生 <!-- src:2026-10-19 -->"))
         #expect(general.contains("### 工作概况\n- 正在开发 Amai <!-- src:2026-10-19,2026-10-20 -->"))
         #expect(general.contains("### 个人偏好\n- 似乎习惯深夜工作"))
