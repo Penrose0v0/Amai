@@ -83,21 +83,21 @@ public actor ChatGPTSession {
         await openURL(url)
         let callback = try await server.waitForCallback(timeout: timeout)
 
-        guard callback["state"] == state else { throw CloudError.signInRequired("授权回调的 state 不匹配，已中止") }
+        guard callback["state"] == state else { throw CloudError.signInRequired(String(localized: "授权回调的 state 不匹配，已中止")) }
         if let error = callback["error"] {
-            throw CloudError.signInRequired(error == "access_denied" ? "你在浏览器中取消了授权" : "授权失败：\(error)")
+            throw CloudError.signInRequired(error == "access_denied" ? String(localized: "你在浏览器中取消了授权") : String(localized: "授权失败：\(String(describing: error))"))
         }
-        guard let code = callback["code"], !code.isEmpty else { throw CloudError.signInRequired("授权回调缺少 code") }
+        guard let code = callback["code"], !code.isEmpty else { throw CloudError.signInRequired(String(localized: "授权回调缺少 code")) }
 
         let clientId: String
         if let existingClient {
             if let returned = callback["client_id"], !returned.isEmpty, returned != existingClient {
-                throw CloudError.signInRequired("授权返回了不同的 client ID，已拒绝")
+                throw CloudError.signInRequired(String(localized: "授权返回了不同的 client ID，已拒绝"))
             }
             clientId = existingClient
         } else {
             guard let issued = callback["client_id"], !issued.isEmpty, issued != config.dynamicClientID else {
-                throw CloudError.signInRequired("首次注册没有返回 client ID")
+                throw CloudError.signInRequired(String(localized: "首次注册没有返回 client ID"))
             }
             clientId = issued
         }
@@ -111,7 +111,7 @@ public actor ChatGPTSession {
                 audience: clientId, nonce: nonce, now: now()
             )
         } catch let error as IDTokenValidator.ValidationError {
-            throw CloudError.signInRequired("ID token 校验失败（\(error)）")
+            throw CloudError.signInRequired(String(localized: "ID token 校验失败（\(String(describing: error))）"))
         }
 
         let previous = credential
@@ -144,10 +144,10 @@ public actor ChatGPTSession {
     /// 用于推理的访问令牌：到期前 5 分钟内自动刷新；未授予套餐用量时报错。
     public func accessTokenForInference() async throws -> String {
         guard let current = credential, current.isSignedIn else {
-            throw CloudError.signInRequired("尚未登录 ChatGPT")
+            throw CloudError.signInRequired(String(localized: "尚未登录 ChatGPT"))
         }
         guard current.scopes.contains(config.planScope) else {
-            throw CloudError.planNotEligible("登录时没有授予 ChatGPT 套餐用量，请重新登录并允许")
+            throw CloudError.planNotEligible(String(localized: "登录时没有授予 ChatGPT 套餐用量，请重新登录并允许"))
         }
         if current.expiresAt.timeIntervalSince(now()) > 300 { return current.accessToken }
         return try await refreshed().accessToken
@@ -160,7 +160,7 @@ public actor ChatGPTSession {
 
     private func refreshed() async throws -> ChatGPTCredential {
         if let refreshTask { return try await refreshTask.value }
-        guard let current = credential, current.isSignedIn else { throw CloudError.signInRequired("尚未登录 ChatGPT") }
+        guard let current = credential, current.isSignedIn else { throw CloudError.signInRequired(String(localized: "尚未登录 ChatGPT")) }
         let endpoints = self.endpoints
         let now = self.now
         let task = Task<ChatGPTCredential, Error> {

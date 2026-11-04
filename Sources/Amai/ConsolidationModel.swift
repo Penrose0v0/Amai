@@ -21,10 +21,10 @@ struct ConsolidationModelConfiguration: Codable, Equatable {
 
         var title: String {
             switch self {
-            case .local: "本地模型（默认，不联网）"
+            case .local: String(localized: "本地模型（默认，不联网）")
             case .apiKey: "API Key（Anthropic / OpenAI）"
-            case .chatgptPlan: "ChatGPT 订阅"
-            case .claudeCode: "Claude 订阅（本机 Claude Code）"
+            case .chatgptPlan: String(localized: "ChatGPT 订阅")
+            case .claudeCode: String(localized: "Claude 订阅（本机 Claude Code）")
             }
         }
 
@@ -96,10 +96,10 @@ struct ConsolidationModelConfiguration: Codable, Equatable {
     /// 数据发往的服务名称，用于隐私确认。
     var serviceName: String {
         switch mode {
-        case .local: "本机"
+        case .local: String(localized: "本机")
         case .apiKey: provider.displayName
         case .chatgptPlan: "OpenAI（ChatGPT）"
-        case .claudeCode: "Anthropic（经 Claude Code）"
+        case .claudeCode: String(localized: "Anthropic（经 Claude Code）")
         }
     }
 }
@@ -150,14 +150,14 @@ enum ConsolidationModelFactory {
     static func client(_ config: ConsolidationModelConfiguration, context: ConsolidationModelContext) -> Result<any CloudTextClient, CloudError> {
         switch config.mode {
         case .local:
-            return .failure(.local("本地模式没有云端客户端"))
+            return .failure(.local(String(localized: "本地模式没有云端客户端")))
         case .apiKey:
             return .success(config.apiKeyClient(apiKey: context.keychain.apiKey(for: config.provider)))
         case .chatgptPlan:
             return .success(ChatGPTPlanClient(session: context.chatGPT, model: config.chatgptModel))
         case .claudeCode:
             guard let exe = ClaudeCodeLocator.locate(configured: config.claudeCodePath) else {
-                return .failure(.toolNotFound(config.claudeCodePath.isEmpty ? "未在常见位置找到 claude，请在设置中指定路径" : config.claudeCodePath))
+                return .failure(.toolNotFound(config.claudeCodePath.isEmpty ? String(localized: "未在常见位置找到 claude，请在设置中指定路径") : config.claudeCodePath))
             }
             return .success(ClaudeCodeClient(executable: exe, model: config.claudeCodeModel, workingDirectory: context.claudeWorkdir))
         }
@@ -177,14 +177,14 @@ enum ConsolidationModelFactory {
     static func label(_ config: ConsolidationModelConfiguration, localIdentifier: String) -> String {
         switch config.mode {
         case .local:
-            return "本地 · \(localIdentifier)"
+            return String(localized: "本地 · \(localIdentifier)")
         case .apiKey:
             let model = config.provider == .anthropic ? config.anthropicModel : config.openaiModel
-            return "API Key · \(config.provider.displayName) · \(model.isEmpty ? "未设置模型" : model)"
+            return "API Key · \(config.provider.displayName) · \(model.isEmpty ? String(localized: "未设置模型") : model)"
         case .chatgptPlan:
-            return "Using ChatGPT plan · \(config.chatgptModel.isEmpty ? "未选择模型" : config.chatgptModel)"
+            return "Using ChatGPT plan · \(config.chatgptModel.isEmpty ? String(localized: "未选择模型") : config.chatgptModel)"
         case .claudeCode:
-            return "Claude 订阅（Claude Code）· \(config.claudeCodeModel)"
+            return String(localized: "Claude 订阅（Claude Code）· \(config.claudeCodeModel)")
         }
     }
 }

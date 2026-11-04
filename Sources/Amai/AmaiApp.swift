@@ -118,13 +118,13 @@ private struct MenuContent: View {
     }
 
     private var statusTitle: String {
-        if model.startupError != nil { return "Amai 无法启动" }
+        if model.startupError != nil { return String(localized: "Amai 无法启动") }
         switch model.status?.state {
-        case .running, .error: return "Amai 正在记录"
-        case .paused: return "Amai 已暂停记录"
-        case .permissionMissing: return "Amai 等待屏幕录制权限"
-        case .stopped: return "Amai 未在记录"
-        case nil: return "Amai 正在启动…"
+        case .running, .error: return String(localized: "Amai 正在记录")
+        case .paused: return String(localized: "Amai 已暂停记录")
+        case .permissionMissing: return String(localized: "Amai 等待屏幕录制权限")
+        case .stopped: return String(localized: "Amai 未在记录")
+        case nil: return String(localized: "Amai 正在启动…")
         }
     }
 

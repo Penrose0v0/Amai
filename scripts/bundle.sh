@@ -56,6 +56,14 @@ if [ -f Resources/AppIcon.icns ]; then
     cp Resources/AppIcon.icns "${APP_DIR}/Contents/Resources/AppIcon.icns"
 fi
 
+# 界面文字：把 String Catalog 编译成各语言的 .lproj，放在 App 主 bundle 中（SwiftUI 默认从主 bundle 查找）。
+# Info.plist 中的权限说明另有 InfoPlist.strings。
+xcrun xcstringstool compile Resources/Localizable.xcstrings --output-directory "${APP_DIR}/Contents/Resources" >/dev/null
+for lproj in Resources/InfoPlist/*.lproj; do
+    mkdir -p "${APP_DIR}/Contents/Resources/$(basename "${lproj}")"
+    cp "${lproj}/InfoPlist.strings" "${APP_DIR}/Contents/Resources/$(basename "${lproj}")/"
+done
+
 # SwiftPM 为声明了 resources 的 target 生成 *.bundle，必须放在 Contents/Resources
 # 下（放在 bundle 根目录会破坏签名）。没有 Info.plist 的 bundle 在 macOS 26 上
 # 会被 Bundle(url:) 拒绝，补一个最小 Info.plist。

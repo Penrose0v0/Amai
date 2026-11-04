@@ -163,7 +163,7 @@ private struct TimelineRow: View {
 
     private var duration: String {
         let minutes = Int((segment.timeRange.duration / 60).rounded())
-        return minutes >= 60 ? "\(minutes / 60) 小时 \(minutes % 60) 分" : "\(minutes) 分钟"
+        return minutes >= 60 ? String(localized: "\(minutes / 60) 小时 \(minutes % 60) 分") : String(localized: "\(minutes) 分钟")
     }
 }
 
@@ -243,10 +243,10 @@ struct ExtractionStatusLine: View {
 
     private func text(_ s: ExtractionStatus) -> String {
         var parts = [label(s.state)]
-        if let done = s.progressDone, let total = s.progressTotal { parts.append("帧 \(done + 1)/\(total)") }
-        if s.pendingBatches > 0 { parts.append("待处理窗口 \(s.pendingBatches)") }
+        if let done = s.progressDone, let total = s.progressTotal { parts.append(String(localized: "帧 \(done + 1)/\(total)")) }
+        if s.pendingBatches > 0 { parts.append(String(localized: "待处理窗口 \(s.pendingBatches)")) }
         if let until = s.processedUntil {
-            parts.append("已处理至 \(until.formatted(date: .omitted, time: .shortened))")
+            parts.append(String(localized: "已处理至 \(until.formatted(date: .omitted, time: .shortened))"))
         }
         if let err = s.lastError { parts.append(err) }
         return parts.joined(separator: " · ")
@@ -254,13 +254,13 @@ struct ExtractionStatusLine: View {
 
     private func label(_ state: ExtractionState) -> String {
         switch state {
-        case .idle: "抽取空闲"
-        case .running: "抽取中"
-        case .deferred: "电源节流，稍后处理"
-        case .waitingForFrames: "等待视频分段写完"
-        case .modelUnavailable: "本地模型不可用"
-        case .retrying: "处理失败，将重试"
-        case .disabled: "抽取已关闭"
+        case .idle: String(localized: "抽取空闲")
+        case .running: String(localized: "抽取中")
+        case .deferred: String(localized: "电源节流，稍后处理")
+        case .waitingForFrames: String(localized: "等待视频分段写完")
+        case .modelUnavailable: String(localized: "本地模型不可用")
+        case .retrying: String(localized: "处理失败，将重试")
+        case .disabled: String(localized: "抽取已关闭")
         }
     }
 }
@@ -278,13 +278,13 @@ private struct CategoryBadge: View {
 
     private var label: String {
         switch category {
-        case .work: "工作"
-        case .research: "研究"
-        case .communication: "沟通"
-        case .reading: "阅读"
-        case .entertainment: "娱乐"
-        case .idle: "空闲"
-        case .other: "其他"
+        case .work: String(localized: "工作")
+        case .research: String(localized: "研究")
+        case .communication: String(localized: "沟通")
+        case .reading: String(localized: "阅读")
+        case .entertainment: String(localized: "娱乐")
+        case .idle: String(localized: "空闲")
+        case .other: String(localized: "其他")
         }
     }
 }
@@ -407,7 +407,7 @@ private struct SegmentDetail: View {
                             .font(.caption2)
                             .foregroundStyle(.tertiary)
                     }
-                    Text(obs.content.isEmpty ? "（无文字）" : obs.content)
+                    Text(obs.content.isEmpty ? String(localized: "（无文字）") : obs.content)
                         .font(.callout)
                         .lineLimit(obs.kind == .fact ? 4 : nil)
                         .textSelection(.enabled)

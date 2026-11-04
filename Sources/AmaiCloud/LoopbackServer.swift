@@ -36,7 +36,7 @@ public final class LoopbackServer: @unchecked Sendable {
                 case .failed(let error):
                     if once.fire() { ready.resume(throwing: error) }
                 case .cancelled:
-                    if once.fire() { ready.resume(throwing: CloudError.local("回调服务已取消")) }
+                    if once.fire() { ready.resume(throwing: CloudError.local(String(localized: "回调服务已取消"))) }
                 default:
                     break
                 }
@@ -52,7 +52,7 @@ public final class LoopbackServer: @unchecked Sendable {
     public func waitForCallback(timeout: TimeInterval) async throws -> [String: String] {
         let timer = Task { [weak self] in
             try? await Task.sleep(for: .seconds(timeout))
-            self?.finish(.failure(CloudError.signInRequired("等待浏览器授权超时")))
+            self?.finish(.failure(CloudError.signInRequired(String(localized: "等待浏览器授权超时"))))
         }
         defer { timer.cancel() }
         return try await withTaskCancellationHandler {
@@ -96,7 +96,7 @@ public final class LoopbackServer: @unchecked Sendable {
             let components = URLComponents(string: "http://127.0.0.1\(target)")
             let matches = components?.path == self.path
             let body = matches
-                ? "<html><meta charset=utf-8><body style='font-family:-apple-system;padding:40px'><h2>已完成授权</h2><p>可以关闭此页面，回到 Amai。</p></body></html>"
+                ? String(localized: "<html><meta charset=utf-8><body style='font-family:-apple-system;padding:40px'><h2>已完成授权</h2><p>可以关闭此页面，回到 Amai。</p></body></html>")
                 : "<html><body>Not found</body></html>"
             let response = "HTTP/1.1 \(matches ? "200 OK" : "404 Not Found")\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: \(body.utf8.count)\r\nConnection: close\r\n\r\n\(body)"
             connection.send(content: Data(response.utf8), completion: .contentProcessed { _ in connection.cancel() })

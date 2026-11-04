@@ -159,7 +159,7 @@ final class AppModel {
                     AmaiLog.logger("app").info("memory schema v1 migration: \(migrated.migrated.count) files, \(migrated.itemsCarried) items")
                 }
             } catch {
-                migrationError = "记忆迁移未完成，旧文件已原样保留：\(error)"
+                migrationError = String(localized: "记忆迁移未完成，旧文件已原样保留：\(String(describing: error))")
                 AmaiLog.logger("app").error("memory migration failed: \(String(describing: error), privacy: .public)")
             }
             let memoryStore = try MemoryStore(root: config.memory.rootURL, language: config.memory.language)
@@ -192,7 +192,7 @@ final class AppModel {
         } catch PreviewMode.ready {
             AmaiLog.logger("app").info("memory preview mode")
         } catch {
-            startupError = "初始化失败：\(error)"
+            startupError = String(localized: "初始化失败：\(String(describing: error))")
             AmaiLog.logger("app").error("startup failed: \(String(describing: error), privacy: .public)")
         }
         self.paths = paths
@@ -423,7 +423,7 @@ final class AppModel {
     // MARK: - Consolidation model
 
     var consolidationModelLabel: String {
-        ConsolidationModelFactory.label(consolidationModel, localIdentifier: localModel?.identifier ?? "本地模型")
+        ConsolidationModelFactory.label(consolidationModel, localIdentifier: localModel?.identifier ?? String(localized: "本地模型"))
     }
 
     private var modelContext: ConsolidationModelContext? {
@@ -433,13 +433,13 @@ final class AppModel {
 
     /// 保存整理模型配置并立即切换。返回错误说明（成功为 nil）。
     func applyConsolidationModel(_ new: ConsolidationModelConfiguration) async -> String? {
-        guard let paths, let context = modelContext, let consolidator else { return "应用未正确初始化" }
+        guard let paths, let context = modelContext, let consolidator else { return String(localized: "应用未正确初始化") }
         var updated = configuration
         updated.consolidationModel = new
         do {
             try ConfigStore.save(updated, to: paths.config)
         } catch {
-            return "保存配置失败：\(error)"
+            return String(localized: "保存配置失败：\(String(describing: error))")
         }
         configuration = updated
         consolidationModel = new
@@ -451,6 +451,45 @@ final class AppModel {
     // MARK: - Local model
 
     /// 保存选定的本地模型。模型实例由抽取与本地整理共用，启动时创建，所以重启后生效。返回错误说明（成功为 nil）。
+    // MARK: - Interface language
+
+    /// 界面语言。写入本应用偏好中的 AppleLanguages（与系统设置里"按 App 设置语言"是同一个设置），重启后生效。
+    enum InterfaceLanguage: String, CaseIterable {
+        case system, zhHans = "zh-Hans", en, ja
+
+        var title: String {
+            switch self {
+            case .system: String(localized: "跟随系统")
+            case .zhHans: "简体中文"
+            case .en: "English"
+            case .ja: "日本語"
+            }
+        }
+    }
+
+    /// 启动时生效的界面语言，用来判断是否需要重启。
+    let interfaceLanguageAtLaunch = AppModel.storedInterfaceLanguage()
+
+    var interfaceLanguage: InterfaceLanguage {
+        get { access(keyPath: \.interfaceLanguage); return Self.storedInterfaceLanguage() }
+        set {
+            withMutation(keyPath: \.interfaceLanguage) {
+                if newValue == .system {
+                    UserDefaults.standard.removeObject(forKey: "AppleLanguages")
+                } else {
+                    UserDefaults.standard.set([newValue.rawValue], forKey: "AppleLanguages")
+                }
+            }
+        }
+    }
+
+    /// 只看本应用自己的偏好，不看全局语言列表（全局列表总是存在，无法区分"跟随系统"）。
+    private static func storedInterfaceLanguage() -> InterfaceLanguage {
+        let domain = Bundle.main.bundleIdentifier.flatMap { UserDefaults.standard.persistentDomain(forName: $0) }
+        guard let code = (domain?["AppleLanguages"] as? [String])?.first else { return .system }
+        return InterfaceLanguage(rawValue: code) ?? .system
+    }
+
     // MARK: - Memory language
 
     /// 记忆语言（之后新写入或修改的记忆内容使用的语言）。
@@ -458,14 +497,14 @@ final class AppModel {
 
     /// 切换记忆语言：保存到配置，立即对之后的抽取与整理生效；已写入的内容不变。
     func setMemoryLanguage(_ language: MemoryLanguage) -> String? {
-        guard let paths, !isMemoryPreview else { return "预览模式不能修改设置" }
+        guard let paths, !isMemoryPreview else { return String(localized: "预览模式不能修改设置") }
         guard language != configuration.memory.language else { return nil }
         var updated = configuration
         updated.memory.language = language
         do {
             try ConfigStore.save(updated, to: paths.config)
         } catch {
-            return "保存配置失败：\(error)"
+            return String(localized: "保存配置失败：\(String(describing: error))")
         }
         configuration = updated
         let (pipeline, consolidator, store) = (pipeline, consolidator, memoryStore)
@@ -479,13 +518,13 @@ final class AppModel {
     }
 
     func selectLocalModel(_ tag: String) -> String? {
-        guard let paths, !isMemoryPreview else { return "预览模式不能修改设置" }
+        guard let paths, !isMemoryPreview else { return String(localized: "预览模式不能修改设置") }
         var updated = configuration
         updated.extraction.modelTag = tag
         do {
             try ConfigStore.save(updated, to: paths.config)
         } catch {
-            return "保存配置失败：\(error)"
+            return String(localized: "保存配置失败：\(String(describing: error))")
         }
         configuration = updated
         AmaiLog.logger("app").info("local model selected: \(tag, privacy: .public)")
@@ -506,7 +545,7 @@ final class AppModel {
                     }
                 }
             } catch {
-                self?.modelDownloadErrors[tag] = "下载失败：\(error.localizedDescription)"
+                self?.modelDownloadErrors[tag] = String(localized: "下载失败：\(error.localizedDescription)")
             }
             guard let self else { return }
             self.modelDownloads[tag] = nil
@@ -523,23 +562,23 @@ final class AppModel {
 
     /// 用一个极小的请求测试连接，不发送任何记忆内容。
     func testConnection(_ config: ConsolidationModelConfiguration, apiKey: String?) async -> String {
-        guard let context = modelContext else { return "应用未正确初始化" }
+        guard let context = modelContext else { return String(localized: "应用未正确初始化") }
         let client: any CloudTextClient
         if config.mode == .apiKey, let key = apiKey, !key.isEmpty {
             client = config.apiKeyClient(apiKey: key)
         } else {
             switch ConsolidationModelFactory.client(config, context: context) {
             case .success(let c): client = c
-            case .failure(let error): return "连接失败：\(error.description)"
+            case .failure(let error): return String(localized: "连接失败：\(error.description)")
             }
         }
         do {
             let response = try await client.generate(CloudRequest(system: "Reply with the single word OK.", user: "ping", maxTokens: 16))
-            return "连接成功：\(response.model)，用量 \(response.inputTokens) / \(response.outputTokens) token"
+            return String(localized: "连接成功：\(response.model)，用量 \(response.inputTokens) / \(response.outputTokens) token")
         } catch let error as CloudError {
-            return "连接失败：\(error.description)"
+            return String(localized: "连接失败：\(error.description)")
         } catch {
-            return "连接失败：\(error.localizedDescription)"
+            return String(localized: "连接失败：\(error.localizedDescription)")
         }
     }
 
@@ -558,7 +597,7 @@ final class AppModel {
         } catch let error as CloudError {
             return error.description
         } catch {
-            return "登录失败：\(error.localizedDescription)"
+            return String(localized: "登录失败：\(error.localizedDescription)")
         }
     }
 
@@ -567,7 +606,7 @@ final class AppModel {
         let revoked = await chatGPT.signOut()
         await refreshChatGPTStatus()
         if consolidationModel.mode == .chatgptPlan { _ = await applyConsolidationModel(consolidationModel) }
-        return revoked ? nil : "未能确认撤销授权，请到 ChatGPT 设置中断开 Amai。本地令牌已清除。"
+        return revoked ? nil : String(localized: "未能确认撤销授权，请到 ChatGPT 设置中断开 Amai。本地令牌已清除。")
     }
 
     func chatGPTModels() async -> Result<[ChatGPTModel], CloudError> {
@@ -595,7 +634,7 @@ final class AppModel {
 
     func claudeCodeStatus(configuredPath: String) async -> Result<ClaudeCodeStatus, CloudError> {
         guard let exe = ClaudeCodeLocator.locate(configured: configuredPath) else {
-            return .failure(.toolNotFound(configuredPath.isEmpty ? "未在常见位置找到 claude" : configuredPath))
+            return .failure(.toolNotFound(configuredPath.isEmpty ? String(localized: "未在常见位置找到 claude") : configuredPath))
         }
         do {
             return .success(try await ClaudeCodeClient.status(executable: exe, workingDirectory: claudeWorkdir))
@@ -617,22 +656,22 @@ final class AppModel {
     /// 删除时间段内的全部数据：原始截图与索引、抽取结果，以及 daily 中对应的时间线条目。
     /// 区块外用户手写的内容不受影响。
     func eraseData(from start: Date, to end: Date) async -> String {
-        guard end > start else { return "结束时间必须晚于开始时间" }
+        guard end > start else { return String(localized: "结束时间必须晚于开始时间") }
         var notes: [String] = []
         do {
             if let coordinator {
                 let files = try await coordinator.erase(from: start, to: end)
-                notes.append("删除原始视频分段 \(files) 个")
+                notes.append(String(localized: "删除原始视频分段 \(files) 个"))
             }
             let days = try await extractionStore?.deleteData(overlapping: TimeRange(start: start, end: end)) ?? []
-            notes.append("影响 \(days.count) 天的抽取结果")
+            notes.append(String(localized: "影响 \(days.count) 天的抽取结果"))
             if let memorySync {
                 for day in days { try await memorySync.rewrite(day: day) }
                 await memorySync.syncOnce()
             }
             return notes.joined(separator: "，")
         } catch {
-            return "删除未完成：\(error)。" + notes.joined(separator: "，")
+            return String(localized: "删除未完成：\(String(describing: error))。") + notes.joined(separator: "，")
         }
     }
 
@@ -712,24 +751,24 @@ final class AppModel {
             case .permissionMissing:
                 list.append(AppIssue(
                     id: "permission",
-                    message: "需要屏幕录制权限才能记录。在系统设置中允许后，需要重新启动 Amai 才会生效",
+                    message: String(localized: "需要屏幕录制权限才能记录。在系统设置中允许后，需要重新启动 Amai 才会生效"),
                     actions: [.grantScreenRecording, .relaunch]
                 ))
             case .error:
                 let detail = status.screen.lastError.map { "（\($0)）" } ?? ""
-                list.append(AppIssue(id: "capture", message: "截图连续失败\(detail)，稍后会自动重试", action: .openStatus))
+                list.append(AppIssue(id: "capture", message: String(localized: "截图连续失败\(detail)，稍后会自动重试"), action: .openStatus))
             default:
                 break
             }
         }
         if !modelInstalled {
-            list.append(AppIssue(id: "model", message: "本地模型未安装，无法整理屏幕活动", action: .openLocalModels))
+            list.append(AppIssue(id: "model", message: String(localized: "本地模型未安装，无法整理屏幕活动"), action: .openLocalModels))
         } else if let e = extractionStatus {
             switch e.state {
             case .modelUnavailable:
-                list.append(AppIssue(id: "model", message: e.lastError ?? "本地模型不可用", action: .openLocalModels))
+                list.append(AppIssue(id: "model", message: e.lastError ?? String(localized: "本地模型不可用"), action: .openLocalModels))
             case .retrying:
-                list.append(AppIssue(id: "extraction", message: "处理屏幕活动时出错，稍后会自动重试", action: .openStatus))
+                list.append(AppIssue(id: "extraction", message: String(localized: "处理屏幕活动时出错，稍后会自动重试"), action: .openStatus))
             default:
                 break
             }
@@ -787,12 +826,12 @@ struct AppIssue: Identifiable, Equatable {
 
         var title: String {
             switch self {
-            case .grantScreenRecording: "打开屏幕录制设置…"
-            case .openSettings: "打开设置…"
-            case .openLocalModels: "选择本地模型…"
-            case .openStatus: "查看运行状态…"
-            case .revealConfig: "显示配置文件"
-            case .relaunch: "重新启动 Amai"
+            case .grantScreenRecording: String(localized: "打开屏幕录制设置…")
+            case .openSettings: String(localized: "打开设置…")
+            case .openLocalModels: String(localized: "选择本地模型…")
+            case .openStatus: String(localized: "查看运行状态…")
+            case .revealConfig: String(localized: "显示配置文件")
+            case .relaunch: String(localized: "重新启动 Amai")
             }
         }
     }

@@ -102,7 +102,7 @@ struct ConsolidationModelSections: View {
             case .openai:
                 TextField("模型", text: $draft.openaiModel, prompt: Text("必填，你账户可用的模型 ID"))
                 Picker("推理强度", selection: $draft.openaiReasoningEffort) {
-                    ForEach(OpenAIClient.reasoningEfforts, id: \.self) { Text($0.isEmpty ? "不发送" : $0).tag($0) }
+                    ForEach(OpenAIClient.reasoningEfforts, id: \.self) { Text($0.isEmpty ? String(localized: "不发送") : $0).tag($0) }
                 }
                 TextField("API 地址", text: $draft.openaiBaseURL)
             }
@@ -231,10 +231,10 @@ struct ConsolidationModelSections: View {
                 .help("\(error.description)\n请先安装 Claude Code，或在下方指定 claude 程序路径。")
         case .success(let status):
             if status.usesSubscription {
-                Text("已用 Claude 订阅登录" + (status.subscriptionType.map { "（\($0)）" } ?? "")).foregroundStyle(.secondary)
+                Text(String(localized: "已用 Claude 订阅登录") + (status.subscriptionType.map { "（\($0)）" } ?? "")).foregroundStyle(.secondary)
             } else if status.loggedIn {
                 Text("未使用订阅登录").foregroundStyle(.orange)
-                    .help("Claude Code 当前的登录方式是 \(status.authMethod ?? "未知")，调用不会使用订阅额度。")
+                    .help("Claude Code 当前的登录方式是 \(status.authMethod ?? String(localized: "未知"))，调用不会使用订阅额度。")
             } else {
                 Text("尚未登录").foregroundStyle(.orange)
                     .help("请在终端运行 claude，然后执行 /login。")
@@ -289,32 +289,32 @@ struct ConsolidationModelSections: View {
             try model.keychain.setAPIKey(keyInput, for: draft.provider)
             keyInput = ""
             refreshStoredKeys()
-            message = "\(draft.provider.displayName) API Key 已保存到钥匙串"
+            message = String(localized: "\(draft.provider.displayName) API Key 已保存到钥匙串")
             if model.consolidationModel.mode == .apiKey { Task { _ = await model.applyConsolidationModel(model.consolidationModel) } }
         } catch {
-            message = "保存 Key 失败：\(error)"
+            message = String(localized: "保存 Key 失败：\(String(describing: error))")
         }
     }
 
     private func deleteKey() {
         try? model.keychain.deleteAPIKey(for: draft.provider)
         refreshStoredKeys()
-        message = "已删除 \(draft.provider.displayName) API Key"
+        message = String(localized: "已删除 \(draft.provider.displayName) API Key")
         if model.consolidationModel.mode == .apiKey { Task { _ = await model.applyConsolidationModel(model.consolidationModel) } }
     }
 
     private func signInChatGPT() {
         signingIn = true
-        message = "已在浏览器中打开 OpenAI 授权页面，请完成登录并允许 Amai 使用你的 ChatGPT 套餐。"
+        message = String(localized: "已在浏览器中打开 OpenAI 授权页面，请完成登录并允许 Amai 使用你的 ChatGPT 套餐。")
         Task {
             let error = await model.signInChatGPT()
             signingIn = false
             if let error {
-                message = "登录失败：\(error)"
+                message = String(localized: "登录失败：\(String(describing: error))")
                 return
             }
             await model.refreshChatGPTStatus()
-            message = "已登录 ChatGPT"
+            message = String(localized: "已登录 ChatGPT")
             showWelcome = model.chatGPTStatus?.needsWelcome == true
             loadChatGPTModels()
         }
@@ -323,7 +323,7 @@ struct ConsolidationModelSections: View {
     private func signOutChatGPT() {
         busy = true
         Task {
-            message = await model.signOutChatGPT() ?? "已退出 ChatGPT 登录并撤销授权"
+            message = await model.signOutChatGPT() ?? String(localized: "已退出 ChatGPT 登录并撤销授权")
             chatGPTModels = []
             busy = false
         }
@@ -336,9 +336,9 @@ struct ConsolidationModelSections: View {
             case .success(let models):
                 chatGPTModels = models
                 if draft.chatgptModel.isEmpty, let first = models.first { draft.chatgptModel = first.slug }
-                if models.isEmpty { message = "没有可用的模型" }
+                if models.isEmpty { message = String(localized: "没有可用的模型") }
             case .failure(let error):
-                message = "获取模型列表失败：\(error.description)"
+                message = String(localized: "获取模型列表失败：\(error.description)")
             }
             busy = false
         }
@@ -352,7 +352,7 @@ struct ConsolidationModelSections: View {
 
     private func test() {
         busy = true
-        message = "正在测试…"
+        message = String(localized: "正在测试…")
         let config = draft
         let key = keyInput
         Task {
@@ -374,14 +374,14 @@ struct ConsolidationModelSections: View {
         if let error = await model.applyConsolidationModel(draft) {
             message = error
         } else {
-            message = "已应用：\(model.consolidationModelLabel)"
+            message = String(localized: "已应用：\(model.consolidationModelLabel)")
             switch draft.mode {
             case .apiKey where storedKeys[draft.provider] == nil:
-                message! += "。注意：尚未保存 \(draft.provider.displayName) API Key，整理会失败。"
+                message! += String(localized: "。注意：尚未保存 \(draft.provider.displayName) API Key，整理会失败。")
             case .chatgptPlan where model.chatGPTStatus?.signedIn != true:
-                message! += "。注意：尚未登录 ChatGPT，整理会失败。"
+                message! += String(localized: "。注意：尚未登录 ChatGPT，整理会失败。")
             case .chatgptPlan where draft.chatgptModel.isEmpty:
-                message! += "。注意：尚未选择模型。"
+                message! += String(localized: "。注意：尚未选择模型。")
             default:
                 break
             }

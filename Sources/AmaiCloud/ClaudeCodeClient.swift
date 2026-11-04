@@ -203,7 +203,7 @@ public struct ClaudeCodeClient: CloudTextClient {
             stdin: Data(request.user.utf8),
             timeout: timeout
         )
-        if result.timedOut { throw CloudError.network("Claude Code 超过 \(Int(timeout)) 秒未返回") }
+        if result.timedOut { throw CloudError.network(String(localized: "Claude Code 超过 \(Int(timeout)) 秒未返回")) }
         return try Self.parse(result, model: model)
     }
 
@@ -213,7 +213,7 @@ public struct ClaudeCodeClient: CloudTextClient {
         // 输出的最后一个 JSON 对象行是结果；前面可能有诊断行。
         let line = stdout.split(separator: "\n").last { $0.trimmingCharacters(in: .whitespaces).hasPrefix("{") }
         guard let line, let obj = try? JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any] else {
-            throw classify(message: stderr.isEmpty ? stdout : stderr, fallback: .local("Claude Code 退出码 \(result.status)"))
+            throw classify(message: stderr.isEmpty ? stdout : stderr, fallback: .local(String(localized: "Claude Code 退出码 \(result.status)")))
         }
         let resultText = obj["result"] as? String ?? ""
         if obj["is_error"] as? Bool == true {
@@ -245,13 +245,13 @@ public struct ClaudeCodeClient: CloudTextClient {
         let m = message.lowercased()
         let snippet = String(message.trimmingCharacters(in: .whitespacesAndNewlines).prefix(160))
         if m.contains("not logged in") || m.contains("/login") || m.contains("invalid api key") || m.contains("oauth token") {
-            return .signInRequired("请在终端运行 claude 并执行 /login")
+            return .signInRequired(String(localized: "请在终端运行 claude 并执行 /login"))
         }
         if m.contains("usage limit") || m.contains("limit reached") || m.contains("rate limit") || m.contains("out of extra usage") {
             return .planUsageLimit(snippet)
         }
         if m.contains("unrecognized_model") || m.contains("model not found") || m.contains("invalid model") {
-            return .badRequest("模型不可用：\(snippet)")
+            return .badRequest(String(localized: "模型不可用：\(snippet)"))
         }
         return fallback
     }

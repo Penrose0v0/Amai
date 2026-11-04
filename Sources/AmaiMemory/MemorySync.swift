@@ -89,7 +89,7 @@ public actor MemorySync {
                 newWatermark = max(newWatermark ?? latest, latest)
             } catch {
                 // 一天失败不影响其他天；水位线不越过失败的那天之前的更新。
-                status.lastError = "写入 \(MemoryDirectory.dayName(for: day, timeZone: .current)) 失败：\(error)"
+                status.lastError = String(localized: "写入 \(MemoryDirectory.dayName(for: day, timeZone: .current)) 失败：\(String(describing: error))")
                 log.error("daily write failed: \(String(describing: error), privacy: .public)")
                 break
             }
@@ -101,7 +101,7 @@ public actor MemorySync {
         do {
             try await index.refresh()
         } catch {
-            status.lastError = "索引刷新失败：\(error)"
+            status.lastError = String(localized: "索引刷新失败：\(String(describing: error))")
         }
         status.lastSyncAt = now
         status.daysWritten += written

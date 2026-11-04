@@ -65,21 +65,21 @@ public enum CloudError: Error, Equatable, CustomStringConvertible {
 
     public var description: String {
         switch self {
-        case .missingAPIKey(let p): "未设置 \(p.displayName) API Key"
-        case .missingModel(let p): "未设置 \(p.displayName) 模型"
-        case .unauthorized(let m): "API Key 无效或无权限：\(m)"
-        case .badRequest(let m): "请求被拒绝：\(m)"
-        case .rateLimited: "请求过于频繁（429），稍后重试"
-        case .server(let code): "服务端错误（\(code)），稍后重试"
-        case .network(let m): "网络错误：\(m)"
-        case .refusal(let m): "模型拒绝回答" + (m.map { "：\($0)" } ?? "")
-        case .truncated: "输出被截断（达到 max_tokens）"
-        case .invalidResponse: "无法解析服务端响应"
-        case .planUsageLimit(let m): "订阅额度已用尽" + (m.isEmpty ? "" : "：\(m)")
-        case .planNotEligible(let m): "当前订阅套餐不能用于此功能" + (m.isEmpty ? "" : "：\(m)")
-        case .signInRequired(let m): "需要登录：\(m)"
-        case .toolNotFound(let m): "找不到程序：\(m)"
-        case .local(let m): "本地错误：\(m)"
+        case .missingAPIKey(let p): String(localized: "未设置 \(p.displayName) API Key")
+        case .missingModel(let p): String(localized: "未设置 \(p.displayName) 模型")
+        case .unauthorized(let m): String(localized: "API Key 无效或无权限：\(m)")
+        case .badRequest(let m): String(localized: "请求被拒绝：\(m)")
+        case .rateLimited: String(localized: "请求过于频繁（429），稍后重试")
+        case .server(let code): String(localized: "服务端错误（\(code)），稍后重试")
+        case .network(let m): String(localized: "网络错误：\(m)")
+        case .refusal(let m): String(localized: "模型拒绝回答") + (m.map { "：\($0)" } ?? "")
+        case .truncated: String(localized: "输出被截断（达到 max_tokens）")
+        case .invalidResponse: String(localized: "无法解析服务端响应")
+        case .planUsageLimit(let m): String(localized: "订阅额度已用尽") + (m.isEmpty ? "" : "：\(m)")
+        case .planNotEligible(let m): String(localized: "当前订阅套餐不能用于此功能") + (m.isEmpty ? "" : "：\(m)")
+        case .signInRequired(let m): String(localized: "需要登录：\(m)")
+        case .toolNotFound(let m): String(localized: "找不到程序：\(m)")
+        case .local(let m): String(localized: "本地错误：\(m)")
         }
     }
 
@@ -130,7 +130,7 @@ public struct HTTPTransport: Sendable {
             } catch let error as CloudError {
                 guard error.isRetryable, attempt < maxRetries else { throw error }
             } catch let error as URLError {
-                let mapped = CloudError.network(error.code == .timedOut ? "请求超时" : "\(error.code.rawValue)")
+                let mapped = CloudError.network(error.code == .timedOut ? String(localized: "请求超时") : "\(error.code.rawValue)")
                 guard attempt < maxRetries else { throw mapped }
             }
             attempt += 1

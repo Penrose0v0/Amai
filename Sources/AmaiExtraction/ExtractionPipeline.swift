@@ -177,7 +177,7 @@ public actor ExtractionPipeline {
             batches = Batcher.readyBatches(events: events, now: now, options: options.batching)
         } catch {
             status.state = .retrying
-            status.lastError = "读取感知数据失败"
+            status.lastError = String(localized: "读取感知数据失败")
             log.error("reading events failed: \(String(describing: error), privacy: .public)")
             return 0
         }
@@ -197,7 +197,7 @@ public actor ExtractionPipeline {
                 if case .modelNotInstalled(let tag) = error {
                     // 模型缺失是配置问题，不计入重试次数，也不退化为兜底结果。
                     status.state = .modelUnavailable
-                    status.lastError = "本地模型未安装：\(tag)"
+                    status.lastError = String(localized: "本地模型未安装：\(tag)")
                     break
                 }
                 if await handleFailure(batch, error: error, state: &state, started: started) { processed += 1 } else { break }
@@ -514,7 +514,7 @@ public actor ExtractionPipeline {
     ) async -> Bool {
         let n = attempts[batch.id, default: 0] + 1
         attempts[batch.id] = n
-        status.lastError = "窗口处理失败（第 \(n) 次）：\(String(describing: error))"
+        status.lastError = String(localized: "窗口处理失败（第 \(n) 次）：\(String(describing: error))")
         log.error("batch failed attempt \(n): \(String(describing: error), privacy: .public)")
         guard n >= options.maxAttempts else {
             status.state = .retrying
@@ -527,7 +527,7 @@ public actor ExtractionPipeline {
             return true
         } catch {
             status.state = .retrying
-            status.lastError = "兜底写入失败：\(String(describing: error))"
+            status.lastError = String(localized: "兜底写入失败：\(String(describing: error))")
             return false
         }
     }

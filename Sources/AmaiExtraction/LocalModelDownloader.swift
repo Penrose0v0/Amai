@@ -47,7 +47,7 @@ public enum LocalModelDownloader {
                 }
                 poll.cancel()
                 guard LocalInferenceBackend.isInstalled(tag: tag) else {
-                    throw ModelProviderError.loadFailed("\(tag): 下载完成但权重不完整")
+                    throw ModelProviderError.loadFailed(String(localized: "\(tag): 下载完成但权重不完整"))
                 }
                 log.info("model download finished: \(tag, privacy: .public)")
                 continuation.yield(.finished)

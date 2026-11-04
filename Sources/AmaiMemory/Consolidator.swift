@@ -115,10 +115,10 @@ public actor Consolidator {
     public enum ConsolidationError: Error, Equatable, CustomStringConvertible {
         public var description: String {
             switch self {
-            case .unparsableModelOutput(let task): "模型返回的内容无法解析（\(task)）"
-            case .tooMuchLoss(let file): "本次整理会删除 \(file) 中过多已有记忆，已拒绝"
+            case .unparsableModelOutput(let task): String(localized: "模型返回的内容无法解析（\(task)）")
+            case .tooMuchLoss(let file): String(localized: "本次整理会删除 \(file) 中过多已有记忆，已拒绝")
             case .categoriesFailed(let list):
-                "部分分区整理失败（\(list.compactMap { MemoryCategory(rawValue: $0)?.localizedName }.joined(separator: "、"))），稍后重试"
+                String(localized: "部分分区整理失败（\(list.compactMap { MemoryCategory(rawValue: $0)?.localizedName }.joined(separator: "、"))），稍后重试")
             }
         }
 
@@ -361,11 +361,11 @@ public actor Consolidator {
             }
             try markDaily(dayName)
             status.lastError = report.failed.isEmpty ? nil
-                : "整理 \(dayName) 的\(report.failed.map(\.localizedName).joined(separator: "、"))记忆多次失败，已跳过"
+                : String(localized: "整理 \(dayName) 的\(report.failed.map(\.localizedName).joined(separator: "、"))记忆多次失败，已跳过")
             log.info("daily consolidated: digest=\(report.digestWritten) routed=\(report.routed.count) updated=\(report.updated.count) rejected=\(report.rejected.count)")
             return report
         } catch {
-            status.lastError = "整理 \(dayName) 失败：\(error)"
+            status.lastError = String(localized: "整理 \(dayName) 失败：\(String(describing: error))")
             log.error("daily consolidation failed: \(String(describing: error), privacy: .public)")
             throw error
         }
@@ -494,7 +494,7 @@ public actor Consolidator {
             status.lastError = nil
             return changed
         } catch {
-            status.lastError = "更新 General 失败：\(error)"
+            status.lastError = String(localized: "更新综合档案失败：\(String(describing: error))")
             log.error("general update failed: \(String(describing: error), privacy: .public)")
             throw error
         }

@@ -56,16 +56,16 @@ struct LocalModelSection: View {
         }
         .contentShape(Rectangle())
         .onTapGesture { select(option, installed: isInstalled) }
-        .help(option.verified ? option.tag : "\(option.tag)\n尚未在 Amai 中验证抽取效果，可以使用，但结果可能不如已验证的模型。")
+        .help(option.verified ? option.tag : String(localized: "\(option.tag)\n尚未在 Amai 中验证抽取效果，可以使用，但结果可能不如已验证的模型。"))
     }
 
     /// 资源需求与标记，用一行灰色文字表示。
     private func details(_ option: LocalModelOption) -> String {
-        var parts = ["下载约 \(option.diskGB) GB", "占约 \(option.memoryGB) GB 内存"]
+        var parts = [String(localized: "下载约 \(option.diskGB) GB"), String(localized: "占约 \(option.memoryGB) GB 内存")]
         if option.memoryGB > LocalModelCatalog.machineMemoryGB { parts[1] += "（超过本机内存）" }
-        if option == recommended { parts.append("推荐") }
-        if model.modelTag == option.tag { parts.append("运行中") }
-        if !option.verified { parts.append("未验证") }
+        if option == recommended { parts.append(String(localized: "推荐")) }
+        if model.modelTag == option.tag { parts.append(String(localized: "运行中")) }
+        if !option.verified { parts.append(String(localized: "未验证")) }
         return parts.joined(separator: " · ")
     }
 
@@ -93,7 +93,7 @@ struct LocalModelSection: View {
     private func select(_ option: LocalModelOption, installed: Bool) {
         guard model.selectedModelTag != option.tag else { return }
         guard installed else {
-            message = "请先下载 \(option.displayName)。"
+            message = String(localized: "请先下载 \(option.displayName)。")
             return
         }
         message = model.selectLocalModel(option.tag)

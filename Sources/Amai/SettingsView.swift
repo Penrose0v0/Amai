@@ -63,11 +63,22 @@ private struct GeneralSettingsView: View {
             }
 
             Section {
+                Picker("界面语言", selection: Binding(
+                    get: { model.interfaceLanguage },
+                    set: { model.interfaceLanguage = $0 }
+                )) {
+                    ForEach(AppModel.InterfaceLanguage.allCases, id: \.self) { Text(verbatim: $0.title).tag($0) }
+                }
+                if model.interfaceLanguage != model.interfaceLanguageAtLaunch {
+                    LabeledContent("重新启动后生效") {
+                        Button("立即重启") { model.relaunch() }
+                    }
+                }
                 Picker("记忆语言", selection: Binding(
                     get: { model.memoryLanguage },
                     set: { languageMessage = model.setMemoryLanguage($0) }
                 )) {
-                    ForEach(MemoryLanguage.allCases, id: \.self) { Text($0.nativeName).tag($0) }
+                    ForEach(MemoryLanguage.allCases, id: \.self) { Text(verbatim: $0.nativeName).tag($0) }
                 }
                 if let languageMessage {
                     Text(languageMessage).foregroundStyle(.secondary)
@@ -75,7 +86,7 @@ private struct GeneralSettingsView: View {
             } header: {
                 Text("语言")
             } footer: {
-                Text("记忆语言用于之后新写入或修改的活动记录与记忆，已保存的内容保持原样。")
+                Text("界面语言切换后需要重新启动。记忆语言用于之后新写入或修改的活动记录与记忆，已保存的内容保持原样。")
             }
 
             Section("记忆存储") {
@@ -89,7 +100,7 @@ private struct GeneralSettingsView: View {
                         Button("在访达中显示") { model.openMemoryFolder() }
                     }
                 }
-                LabeledContent("上次更新", value: model.lastMemoryUpdate?.formatted(date: .abbreviated, time: .shortened) ?? "尚无")
+                LabeledContent("上次更新", value: model.lastMemoryUpdate?.formatted(date: .abbreviated, time: .shortened) ?? String(localized: "尚无"))
             }
         }
         .formStyle(.grouped)
@@ -97,12 +108,12 @@ private struct GeneralSettingsView: View {
 
     private var recordingState: String {
         switch model.status?.state {
-        case .running: "正在记录"
-        case .paused: "已暂停"
-        case .permissionMissing: "缺少屏幕录制权限"
-        case .error: "截图出错，正在重试"
-        case .stopped: "未在记录"
-        case nil: "正在启动"
+        case .running: String(localized: "正在记录")
+        case .paused: String(localized: "已暂停")
+        case .permissionMissing: String(localized: "缺少屏幕录制权限")
+        case .error: String(localized: "截图出错，正在重试")
+        case .stopped: String(localized: "未在记录")
+        case nil: String(localized: "正在启动")
         }
     }
 
@@ -128,10 +139,10 @@ private struct PerceptionSettingsView: View {
     var body: some View {
         Form {
             Section("屏幕采集") {
-                LabeledContent("截图间隔", value: "每 \(Int(config.screen.interval)) 秒")
+                LabeledContent("截图间隔", value: String(localized: "每 \(Int(config.screen.interval)) 秒"))
                     .help("电池供电或低电量时会自动拉长间隔。")
-                LabeledContent("显示器", value: model.status.map { $0.screen.displays > 0 ? "全部 \($0.screen.displays) 块" : "全部" } ?? "全部")
-                LabeledContent("原始截图保留", value: "最多 \(Int(config.spool.maxAge / 3600)) 小时 · \(ByteCountFormatter.string(fromByteCount: config.spool.maxBytes, countStyle: .file))")
+                LabeledContent("显示器", value: model.status.map { $0.screen.displays > 0 ? String(localized: "全部 \($0.screen.displays) 块") : String(localized: "全部") } ?? String(localized: "全部"))
+                LabeledContent("原始截图保留", value: String(localized: "最多 \(Int(config.spool.maxAge / 3600)) 小时 · \(ByteCountFormatter.string(fromByteCount: config.spool.maxBytes, countStyle: .file))"))
                     .help("超过时间或容量上限的原始截图会自动删除；活动记录与记忆不受影响。")
             }
 
@@ -148,10 +159,10 @@ private struct PerceptionSettingsView: View {
             }
 
             Section {
-                LabeledContent("密码输入", value: "自动跳过")
+                LabeledContent("密码输入", value: String(localized: "自动跳过"))
                     .help("检测到安全输入（例如密码框）时不截图。")
                 ForEach(excludedApps, id: \.self) { name in
-                    LabeledContent(name, value: "不记录")
+                    LabeledContent(name, value: String(localized: "不记录"))
                 }
             } header: {
                 Text("隐私")
@@ -203,10 +214,10 @@ private struct AdvancedSettingsView: View {
     var body: some View {
         Form {
             Section {
-                action("处理积压活动", help: "平时每分钟自动处理一次。") { model.runExtractionNow() }
-                action("同步记忆", help: "平时每分钟自动同步一次。") { model.syncMemoryNow() }
-                action("整理今日记忆", help: "生成今天的日终摘要并整理各分区；平时在第二天凌晨 4 点后自动整理。") { model.consolidateToday() }
-                action("更新综合档案", help: "平时每周自动更新一次。") { model.updateGeneralNow() }
+                action(String(localized: "处理积压活动"), help: String(localized: "平时每分钟自动处理一次。")) { model.runExtractionNow() }
+                action(String(localized: "同步记忆"), help: String(localized: "平时每分钟自动同步一次。")) { model.syncMemoryNow() }
+                action(String(localized: "整理今日记忆"), help: String(localized: "生成今天的日终摘要并整理各分区；平时在第二天凌晨 4 点后自动整理。")) { model.consolidateToday() }
+                action(String(localized: "更新综合档案"), help: String(localized: "平时每周自动更新一次。")) { model.updateGeneralNow() }
             } header: {
                 Text("手动维护")
             } footer: {

@@ -204,7 +204,7 @@ public struct SIWCEndpoints: Sendable {
         do {
             (data, response) = try await session.data(for: request)
         } catch {
-            throw CloudError.network("无法连接 ChatGPT 授权服务")
+            throw CloudError.network(String(localized: "无法连接 ChatGPT 授权服务"))
         }
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         guard status == 200 else { throw Self.tokenError(status: status, data: data) }
@@ -223,8 +223,8 @@ public struct SIWCEndpoints: Sendable {
     static func tokenError(status: Int, data: Data) -> CloudError {
         let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
         let code = (obj["error"] as? String) ?? ((obj["error"] as? [String: Any])?["code"] as? String) ?? ""
-        if terminalRefreshErrors.contains(code) { return .signInRequired("ChatGPT 登录已失效（\(code)），请重新登录") }
-        if code == "invalid_client" { return .badRequest("invalid_client：客户端配置错误") }
+        if terminalRefreshErrors.contains(code) { return .signInRequired(String(localized: "ChatGPT 登录已失效（\(code)），请重新登录")) }
+        if code == "invalid_client" { return .badRequest(String(localized: "invalid_client：客户端配置错误")) }
         if status >= 500 { return .server(status) }
         return .badRequest(code.isEmpty ? "HTTP \(status)" : code)
     }

@@ -108,10 +108,10 @@ public struct MemoryBrowserView<Timeline: View>: View {
     }
 
     private var title: String {
-        if controller.hits != nil { return "搜索结果" }
+        if controller.hits != nil { return String(localized: "搜索结果") }
         switch controller.selection {
-        case .timeline: return "时间线"
-        case .dailySummary: return "每日总结"
+        case .timeline: return String(localized: "时间线")
+        case .dailySummary: return String(localized: "每日总结")
         case .category(let c): return c.localizedName
         case nil: return "Amai"
         }
@@ -518,7 +518,7 @@ private struct SourceButton: View {
     static func short(_ day: String) -> String {
         let parts = day.split(separator: "-")
         guard parts.count == 3, let m = Int(parts[1]), let d = Int(parts[2]) else { return day }
-        return "\(m)月\(d)日"
+        return String(localized: "\(m)月\(d)日")
     }
 }
 
@@ -622,7 +622,7 @@ struct SearchResultsView: View {
         let place: String
         switch hit.category {
         case .daily:
-            place = "每日记录 · " + hit.file.dropFirst(MemoryDirectory.dailyDirectory.count + 1).replacingOccurrences(of: ".md", with: "")
+            place = String(localized: "每日记录 · ") + hit.file.dropFirst(MemoryDirectory.dailyDirectory.count + 1).replacingOccurrences(of: ".md", with: "")
         case let c?:
             place = c.localizedName
         case nil:
@@ -665,21 +665,21 @@ extension MemoryCategory {
 extension MemoryEntryKind {
     var label: String {
         switch self {
-        case .stated: "你说过"
-        case .confirmed: "你确认过"
-        case .observed: "观察到"
-        case .inferred: "推断"
-        case .unknown: "依据未记录"
+        case .stated: String(localized: "你说过")
+        case .confirmed: String(localized: "你确认过")
+        case .observed: String(localized: "观察到")
+        case .inferred: String(localized: "推断")
+        case .unknown: String(localized: "依据未记录")
         }
     }
 
     var explanation: String {
         switch self {
-        case .stated: "来自你自己写下的内容"
-        case .confirmed: "你明确确认过这条信息"
-        case .observed: "有直接的采集记录支持，例如使用了哪个应用"
-        case .inferred: "Amai 根据屏幕活动推断，可能不准确"
-        case .unknown: "较早整理的记忆，当时没有记录依据类型"
+        case .stated: String(localized: "来自你自己写下的内容")
+        case .confirmed: String(localized: "你明确确认过这条信息")
+        case .observed: String(localized: "有直接的采集记录支持，例如使用了哪个应用")
+        case .inferred: String(localized: "Amai 根据屏幕活动推断，可能不准确")
+        case .unknown: String(localized: "较早整理的记忆，当时没有记录依据类型")
         }
     }
 }

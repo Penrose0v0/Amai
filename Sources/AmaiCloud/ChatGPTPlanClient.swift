@@ -58,9 +58,9 @@ public struct ChatGPTPlanClient: CloudTextClient {
                     attempt += 1
                     await sleep(pow(2, Double(attempt)))
                 case .unauthorized:
-                    throw CloudError.signInRequired("ChatGPT 拒绝了当前登录，请重新登录")
+                    throw CloudError.signInRequired(String(localized: "ChatGPT 拒绝了当前登录，请重新登录"))
                 case .unsupportedSchema:
-                    throw CloudError.badRequest("不支持的请求参数")
+                    throw CloudError.badRequest(String(localized: "不支持的请求参数"))
                 case .error(let error):
                     throw error
                 }
@@ -109,7 +109,7 @@ public struct ChatGPTPlanClient: CloudTextClient {
         do {
             (bytes, response) = try await http.bytes(for: urlRequest)
         } catch {
-            throw Failure.error(.network("无法连接 OpenAI"))
+            throw Failure.error(.network(String(localized: "无法连接 OpenAI")))
         }
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         guard status == 200 else {
@@ -132,9 +132,9 @@ public struct ChatGPTPlanClient: CloudTextClient {
         } catch let error as CloudError {
             throw Failure.error(error)
         } catch {
-            throw Failure.error(.network("响应流中断"))
+            throw Failure.error(.network(String(localized: "响应流中断")))
         }
-        throw Failure.error(.network("响应流在 response.completed 之前结束"))
+        throw Failure.error(.network(String(localized: "响应流在 response.completed 之前结束")))
     }
 
     // MARK: - Errors
@@ -152,23 +152,23 @@ public struct ChatGPTPlanClient: CloudTextClient {
         let short = String(message.prefix(160))
         switch code {
         case "subscription_sharing_usage_limit_exceeded":
-            return .planUsageLimit("已达到 ChatGPT 套餐在 Amai 中的用量上限，可在 ChatGPT 设置的 Usage 中查看")
+            return .planUsageLimit(String(localized: "已达到 ChatGPT 套餐在 Amai 中的用量上限，可在 ChatGPT 设置的 Usage 中查看"))
         case "subscription_sharing_user_not_eligible":
             return .planNotEligible(short)
         case "subscription_sharing_invalid_user":
-            return .signInRequired("ChatGPT 账户状态无效，请重新登录")
+            return .signInRequired(String(localized: "ChatGPT 账户状态无效，请重新登录"))
         case "subscription_sharing_usage_unavailable", "subscription_sharing_user_unavailable":
             return .server(503)
         case "subscription_sharing_unsupported_capability":
-            return .badRequest("模型或参数不受支持：\(short)")
+            return .badRequest(String(localized: "模型或参数不受支持：\(short)"))
         case "subscription_sharing_route_not_supported", "chatpass_v2_scope_not_authorized", "chatpass_v2_invalid_authorization_context":
-            return .badRequest("\(code)：请检查授权或接口配置")
+            return .badRequest(String(localized: "\(code)：请检查授权或接口配置"))
         default:
             break
         }
         switch status {
-        case 401: return .signInRequired("ChatGPT 登录已失效，请重新登录")
-        case 403: return .badRequest(short.isEmpty ? "请求被策略拒绝（403）" : short)
+        case 401: return .signInRequired(String(localized: "ChatGPT 登录已失效，请重新登录"))
+        case 403: return .badRequest(short.isEmpty ? String(localized: "请求被策略拒绝（403）") : short)
         case 429: return .planUsageLimit(short)
         case 500...599: return .server(status)
         default: return .badRequest(short.isEmpty ? "HTTP \(status)" : short)

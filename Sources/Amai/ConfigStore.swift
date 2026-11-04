@@ -76,12 +76,12 @@ enum ConfigStore {
         do {
             config = try JSONDecoder().decode(AppConfiguration.self, from: data)
         } catch {
-            return LoadResult(configuration: .default, error: "配置文件不是有效的 JSON，已使用默认值")
+            return LoadResult(configuration: .default, error: String(localized: "配置文件不是有效的 JSON，已使用默认值"))
         }
         do {
             try config.validate()
         } catch {
-            return LoadResult(configuration: .default, error: "配置值非法（\(describe(error))），已使用默认值")
+            return LoadResult(configuration: .default, error: String(localized: "配置值非法（\(describe(error))），已使用默认值"))
         }
         try? save(config, to: url)
         return LoadResult(configuration: config, error: nil)
@@ -99,23 +99,23 @@ enum ConfigStore {
     private static func describe(_ error: Error) -> String {
         switch error {
         case ScreenCaptureConfiguration.ValidationError.intervalNotAllowed(let v):
-            "截图间隔 \(Int(v)) 秒不在允许范围 \(ScreenCaptureConfiguration.allowedIntervals.map { Int($0) })"
+            String(localized: "截图间隔 \(Int(v)) 秒不在允许范围 \(ScreenCaptureConfiguration.allowedIntervals.map { Int($0) })")
         case ScreenCaptureConfiguration.ValidationError.heightNotAllowed(let v):
-            "分辨率高度 \(v) 不在允许范围 \(ScreenCaptureConfiguration.allowedHeights)"
+            String(localized: "分辨率高度 \(v) 不在允许范围 \(ScreenCaptureConfiguration.allowedHeights)")
         case ScreenCaptureConfiguration.ValidationError.qualityOutOfRange(let v):
-            "编码质量 \(v) 必须在 0 到 1 之间"
+            String(localized: "编码质量 \(v) 必须在 0 到 1 之间")
         case RawSpoolLimits.ValidationError.maxBytesTooSmall:
-            "缓冲容量上限不能低于 64 MB"
+            String(localized: "缓冲容量上限不能低于 64 MB")
         case RawSpoolLimits.ValidationError.maxAgeTooShort:
-            "缓冲保留时间不能短于 10 分钟"
+            String(localized: "缓冲保留时间不能短于 10 分钟")
         case ExtractionConfiguration.ValidationError.maxFramesOutOfRange(let v):
-            "每个窗口的帧数 \(v) 必须在 1 到 40 之间"
+            String(localized: "每个窗口的帧数 \(v) 必须在 1 到 40 之间")
         case ExtractionConfiguration.ValidationError.emptyModelTag:
-            "模型名称不能为空"
+            String(localized: "模型名称不能为空")
         case MemoryConfiguration.ValidationError.emptyRoot:
-            "记忆目录不能为空"
+            String(localized: "记忆目录不能为空")
         case MemoryConfiguration.ValidationError.relativeRoot(let p):
-            "记忆目录必须是绝对路径或以 ~ 开头：\(p)"
+            String(localized: "记忆目录必须是绝对路径或以 ~ 开头：\(p)")
         default:
             String(describing: error)
         }

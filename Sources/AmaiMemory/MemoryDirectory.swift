@@ -22,12 +22,12 @@ public enum MemoryCategory: String, Sendable, CaseIterable, Codable {
     /// 界面与提示中给用户看的名称（简体中文）。文件标题等 Markdown 内容不受影响。
     public var localizedName: String {
         switch self {
-        case .general: "综合"
-        case .work: "工作"
-        case .health: "健康"
-        case .finance: "财务"
-        case .goals: "目标"
-        case .daily: "每日记录"
+        case .general: String(localized: "综合")
+        case .work: String(localized: "工作")
+        case .health: String(localized: "健康")
+        case .finance: String(localized: "财务")
+        case .goals: String(localized: "目标")
+        case .daily: String(localized: "每日记录")
         }
     }
 
