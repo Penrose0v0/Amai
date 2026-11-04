@@ -10,6 +10,7 @@ let package = Package(
     products: [
         .executable(name: "Amai", targets: ["Amai"]),
         .executable(name: "amai-memory", targets: ["AmaiMemoryCLI"]),
+        .executable(name: "amai-extraction", targets: ["AmaiExtractionCLI"]),
     ],
     dependencies: [
         // 记忆层派生索引（SQLite + FTS5）。ADR-0002。
@@ -88,6 +89,13 @@ let package = Package(
         .executableTarget(
             name: "AmaiMemoryCLI",
             dependencies: ["AmaiMemory", "AmaiMemoryEval", "AmaiCloud", "AmaiExtraction"]
+        ),
+
+        // 开发用抽取评测命令行：amai-extraction eval，在已录制的原始帧上用指定本地模型重跑抽取，比较速度、内存与切分。
+        // 只读原始缓冲，结果写到独立的输出目录。
+        .executableTarget(
+            name: "AmaiExtractionCLI",
+            dependencies: ["AmaiCore", "AmaiPerception", "AmaiExtraction"]
         ),
 
         .testTarget(name: "AmaiCoreTests", dependencies: ["AmaiCore"]),
