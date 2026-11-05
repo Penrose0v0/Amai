@@ -19,6 +19,15 @@ public enum MemoryLanguage: String, Codable, Sendable, CaseIterable {
         }
     }
 
+    /// 首次启动时的初始记忆语言：按系统首选语言决定一次（日文 → 日本語，英文 → English，其他 → 简体中文），
+    /// 之后保存在配置中，不再跟随系统变化。
+    public static func initial(preferredLanguages: [String]) -> MemoryLanguage {
+        guard let first = preferredLanguages.first?.lowercased() else { return .default }
+        if first.hasPrefix("ja") { return .ja }
+        if first.hasPrefix("en") { return .en }
+        return .default
+    }
+
     /// 无法识别的取值按默认语言处理，避免配置写错导致无法启动。
     public init(from decoder: any Decoder) throws {
         let raw = try decoder.singleValueContainer().decode(String.self)

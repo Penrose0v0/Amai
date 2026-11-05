@@ -107,13 +107,18 @@ public struct MemoryConfiguration: Codable, Sendable, Equatable {
     /// 记忆根目录，支持 `~` 开头。
     public var root: String
     /// 记忆语言：之后新写入或修改的记忆内容使用的语言。
-    public var language: MemoryLanguage
+    public var language: MemoryLanguage {
+        didSet { languageIsExplicit = true }
+    }
+    /// 配置中是否已有记忆语言。没有时（首次启动）由 App 按系统语言设定一次初始值。不写入配置文件。
+    public private(set) var languageIsExplicit: Bool
 
     public static let `default` = MemoryConfiguration(root: "~/.amai/memory")
 
-    public init(root: String, language: MemoryLanguage = .default) {
+    public init(root: String, language: MemoryLanguage? = nil) {
         self.root = root
-        self.language = language
+        self.language = language ?? .default
+        self.languageIsExplicit = language != nil
     }
 
     public var rootURL: URL {
@@ -137,6 +142,18 @@ public struct MemoryConfiguration: Codable, Sendable, Equatable {
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         root = try c.decodeIfPresent(String.self, forKey: .root) ?? Self.default.root
-        language = (try? c.decodeIfPresent(MemoryLanguage.self, forKey: .language)) ?? .default
+        let stored = try? c.decodeIfPresent(MemoryLanguage.self, forKey: .language)
+        language = stored ?? .default
+        languageIsExplicit = stored != nil
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(root, forKey: .root)
+        try c.encode(language, forKey: .language)
+    }
+
+    public static func == (a: MemoryConfiguration, b: MemoryConfiguration) -> Bool {
+        a.root == b.root && a.language == b.language
     }
 }

@@ -103,4 +103,24 @@ struct MemoryLanguageTests {
         }
         #expect(CategoryUpdater.moneyPattern.firstMatch(in: "paid 300 dollars", range: NSRange(location: 0, length: 16)) != nil)
     }
+
+    @Test("the initial memory language follows the system once; a saved value is kept")
+    func initialLanguage() throws {
+        #expect(MemoryLanguage.initial(preferredLanguages: ["ja-JP", "en-US"]) == .ja)
+        #expect(MemoryLanguage.initial(preferredLanguages: ["en-GB"]) == .en)
+        #expect(MemoryLanguage.initial(preferredLanguages: ["zh-Hans-JP", "ja-JP"]) == .zhHans)
+        #expect(MemoryLanguage.initial(preferredLanguages: ["fr-FR"]) == .zhHans)
+        #expect(MemoryLanguage.initial(preferredLanguages: []) == .zhHans)
+
+        let missing = try JSONDecoder().decode(MemoryConfiguration.self, from: Data(#"{"root":"~/m"}"#.utf8))
+        #expect(!missing.languageIsExplicit && missing.language == .zhHans)
+        let saved = try JSONDecoder().decode(MemoryConfiguration.self, from: Data(#"{"root":"~/m","language":"en"}"#.utf8))
+        #expect(saved.languageIsExplicit && saved.language == .en)
+        var changed = missing
+        changed.language = .ja
+        #expect(changed.languageIsExplicit)
+        // 写回配置后再读，就不再是"未设置"。
+        let roundTrip = try JSONDecoder().decode(MemoryConfiguration.self, from: JSONEncoder().encode(changed))
+        #expect(roundTrip.languageIsExplicit && roundTrip.language == .ja)
+    }
 }

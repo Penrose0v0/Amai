@@ -122,6 +122,11 @@ final class AppModel {
             let loaded = ConfigStore.load(from: resolved.config)
             config = loaded.configuration
             configWarning = loaded.error
+            // 首次启动：记忆语言按系统首选语言设定一次并保存，之后不再跟随系统。配置读取出错时不写，避免覆盖原文件。
+            if !config.memory.languageIsExplicit, loaded.error == nil {
+                config.memory.language = MemoryLanguage.initial(preferredLanguages: Locale.preferredLanguages)
+                try? ConfigStore.save(config, to: resolved.config)
+            }
             paths = resolved
             claudeWorkdir = resolved.root.appendingPathComponent("claude-cli", isDirectory: true)
 
