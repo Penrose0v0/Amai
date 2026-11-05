@@ -358,6 +358,38 @@
         }
       }
     },
+    "Amai 会记录什么": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What Amai records"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Amai が記録するもの"
+          }
+        }
+      }
+    },
+    "Amai 住在菜单栏里，开始记录后会在后台安静运行。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Amai lives in the menu bar and runs quietly in the background once recording starts."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Amai はメニューバーにいて、記録を始めるとバックグラウンドで静かに動きます。"
+          }
+        }
+      }
+    },
     "Amai 启动 claude -p，不启用任何工具，不加载你的全局配置与插件，也不读取或保存你的登录凭据。Anthropic 未对第三方应用以这种方式调用 Claude Code 作出明确许可，向他人分发包含此功能的版本前需要取得 Anthropic 的书面确认。": {
       "localizations": {
         "en": {
@@ -370,6 +402,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "Amai は claude -p を起動します。ツールは一切有効にせず、グローバル設定やプラグインも読み込まず、ログイン情報の読み取りや保存もしません。Anthropic はサードパーティアプリがこの方法で Claude Code を呼び出すことを明示的に許可していないため、この機能を含むバージョンを他人に配布する前に Anthropic の書面による確認が必要です。"
+          }
+        }
+      }
+    },
+    "Amai 在后台记下你在电脑上做的事，并在本机整理成可以随时查看的时间线和长期记忆。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Amai notes what you do on your Mac in the background and organizes it, on this Mac, into a timeline and long-term memory you can look at any time."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Amai はバックグラウンドで Mac での作業を記録し、この Mac 上でいつでも見返せるタイムラインと長期記憶に整理します。"
+          }
+        }
+      }
+    },
+    "Amai 尚未开始记录": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Amai hasn't started recording"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Amai はまだ記録を始めていません"
           }
         }
       }
@@ -578,6 +642,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Amai は長時間バックグラウンドで動くため、常駐メモリがこの Mac の 3 分の 1 以下のモデルを推奨します。ダウンロードは Hugging Face にのみ接続します。"
+          }
+        }
+      }
+    },
+    "Amai 需要屏幕录制权限才能看到屏幕上的内容。可以随时在系统设置中撤销。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Amai needs Screen Recording permission to see what's on your screen. You can revoke it any time in System Settings."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "画面の内容を見るには画面収録の許可が必要です。システム設定からいつでも取り消せます。"
           }
         }
       }
@@ -909,6 +989,22 @@
         }
       }
     },
+    "上一步": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Back"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "戻る"
+          }
+        }
+      }
+    },
     "上次同步": {
       "localizations": {
         "en": {
@@ -973,6 +1069,22 @@
         }
       }
     },
+    "下一步": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "次へ"
+          }
+        }
+      }
+    },
     "下载": {
       "localizations": {
         "en": {
@@ -1017,6 +1129,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "ダウンロード約 %lld GB"
+          }
+        }
+      }
+    },
+    "不会记录": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Never recorded"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "記録しないもの"
           }
         }
       }
@@ -1069,6 +1197,22 @@
         }
       }
     },
+    "为了让刚才的设置生效，Amai 会重新启动一次。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Amai will restart once so these settings take effect."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "設定を反映するため、Amai を一度再起動します。"
+          }
+        }
+      }
+    },
     "事实": {
       "localizations": {
         "en": {
@@ -1081,6 +1225,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "事実"
+          }
+        }
+      }
+    },
+    "云端": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cloud"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "クラウド"
           }
         }
       }
@@ -1309,6 +1469,22 @@
         }
       }
     },
+    "保存为 Markdown 文件，你可以直接阅读、修改或删除。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saved as Markdown files you can read, edit or delete directly."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Markdown ファイルとして保存され、直接読んだり編集・削除したりできます。"
+          }
+        }
+      }
+    },
     "保存在 macOS 钥匙串中。": {
       "localizations": {
         "en": {
@@ -1513,6 +1689,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "準備中"
+          }
+        }
+      }
+    },
+    "准备好了": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You're all set"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "準備ができました"
           }
         }
       }
@@ -1917,6 +2109,22 @@
         }
       }
     },
+    "在系统设置中打开 Amai 的开关后回到这里。系统可能提示需要重新打开 Amai，可以选择「稍后」，完成引导时 Amai 会自动重新启动。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turn on Amai in System Settings, then come back here. If macOS asks to reopen Amai, you can choose “Later” — Amai restarts automatically when you finish setup."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "システム設定で Amai をオンにしてから、ここに戻ってください。Amai を再度開くよう求められたら「後で」を選んでも構いません。設定を終えると Amai が自動で再起動します。"
+          }
+        }
+      }
+    },
     "在编辑器中打开": {
       "localizations": {
         "en": {
@@ -2201,6 +2409,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "ChatGPT にログインしていません"
+          }
+        }
+      }
+    },
+    "屏幕": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Screen"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "画面"
           }
         }
       }
@@ -2509,6 +2733,22 @@
         }
       }
     },
+    "已经可以开始记录。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ready to record."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "記録を始められます。"
+          }
+        }
+      }
+    },
     "已达到 ChatGPT 套餐在 Amai 中的用量上限，可在 ChatGPT 设置的 Usage 中查看": {
       "localizations": {
         "en": {
@@ -2745,6 +2985,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "記録を開始"
+          }
+        }
+      }
+    },
+    "开始记录并重新启动": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start Recording and Restart"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "記録を開始して再起動"
           }
         }
       }
@@ -2989,6 +3245,22 @@
         }
       }
     },
+    "打开 Amai 查看每天做了什么。活动整理会在记录开始几分钟后出现。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Amai to see what you did each day. Activities appear a few minutes after recording starts."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Amai を開くと毎日の作業を確認できます。アクティビティは記録開始の数分後に表示されます。"
+          }
+        }
+      }
+    },
     "打开屏幕录制设置…": {
       "localizations": {
         "en": {
@@ -3101,6 +3373,22 @@
         }
       }
     },
+    "授权": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allow"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "許可"
+          }
+        }
+      }
+    },
     "授权回调的 state 不匹配，已中止": {
       "localizations": {
         "en": {
@@ -3145,6 +3433,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "認証に失敗しました：%@"
+          }
+        }
+      }
+    },
+    "授权屏幕录制": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allow Screen Recording"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "画面収録を許可"
           }
         }
       }
@@ -3545,6 +3849,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "タイムライン"
+          }
+        }
+      }
+    },
+    "时间线与每日总结": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Timeline and daily summary"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "タイムラインと日次まとめ"
           }
         }
       }
@@ -4061,6 +4381,22 @@
         }
       }
     },
+    "本地模型把截图理解成活动记录，始终在本机运行。下载后才能使用，大模型需要几分钟。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The local model turns screenshots into activity records and always runs on this Mac. It must be downloaded first; larger models take a few minutes."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ローカルモデルはスクリーンショットをアクティビティの記録に変換し、常にこの Mac 上で動きます。使う前にダウンロードが必要で、大きなモデルは数分かかります。"
+          }
+        }
+      }
+    },
     "本地模型未安装，无法整理屏幕活动": {
       "localizations": {
         "en": {
@@ -4445,6 +4781,22 @@
         }
       }
     },
+    "欢迎使用 Amai": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Welcome to Amai"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Amai へようこそ"
+          }
+        }
+      }
+    },
     "正在启动": {
       "localizations": {
         "en": {
@@ -4541,6 +4893,28 @@
         }
       }
     },
+    "每 %lld 秒截一次图，由本机模型理解后生成活动记录。原始截图最多保留 %lld 小时。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A screenshot every %1$lld seconds, understood by an on-device model to create activity records. Raw screenshots are kept for at most %2$lld hours."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld 秒ごとにスクリーンショットを撮り、端末上のモデルが理解してアクティビティの記録を作ります。元のスクリーンショットは最長 %2$lld 時間だけ保持します。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "new",
+            "value": "每 %1$lld 秒截一次图，由本机模型理解后生成活动记录。原始截图最多保留 %2$lld 小时。"
+          }
+        }
+      }
+    },
     "每个窗口的帧数 %lld 必须在 1 到 40 之间": {
       "localizations": {
         "en": {
@@ -4553,6 +4927,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "ウィンドウあたりのフレーム数 %lld は 1〜40 にしてください"
+          }
+        }
+      }
+    },
+    "每天凌晨 4 点后，Amai 会把前一天的记录整理进综合、工作、健康、财务、目标五个分区。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "After 4 AM each day, Amai organizes the previous day's records into five areas: General, Work, Health, Finance and Goals."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "毎日午前 4 時以降、Amai は前日の記録を総合・仕事・健康・財務・目標の 5 つの分野に整理します。"
           }
         }
       }
@@ -4665,6 +5055,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "接続をテスト"
+          }
+        }
+      }
+    },
+    "点 Amai 图标可以暂停或继续记录、打开 Amai、进入设置。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Click the Amai icon to pause or resume recording, open Amai, or go to Settings."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Amai のアイコンから、記録の一時停止・再開、Amai を開く、設定を開くことができます。"
           }
         }
       }
@@ -5341,6 +5747,22 @@
         }
       }
     },
+    "继续设置…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continue Setup…"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "設定を続ける…"
+          }
+        }
+      }
+    },
     "综合": {
       "localizations": {
         "en": {
@@ -5501,6 +5923,22 @@
         }
       }
     },
+    "菜单栏": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Menu bar"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "メニューバー"
+          }
+        }
+      }
+    },
     "观察到": {
       "localizations": {
         "en": {
@@ -5561,6 +5999,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "記録"
+          }
+        }
+      }
+    },
+    "记忆": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Memory"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "記憶"
           }
         }
       }
@@ -5689,6 +6143,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "記憶の言語"
+          }
+        }
+      }
+    },
+    "记忆语言是 Amai 写入记忆时使用的语言，之后可以在设置中修改。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The memory language is the language Amai writes memories in. You can change it later in Settings."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "記憶の言語は Amai が記憶を書くときに使う言語です。あとで設定から変更できます。"
           }
         }
       }
@@ -5998,6 +6468,22 @@
         }
       }
     },
+    "输入密码时、密码管理器等被排除的应用、暂停期间。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "While you type a password, in excluded apps such as password managers, and while paused."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "パスワード入力中、パスワード管理アプリなどの除外アプリ、一時停止中。"
+          }
+        }
+      }
+    },
     "输出被截断（达到 max_tokens）": {
       "localizations": {
         "en": {
@@ -6058,6 +6544,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@の記憶はまだありません"
+          }
+        }
+      }
+    },
+    "还没有下载所选模型。不下载也可以开始记录，但下载完成之前不会生成活动记录。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The selected model isn't downloaded yet. You can start recording without it, but no activity records are created until it's downloaded."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選択したモデルはまだダウンロードされていません。ダウンロードしなくても記録は始められますが、完了するまでアクティビティの記録は作られません。"
           }
         }
       }
@@ -6286,6 +6788,22 @@
         }
       }
     },
+    "选择本地模型": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose a local model"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ローカルモデルを選ぶ"
+          }
+        }
+      }
+    },
     "选择本地模型…": {
       "localizations": {
         "en": {
@@ -6426,6 +6944,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "再起動後に有効"
+          }
+        }
+      }
+    },
+    "重新显示": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show Again"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "もう一度表示"
           }
         }
       }
@@ -6574,6 +7108,22 @@
         }
       }
     },
+    "首次使用引导": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Getting-started guide"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "初回セットアップ"
+          }
+        }
+      }
+    },
     "首次注册没有返回 client ID": {
       "localizations": {
         "en": {
@@ -6618,6 +7168,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "詳細"
+          }
+        }
+      }
+    },
+    "默认全部在本机处理。只有你在设置中选择云端整理模型后，才会把活动记录与记忆的文字发送给所选服务；截图始终只在本机处理。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Everything is processed on this Mac by default. Only if you choose a cloud model for memory organization in Settings is the text of activity records and memories sent to that service; screenshots never leave this Mac."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "初期設定ではすべてこの Mac 上で処理します。設定でクラウドの整理モデルを選んだ場合に限り、アクティビティの記録と記憶のテキストをそのサービスに送信します。スクリーンショットは常にこの Mac 上だけで処理します。"
+          }
+        }
+      }
+    },
+    "默认所有处理都在这台 Mac 上进行。你可以随时暂停记录。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "By default everything is processed on this Mac. You can pause recording any time."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "初期設定では、すべての処理がこの Mac 上で行われます。記録はいつでも一時停止できます。"
           }
         }
       }

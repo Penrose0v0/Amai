@@ -221,6 +221,9 @@ final class AppModel {
         self.modelTag = config.extraction.modelTag
         self.modelInstalled = LocalInferenceBackend.isInstalled(tag: config.extraction.modelTag)
         self.isMemoryPreview = preview != nil
+        self.showsOnboarding = preview == nil
+            ? startupError == nil && Self.needsOnboarding()
+            : CommandLine.arguments.contains("--onboarding-tour")
 
         if let pipeline {
             let extraction = config.extraction
@@ -260,6 +263,10 @@ final class AppModel {
         if isMemoryPreview, let i = args.firstIndex(of: "--memory-preview-tour"), i + 1 < args.count {
             let output = URL(fileURLWithPath: args[i + 1], isDirectory: true)
             Task { await MemoryPreviewTour.run(model: self, output: output) }
+        }
+        if isMemoryPreview, let i = args.firstIndex(of: "--onboarding-tour"), i + 1 < args.count {
+            let output = URL(fileURLWithPath: args[i + 1], isDirectory: true)
+            Task { await MemoryPreviewTour.runOnboarding(model: self, output: output) }
         }
         // 开发用：用合成场景评测记忆整理，只在临时目录中运行，不读写真实记忆。
         // open .build/Amai.app --args --memory-eval <scenarios.json> --eval-output <目录> [--eval-local]
@@ -343,7 +350,61 @@ final class AppModel {
         }
     }
 
+    // MARK: - Onboarding
+
+    private static let onboardingCompletedKey = "amai.onboardingCompleted"
+
+    /// 只有从未开始过记录的新用户才需要引导；在引导出现之前就用过 Amai 的用户（记录过采集状态）直接视为已完成。
+    private static func needsOnboarding() -> Bool {
+        let defaults = UserDefaults.standard
+        if defaults.bool(forKey: onboardingCompletedKey) { return false }
+        if defaults.string(forKey: captureIntentKey) != nil {
+            defaults.set(true, forKey: onboardingCompletedKey)
+            return false
+        }
+        return true
+    }
+
+    let onboarding = OnboardingState()
+    /// 引导未完成：菜单只保留"继续设置"与"退出"，也不开始记录。
+    private(set) var showsOnboarding: Bool
+    private let screenRecordingGrantedAtLaunch = ScreenRecordingPermission.isGranted()
+
+    /// 引导中的选择有些要重启才生效：新授予的屏幕录制权限、界面语言、改选的本地模型。
+    var onboardingNeedsRelaunch: Bool {
+        guard !isMemoryPreview else { return false }
+        return (onboarding.screenRecordingGranted && !screenRecordingGrantedAtLaunch)
+            || interfaceLanguage != interfaceLanguageAtLaunch
+            || selectedModelTag != modelTag
+    }
+
+    /// 配置中选定的本地模型是否已下载（下载完成后重新检查）。
+    var selectedModelInstalled: Bool {
+        _ = installedModelsVersion
+        return LocalInferenceBackend.isInstalled(tag: selectedModelTag)
+    }
+
+    /// 从设置中重新打开引导。已在记录的用户完成时保持原来的记录状态。
+    func reopenOnboarding() {
+        onboarding.step = .welcome
+        showsOnboarding = true
+    }
+
+    /// 完成引导并开始记录；需要重启时只记下"开始记录"，由重启后的恢复流程开始采集。
+    func finishOnboarding() {
+        showsOnboarding = false
+        guard !isMemoryPreview else { return }
+        UserDefaults.standard.set(true, forKey: Self.onboardingCompletedKey)
+        if onboardingNeedsRelaunch {
+            if captureIntent == nil { captureIntent = .running }
+            relaunch()
+        } else if captureIntent == nil {
+            start()
+        }
+    }
+
     func requestScreenRecording() {
+        guard !isMemoryPreview else { return }
         if !ScreenRecordingPermission.request() {
             ScreenRecordingPermission.openSystemSettings()
         }

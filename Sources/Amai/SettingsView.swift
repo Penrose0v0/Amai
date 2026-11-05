@@ -210,6 +210,7 @@ private struct ModelSettingsTab: View {
 /// 手动维护（平时自动进行）、文件与诊断。
 private struct AdvancedSettingsView: View {
     let model: AppModel
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         Form {
@@ -233,6 +234,12 @@ private struct AdvancedSettingsView: View {
             Section("诊断") {
                 LabeledContent("重新启动 Amai") { Button("重新启动") { model.relaunch() } }
                     .help("修改配置文件或更换本地模型后使用。")
+                LabeledContent("首次使用引导") {
+                    Button("重新显示") {
+                        model.reopenOnboarding()
+                        openWindow(id: "onboarding")
+                    }
+                }
             }
         }
         .formStyle(.grouped)

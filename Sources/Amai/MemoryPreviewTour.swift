@@ -114,4 +114,27 @@ enum MemoryPreviewTour {
         try? log.joined(separator: "\n").write(to: output.appendingPathComponent("tour.log"), atomically: true, encoding: .utf8)
         NSApp.terminate(nil)
     }
+
+    /// 首次使用引导的每一步（`--memory-preview <目录> --onboarding-tour <输出目录>`）。预览模式中授权、下载与完成都不生效。
+    static func runOnboarding(model: AppModel, output: URL) async {
+        try? FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
+        var log: [String] = []
+        try? await Task.sleep(for: .seconds(2))
+        for step in OnboardingState.Step.allCases {
+            model.onboarding.step = step
+            try? await Task.sleep(for: .milliseconds(900))
+            guard let w = NSApp.windows.first(where: { $0.identifier?.rawValue.contains("onboarding") == true && $0.isVisible }) else {
+                log.append("\(step)：找不到引导窗口 \(NSApp.windows.map { $0.identifier?.rawValue ?? "-" })")
+                continue
+            }
+            let p = Process()
+            p.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+            p.arguments = ["-x", "-o", "-l\(w.windowNumber)", output.appendingPathComponent("\(step.rawValue)-\(step).png").path]
+            try? p.run()
+            p.waitUntilExit()
+            log.append("\(step)：\(p.terminationStatus == 0 ? "ok" : "截图失败 \(p.terminationStatus)") \(Int(w.frame.width))×\(Int(w.frame.height))")
+        }
+        try? log.joined(separator: "\n").write(to: output.appendingPathComponent("tour.log"), atomically: true, encoding: .utf8)
+        NSApp.terminate(nil)
+    }
 }

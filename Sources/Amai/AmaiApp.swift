@@ -29,7 +29,15 @@ struct AmaiApp: App {
         }
         .defaultSize(width: 1100, height: 720)
         // 隔离预览模式（--memory-preview）启动后直接打开主窗口。
-        .defaultLaunchBehavior(model.isMemoryPreview ? .presented : .automatic)
+        .defaultLaunchBehavior(model.isMemoryPreview && !model.showsOnboarding ? .presented : .automatic)
+
+        // 首次启动的引导；完成前不开始记录。
+        Window("欢迎使用 Amai", id: "onboarding") {
+            OnboardingView(model: model)
+        }
+        .windowResizability(.contentSize)
+        .restorationBehavior(.disabled)
+        .defaultLaunchBehavior(model.showsOnboarding ? .presented : .suppressed)
 
         Settings {
             // 预览模式只显示屏幕理解（只读磁盘上的安装状态，下载与改选被禁用）：
@@ -77,6 +85,13 @@ private struct MenuContent: View {
             Button("打开 Amai") { showMain() }
             Divider()
             Button("退出预览") { model.quit() }
+                .keyboardShortcut("q")
+        } else if model.showsOnboarding {
+            Text("Amai 尚未开始记录")
+            Divider()
+            Button("继续设置…") { showOnboarding() }
+            Divider()
+            Button("退出 Amai") { model.quit() }
                 .keyboardShortcut("q")
         } else {
             fullMenu
@@ -158,6 +173,11 @@ private struct MenuContent: View {
     private func showMain() {
         model.memoryBrowser.showDefault()
         openWindow(id: "main")
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    private func showOnboarding() {
+        openWindow(id: "onboarding")
         NSApp.activate(ignoringOtherApps: true)
     }
 
