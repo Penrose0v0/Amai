@@ -387,6 +387,7 @@ final class AppModel {
     /// 从设置中重新打开引导。已在记录的用户完成时保持原来的记录状态。
     func reopenOnboarding() {
         onboarding.step = .welcome
+        onboarding.memoryModelApplied = false
         showsOnboarding = true
     }
 

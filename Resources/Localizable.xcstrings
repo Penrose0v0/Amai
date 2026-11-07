@@ -1405,6 +1405,22 @@
         }
       }
     },
+    "使用屏幕理解所选的本地模型，两者共用同一份已加载的模型，不额外占用内存。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uses the local model chosen for screen understanding. Both share the same loaded model, so no extra memory is used."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "画面理解で選んだローカルモデルを使います。同じ読み込み済みのモデルを共有するため、メモリを余分に使いません。"
+          }
+        }
+      }
+    },
     "例如 claude-opus-5-5": {
       "localizations": {
         "en": {
@@ -2473,6 +2489,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "画面の理解"
+          }
+        }
+      }
+    },
+    "屏幕理解模型把截图理解成活动记录，始终在本机运行。下载后才能使用，大模型需要几分钟。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The screen understanding model turns screenshots into activity records and always runs on this Mac. It must be downloaded first; larger models take a few minutes."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "画面理解モデルはスクリーンショットをアクティビティの記録に変換し、常にこの Mac 上で動きます。使う前にダウンロードが必要で、大きなモデルは数分かかります。"
           }
         }
       }
@@ -4381,22 +4413,6 @@
         }
       }
     },
-    "本地模型把截图理解成活动记录，始终在本机运行。下载后才能使用，大模型需要几分钟。": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The local model turns screenshots into activity records and always runs on this Mac. It must be downloaded first; larger models take a few minutes."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ローカルモデルはスクリーンショットをアクティビティの記録に変換し、常にこの Mac 上で動きます。使う前にダウンロードが必要で、大きなモデルは数分かかります。"
-          }
-        }
-      }
-    },
     "本地模型未安装，无法整理屏幕活动": {
       "localizations": {
         "en": {
@@ -4429,18 +4445,18 @@
         }
       }
     },
-    "本地模型（默认，不联网）": {
+    "本地模型（不联网）": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Local model (default, offline)"
+            "value": "Local model (offline)"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ローカルモデル（デフォルト、オフライン）"
+            "value": "ローカルモデル（オフライン）"
           }
         }
       }
@@ -6067,6 +6083,22 @@
         }
       }
     },
+    "记忆整理模型负责写日终摘要和各分区的长期记忆。可以用本机的屏幕理解模型，也可以用云端模型。选好后点「保存并应用」，之后可以在设置中修改。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The memory organization model writes the end-of-day summary and the long-term memory in each area. It can use the on-device screen understanding model or a cloud model. After choosing, click “Save and Apply”. You can change this later in Settings."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "記憶整理モデルは日次まとめと各分野の長期記憶を書きます。この Mac の画面理解モデルとクラウドのモデルのどちらでも使えます。選んだら「保存して適用」を押してください。あとで設定から変更できます。"
+          }
+        }
+      }
+    },
     "记忆文件夹": {
       "localizations": {
         "en": {
@@ -6352,6 +6384,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "リクエストが多すぎます（429）。あとで再試行します"
+          }
+        }
+      }
+    },
+    "请选择": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose…"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選択してください"
           }
         }
       }
@@ -6788,18 +6836,18 @@
         }
       }
     },
-    "选择本地模型": {
+    "选择屏幕理解模型": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Choose a local model"
+            "value": "Choose a screen understanding model"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ローカルモデルを選ぶ"
+            "value": "画面理解モデルを選ぶ"
           }
         }
       }
@@ -6816,6 +6864,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "ローカルモデルを選ぶ…"
+          }
+        }
+      }
+    },
+    "选择记忆整理模型": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose a memory organization model"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "記憶整理モデルを選ぶ"
           }
         }
       }

@@ -3,7 +3,7 @@ import enum AmaiPerception.ScreenRecordingPermission
 import Observation
 import SwiftUI
 
-/// 首次启动引导（参考 Eira 的引导）：语言 → 会记录什么 → 屏幕录制权限 → 本地模型 → 开始记录。
+/// 首次启动引导（参考 Eira 的引导）：语言 → 会记录什么 → 屏幕录制权限 → 屏幕理解模型 → 记忆整理模型 → 开始记录。
 ///
 /// - 引导完成前不采集任何内容；最后一页点"开始记录"才开始。
 /// - 界面语言在引导内立即切换（通过环境中的 locale），其他窗口在重启后跟随。
@@ -12,11 +12,15 @@ import SwiftUI
 @Observable
 final class OnboardingState {
     enum Step: Int, CaseIterable {
-        case welcome, privacy, permission, model, done
+        case welcome, privacy, permission, screenModel, memoryModel, done
     }
 
     var step: Step = .welcome
     var screenRecordingGranted = ScreenRecordingPermission.isGranted()
+    /// 记忆整理模型由用户自己选择并应用后才能进入下一步，不替用户默认。
+    var memoryModelApplied = false
+
+    var canAdvance: Bool { step != .memoryModel || memoryModelApplied }
 
     func next() {
         if let next = Step(rawValue: step.rawValue + 1) { step = next }
@@ -49,7 +53,8 @@ struct OnboardingView: View {
                 case .welcome: WelcomePage(model: model)
                 case .privacy: PrivacyPage(model: model)
                 case .permission: PermissionPage(model: model)
-                case .model: ModelPage(model: model)
+                case .screenModel: ScreenModelPage(model: model)
+                case .memoryModel: MemoryModelPage(model: model)
                 case .done: DonePage(model: model)
                 }
             }
@@ -98,9 +103,11 @@ struct OnboardingView: View {
                     .buttonStyle(.borderedProminent)
                     .keyboardShortcut(.defaultAction)
             } else {
+                // 记忆整理页里回车留给「保存并应用」。
                 Button("下一步") { state.next() }
                     .buttonStyle(.borderedProminent)
-                    .keyboardShortcut(.defaultAction)
+                    .keyboardShortcut(state.step == .memoryModel ? nil : .defaultAction)
+                    .disabled(!state.canAdvance)
             }
         }
     }
@@ -243,18 +250,40 @@ private struct PermissionPage: View {
     }
 }
 
-private struct ModelPage: View {
+private struct ScreenModelPage: View {
     let model: AppModel
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            PageHeader(title: "选择本地模型", subtitle: "本地模型把截图理解成活动记录，始终在本机运行。下载后才能使用，大模型需要几分钟。")
+            PageHeader(title: "选择屏幕理解模型", subtitle: "屏幕理解模型把截图理解成活动记录，始终在本机运行。下载后才能使用，大模型需要几分钟。")
             Form {
                 LocalModelSection(model: model)
                 if !model.selectedModelInstalled {
                     Section {
                         Label("还没有下载所选模型。不下载也可以开始记录，但下载完成之前不会生成活动记录。", systemImage: "info.circle")
                             .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .formStyle(.grouped)
+        }
+    }
+}
+
+/// 与设置中的「记忆整理」相同；改动要点「保存并应用」才生效，不点则保持当前来源（默认本地）。
+private struct MemoryModelPage: View {
+    let model: AppModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            PageHeader(title: "选择记忆整理模型", subtitle: "记忆整理模型负责写日终摘要和各分区的长期记忆。可以用本机的屏幕理解模型，也可以用云端模型。选好后点「保存并应用」，之后可以在设置中修改。")
+            Form {
+                // 预览模式不读写钥匙串，与设置窗口一致不显示这一部分。
+                if model.isMemoryPreview {
+                    Section { Text(verbatim: "Memory organization settings are hidden in preview mode.").foregroundStyle(.secondary) }
+                } else {
+                    ConsolidationModelSections(model: model, requiresChoice: !model.onboarding.memoryModelApplied) {
+                        model.onboarding.memoryModelApplied = true
                     }
                 }
             }

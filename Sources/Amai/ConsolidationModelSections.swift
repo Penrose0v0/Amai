@@ -5,8 +5,12 @@ import SwiftUI
 /// 只显示当前选中来源的配置；从本地切换到云端来源时，先确认会发送哪些数据、发往哪里。
 struct ConsolidationModelSections: View {
     let model: AppModel
+    /// 首次使用引导：不预选来源，用户选定并成功应用后才回调 `onApplied`。
+    var requiresChoice = false
+    var onApplied: () -> Void = {}
 
     @State private var draft = ConsolidationModelConfiguration.default
+    @State private var chosen = false
     @State private var message: String?
     @State private var busy = false
     @State private var confirmCloud = false
@@ -27,8 +31,11 @@ struct ConsolidationModelSections: View {
     var body: some View {
         Group {
             Section {
-                Picker("来源", selection: $draft.mode) {
-                    ForEach(ConsolidationModelConfiguration.Mode.allCases, id: \.self) { Text($0.title).tag($0) }
+                Picker("来源", selection: modeSelection) {
+                    if requiresChoice && !chosen {
+                        Text("请选择").tag(ConsolidationModelConfiguration.Mode?.none)
+                    }
+                    ForEach(ConsolidationModelConfiguration.Mode.allCases, id: \.self) { Text($0.title).tag(Optional($0)) }
                 }
             } header: {
                 Text("记忆整理")
@@ -36,6 +43,44 @@ struct ConsolidationModelSections: View {
                 Text("用于日终摘要、各分区记忆与综合档案的整理。屏幕理解始终在本机进行。")
             }
 
+            if !requiresChoice || chosen {
+                modeSections
+            }
+        }
+        .onAppear(perform: load)
+        .onChange(of: draft.mode) { onModeChange() }
+        .alert("开启云端整理？", isPresented: $confirmCloud) {
+            Button("取消", role: .cancel) {}
+            Button("确认开启") { Task { await apply() } }
+        } message: {
+            Text(Self.privacyNote(draft))
+        }
+        // 官方 UI 规范：首次以套餐用量登录后显示一次，可关闭。
+        .alert("You're using your ChatGPT plan", isPresented: $showWelcome) {
+            Button("Got it") { Task { await model.markChatGPTWelcomed() } }
+            Button("Manage usage") {
+                model.openChatGPTUsage()
+                Task { await model.markChatGPTWelcomed() }
+            }
+        } message: {
+            Text("Amai 的记忆整理请求会使用你的 ChatGPT 套餐额度。可以在 ChatGPT 设置中查看和管理用量。这与 Amai 自身的任何收费无关。")
+        }
+    }
+
+    private var modeSelection: Binding<ConsolidationModelConfiguration.Mode?> {
+        Binding(
+            get: { requiresChoice && !chosen ? nil : draft.mode },
+            set: { mode in
+                guard let mode else { return }
+                chosen = true
+                draft.mode = mode
+            }
+        )
+    }
+
+    @ViewBuilder
+    private var modeSections: some View {
+        Group {
             switch draft.mode {
             case .local: EmptyView()
             case .apiKey: apiKeySections
@@ -61,26 +106,10 @@ struct ConsolidationModelSections: View {
                 if draft.mode.isCloud {
                     Text("整理时会把记忆相关的文本发送给 \(draft.serviceName)，不发送截图与屏幕文字。")
                         .help(Self.privacyNote(draft))
+                } else {
+                    Text("使用屏幕理解所选的本地模型，两者共用同一份已加载的模型，不额外占用内存。")
                 }
             }
-        }
-        .onAppear(perform: load)
-        .onChange(of: draft.mode) { onModeChange() }
-        .alert("开启云端整理？", isPresented: $confirmCloud) {
-            Button("取消", role: .cancel) {}
-            Button("确认开启") { Task { await apply() } }
-        } message: {
-            Text(Self.privacyNote(draft))
-        }
-        // 官方 UI 规范：首次以套餐用量登录后显示一次，可关闭。
-        .alert("You're using your ChatGPT plan", isPresented: $showWelcome) {
-            Button("Got it") { Task { await model.markChatGPTWelcomed() } }
-            Button("Manage usage") {
-                model.openChatGPTUsage()
-                Task { await model.markChatGPTWelcomed() }
-            }
-        } message: {
-            Text("Amai 的记忆整理请求会使用你的 ChatGPT 套餐额度。可以在 ChatGPT 设置中查看和管理用量。这与 Amai 自身的任何收费无关。")
         }
     }
 
@@ -374,6 +403,7 @@ struct ConsolidationModelSections: View {
         if let error = await model.applyConsolidationModel(draft) {
             message = error
         } else {
+            onApplied()
             message = String(localized: "已应用：\(model.consolidationModelLabel)")
             switch draft.mode {
             case .apiKey where storedKeys[draft.provider] == nil:

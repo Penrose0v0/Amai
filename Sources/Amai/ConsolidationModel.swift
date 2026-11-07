@@ -21,7 +21,7 @@ struct ConsolidationModelConfiguration: Codable, Equatable {
 
         var title: String {
             switch self {
-            case .local: String(localized: "本地模型（默认，不联网）")
+            case .local: String(localized: "本地模型（不联网）")
             case .apiKey: "API Key（Anthropic / OpenAI）"
             case .chatgptPlan: String(localized: "ChatGPT 订阅")
             case .claudeCode: String(localized: "Claude 订阅（本机 Claude Code）")
