@@ -263,6 +263,15 @@ HEVC 分段实测（2026-10-20 中午，同参数，质量 0.55，1662×1080）�
 
 验收：连续运行 7 天的测量报告。
 
+### 只读 MCP Server（2026-11-06，ADR-0008）
+
+- [x] 统一只读 `MemoryAPI`（search / timeline / memory + 分区授权），建立在 `MemoryLibrary` 与 `MemoryIndex` 之上，供 MCP 与今后的 Eira Assistant 共用。
+- [x] `amai-mcp`：官方 Swift SDK，stdio，三个只读 Tools；随 App 打包签名。
+- [x] `config.json` 的 `mcp` 段：默认关闭；启用后默认只开放 general / work / goals；每次调用重新读取，fail closed。
+- [x] 测试：MemoryAPI 单元测试（只读、授权、三语小节与低置信标记）；SDK 客户端经内存传输与 stdio 子进程的端到端测试；Claude Code CLI 在合成样本上实际调用三个 Tools。
+- [ ] Claude Desktop、Atd 的实际对话中调用尚待在界面中确认（配置示例见 `docs/mcp.md`）。
+- [ ] 设置界面中的开关与分区选择（本次按要求不改界面）。
+
 ## M6 之后的方向（不承诺）
 
 - 基于记忆的对话问答界面。
@@ -279,3 +288,4 @@ HEVC 分段实测（2026-10-20 中午，同参数，质量 0.55，1662×1080）�
 | 2026-11-03 | Memory Schema v1 阶段 1：单文件分区、kind、无损迁移、MemoryLibrary |
 | 2026-11-03 | Memory Schema v1 阶段 2：类别路由、依据清单与 kind 推导、操作式分区整理、评测 |
 | 2026-11-04 | 本地模型选择与应用内下载（ADR-0007）；`amai-extraction eval` 抽取评测；预览模式加入合成时间线 |
+| 2026-11-06 | 统一只读 Memory API 与 MCP Server `amai-mcp`（ADR-0008） |

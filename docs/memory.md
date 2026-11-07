@@ -132,7 +132,9 @@ daily 时间线使用行尾 `seg:` / `conf:` / `src:` 注释（见 3.3），条�
 
 ### 3.5 读取接口
 
-`MemoryLibrary` 是统一的只读接口：`document(category)` 返回原文、用户手写部分（去掉系统区块）、系统条目（小节 / 来源 / kind）与修改时间；`daily(on:)` 读某天 daily；`search(query, in: categories)` 按分区全文检索。Memory Browser 与今后的 Memory API / MCP / Skill 都通过它读取，按分区授权。
+`MemoryLibrary` 是统一的只读接口：`document(category)` 返回原文、用户手写部分（去掉系统区块）、系统条目（小节 / 来源 / kind）与修改时间；`daily(on:)` 读某天 daily；`search(query, in: categories)` 按分区全文检索。Memory Browser 直接使用它。
+
+`MemoryAPI`（ADR-0008，已实现）建立在 `MemoryLibrary` 与 `MemoryIndex` 之上，是给 Agent 用的统一只读接口：`search(query, limit)`（长期记忆命中展开为带来源日期与 kind 的条目）、`timeline(on:)`（解析 daily 的时间线区块与日终摘要）、`memory(category, topic?)`（按小节返回条目与手写内容），每个调用先经过 `MemoryAccess` 的分区授权。只读 MCP Server `amai-mcp` 把它暴露给外部 Agent（`docs/mcp.md`）；今后内置的 Eira Assistant 直接调用 `MemoryAPI`，不经过 MCP。
 
 **主窗口中的长期记忆（Memory Browser，已实现）**：菜单"打开 Amai"进入，与"日常回顾"（时间线、每日总结）在同一窗口。长期记忆分为综合 / 工作 / 健康 / 财务 / 目标五个分区，右侧渲染对应文件：用户手写部分用 Foundation 原生 Markdown 解析渲染（标题、列表、引用、链接；HTML 注释不显示），系统区块按小节列出条目，每条显示依据类型（你说过 / 你确认过 / 观察到 / 推断 / 依据未记录）与来源日期，点开日期可看当天日终摘要、跳到当天时间线或打开当天记录；变更记录默认折叠。搜索覆盖五个分区与每日记录（先增量刷新索引），每日记录的结果跳到当天时间线或每日总结。工具栏可用默认编辑器打开原文件、在访达中显示记忆文件夹。窗口打开期间每 2 秒检查文件修改时间，外部编辑后自动刷新。只读，不修改记忆。界面为简体中文，Markdown 原文不翻译。
 
@@ -295,6 +297,7 @@ M3 已实现（检查器中的"删除时间段"与单个片段删除）：
 ## 8. 隐私边界
 
 - 记忆目录默认不被任何外部服务读取；整理 / 检索使用外部模型时，受全局外发开关控制，并在设置中明示"记忆内容会被发送"。
+- 外部 Agent 只能通过只读的 `amai-mcp` 读取记忆（ADR-0008）：默认关闭；启用后只开放 `config.json` 中 `mcp.categories` 列出的分区（默认 general / work / goals）。读到的内容会进入该 Agent 使用的模型服务，不受 Amai 的外发控制。
 - 记忆文件不加密（用户可读是核心价值），依赖 macOS 用户目录权限与 FileVault；后续可考虑可选加密。
 
 ## 9. 参考与差异

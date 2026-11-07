@@ -28,3 +28,4 @@
 | [0005](0005-subscription-accounts.md) | 用 ChatGPT / Claude 订阅额度做记忆整理 | Accepted |
 | [0006](0006-memory-schema-v1.md) | Memory Schema v1：单文件分区、依据类型与无损迁移 | Accepted（部分取代 0003 的文件布局） |
 | [0007](0007-local-model-selection.md) | 本地模型可在设置中选择，按本机内存推荐 | Accepted |
+| [0008](0008-read-only-mcp-server.md) | 统一的只读 Memory API 与 MCP Server | Accepted |

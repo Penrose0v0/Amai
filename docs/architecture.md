@@ -225,6 +225,7 @@ MemoryEntry（写入 Markdown 的最小单元，见 memory.md）
 - 单个 Swift Package：`AmaiCore` ← `AmaiPerception` / `AmaiExtraction` / `AmaiMemory` ← `Amai`（App）。三个层 target 互不依赖，只依赖 `AmaiCore`。
 - `swift build` 编译；`scripts/bundle.sh` 组装 `.app`（含 MLX metallib、Swift 运行库、签名）；`swift test` 运行不依赖 MLX 权重的测试。
 - 日志统一用 `os.Logger`，subsystem `com.amai.app`，category 为模块名；内容字段一律不记录。
+- 外部接口（ADR-0008）：`AmaiMCP`（依赖 `AmaiMemory` 与官方 MCP Swift SDK）把 `AmaiMemory` 的只读 `MemoryAPI` 暴露为 MCP Tools；可执行文件 `amai-mcp`（`AmaiMCPServer`）由外部 Agent 以 stdio 启动，随 App 打包在 `Contents/MacOS`。它是独立的短命进程，只读 Markdown，用自己的内存索引，不与 App 通信、不读写 App 的数据库；开关与可读分区在 `config.json` 的 `mcp` 段，每次调用重新读取。App 本体不链接 MCP SDK，App 内部需要读记忆时直接用 `MemoryAPI`。接入说明见 `docs/mcp.md`。
 
 ## 9. 待确认事项
 

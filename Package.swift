@@ -11,6 +11,7 @@ let package = Package(
         .executable(name: "Amai", targets: ["Amai"]),
         .executable(name: "amai-memory", targets: ["AmaiMemoryCLI"]),
         .executable(name: "amai-extraction", targets: ["AmaiExtractionCLI"]),
+        .executable(name: "amai-mcp", targets: ["AmaiMCPServer"]),
     ],
     dependencies: [
         // 记忆层派生索引（SQLite + FTS5）。ADR-0002。
@@ -27,6 +28,8 @@ let package = Package(
         .package(url: "https://github.com/ml-explore/mlx-swift", from: "0.31.3"),
         .package(url: "https://github.com/huggingface/swift-huggingface", from: "0.9.0"),
         .package(url: "https://github.com/huggingface/swift-transformers", from: "1.3.0"),
+        // 只读 MCP Server 的协议实现（官方 Swift SDK，ADR-0008）。只有 AmaiMCP 依赖它，App 不链接。
+        .package(url: "https://github.com/modelcontextprotocol/swift-sdk", exact: "0.12.1"),
     ],
     targets: [
         // 数据契约、时钟、日志约定。无平台依赖、无第三方依赖。
@@ -98,10 +101,24 @@ let package = Package(
             dependencies: ["AmaiCore", "AmaiPerception", "AmaiExtraction"]
         ),
 
+        // 只读 MCP Server（ADR-0008）：把 MemoryAPI 暴露为 MCP Tools。MCP 只是外部接口，
+        // App 内部（今后的 Eira Assistant）直接调用 AmaiMemory 的 MemoryAPI。
+        .target(
+            name: "AmaiMCP",
+            dependencies: ["AmaiCore", "AmaiMemory", .product(name: "MCP", package: "swift-sdk")]
+        ),
+
+        // amai-mcp：由外部 Agent（Claude Desktop、Atd 等）以 stdio 启动。随 App 打包在 Contents/MacOS。
+        .executableTarget(
+            name: "AmaiMCPServer",
+            dependencies: ["AmaiMCP"]
+        ),
+
         .testTarget(name: "AmaiCoreTests", dependencies: ["AmaiCore"]),
         .testTarget(name: "AmaiPerceptionTests", dependencies: ["AmaiPerception"]),
         .testTarget(name: "AmaiExtractionTests", dependencies: ["AmaiExtraction"]),
         .testTarget(name: "AmaiMemoryTests", dependencies: ["AmaiMemory", "AmaiMemoryEval", "AmaiMemoryUI"]),
         .testTarget(name: "AmaiCloudTests", dependencies: ["AmaiCloud"]),
+        .testTarget(name: "AmaiMCPTests", dependencies: ["AmaiMCP", "AmaiMemory", .product(name: "MCP", package: "swift-sdk")]),
     ]
 )

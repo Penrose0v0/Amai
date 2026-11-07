@@ -50,6 +50,8 @@ mkdir -p "${APP_DIR}/Contents/MacOS"
 mkdir -p "${APP_DIR}/Contents/Resources"
 
 cp "${EXEC_PATH}" "${APP_DIR}/Contents/MacOS/${APP_NAME}"
+# 只读 MCP Server（ADR-0008）：外部 Agent 以 stdio 启动它，路径固定在 App 内。
+cp "${BIN_DIR}/amai-mcp" "${APP_DIR}/Contents/MacOS/amai-mcp"
 cp Resources/Info.plist "${APP_DIR}/Contents/Info.plist"
 
 if [ -f Resources/AppIcon.icns ]; then
@@ -100,17 +102,20 @@ done
 mkdir -p "${APP_DIR}/Contents/Frameworks"
 xcrun swift-stdlib-tool --copy \
     --scan-executable "${APP_DIR}/Contents/MacOS/${APP_NAME}" \
+    --scan-executable "${APP_DIR}/Contents/MacOS/amai-mcp" \
     --platform macosx \
     --destination "${APP_DIR}/Contents/Frameworks"
 
-install_name_tool -add_rpath "@executable_path/../Frameworks" \
-    "${APP_DIR}/Contents/MacOS/${APP_NAME}" 2>/dev/null || true
-otool -l "${APP_DIR}/Contents/MacOS/${APP_NAME}" \
-    | awk '/LC_RPATH/{getline;getline; if ($2 ~ /Xcode|xctoolchain/) print $2}' \
-    | while read -r rp; do
-        echo "→ removing dev rpath ${rp}"
-        install_name_tool -delete_rpath "${rp}" "${APP_DIR}/Contents/MacOS/${APP_NAME}" 2>/dev/null || true
-    done
+for exe in "${APP_NAME}" amai-mcp; do
+    install_name_tool -add_rpath "@executable_path/../Frameworks" \
+        "${APP_DIR}/Contents/MacOS/${exe}" 2>/dev/null || true
+    otool -l "${APP_DIR}/Contents/MacOS/${exe}" \
+        | awk '/LC_RPATH/{getline;getline; if ($2 ~ /Xcode|xctoolchain/) print $2}' \
+        | while read -r rp; do
+            echo "→ removing dev rpath ${rp} from ${exe}"
+            install_name_tool -delete_rpath "${rp}" "${APP_DIR}/Contents/MacOS/${exe}" 2>/dev/null || true
+        done
+done
 
 # 签名身份，按优先级：
 #   1. 环境变量 AMAI_SIGN_IDENTITY；
@@ -139,6 +144,7 @@ while IFS= read -r item; do
     codesign --force --sign "${SIGN_ARG}" "${item}"
 done < <(find "${APP_DIR}" -depth \
     \( -name "*.bundle" -o -name "*.dylib" -o -name "*.framework" -o -name "*.metallib" \))
+codesign --force --sign "${SIGN_ARG}" "${APP_DIR}/Contents/MacOS/amai-mcp"
 codesign --force --sign "${SIGN_ARG}" "${APP_DIR}"
 
 echo "✓ Built ${APP_DIR}"
