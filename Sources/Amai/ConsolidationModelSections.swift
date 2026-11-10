@@ -89,7 +89,10 @@ struct ConsolidationModelSections: View {
             }
 
             Section {
-                LabeledContent("当前生效", value: model.consolidationModelLabel)
+                // 引导中用户应用之前不显示：已有配置或默认值看起来会像是替用户选好了。
+                if !requiresChoice {
+                    LabeledContent("当前生效", value: model.consolidationModelLabel)
+                }
                 if let message {
                     Text(message).foregroundStyle(.secondary).textSelection(.enabled)
                 }
