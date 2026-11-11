@@ -5,7 +5,7 @@
 # 背景：SwiftPM 没有 Metal 编译规则，`swift build` 会忽略 .metal 源文件，
 # 运行时 MLX 找不到 metallib 直接崩溃。Xcode 有内置规则，但本项目沿用
 # SwiftPM 工作流（ADR-0002），所以自己跑 metal/metallib。mlx-swift 只预置
-# 9 个 kernel，其余在运行时 JIT 编译。上游 issue：
+# 少数 kernel（0.32.3 为 10 个），其余在运行时 JIT 编译。上游 issue：
 # https://github.com/ml-explore/mlx-swift/issues/349
 #
 # 用法：
@@ -51,18 +51,17 @@ EOF
     exit 1
 fi
 
-# kernel 列表来自 mlx-swift 的 tools/fix-metal-includes.sh。
-KERNELS=(
-    arg_reduce.metal
-    conv.metal
-    gemv.metal
-    layer_norm.metal
-    random.metal
-    rms_norm.metal
-    rope.metal
-    scaled_dot_product_attention.metal
-    steel/attn/kernels/steel_attention.metal
-)
+# kernel 列表直接从所用 mlx-swift 版本的 tools/fix-metal-includes.sh 读取，升级 mlx-swift 时自动跟随
+# （0.32 起 gemv.metal 被 dot.metal 取代，并新增 searchsorted.metal）。
+FIX_INCLUDES="${MLX_SWIFT_ROOT}/tools/fix-metal-includes.sh"
+KERNELS=()
+if [ -f "$FIX_INCLUDES" ]; then
+    while IFS= read -r k; do KERNELS+=("$k"); done < <(grep -oE '[A-Za-z0-9_/]+\.metal' "$FIX_INCLUDES" | sort -u)
+fi
+if [ "${#KERNELS[@]}" -eq 0 ]; then
+    echo "✗ could not read the kernel list from ${FIX_INCLUDES}" >&2
+    exit 1
+fi
 
 # 编译参数来自 mlx/mlx/backend/metal/kernels/CMakeLists.txt 的 build_kernel_base。
 # -mmacosx-version-min 与 Package.swift 的 platforms（.macOS(.v15)）一致。

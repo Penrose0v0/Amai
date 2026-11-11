@@ -18,7 +18,8 @@ public struct LocalModelOption: Sendable, Equatable, Identifiable {
 public enum LocalModelCatalog {
     public static let all: [LocalModelOption] = [
         LocalModelOption(displayName: "Gemma 4 E2B", tag: "mlx-community/gemma-4-e2b-it-4bit", diskGB: 2, memoryGB: 3, verified: false),
-        LocalModelOption(displayName: "Gemma 4 E4B", tag: LocalInferenceBackend.defaultModelTag, diskGB: 5, memoryGB: 6, verified: true),
+        // E4B：2026-11-11 视觉部分修复后实测抽取峰值 7.7 GB（此前看不到截图时为 6.3 GB）。
+        LocalModelOption(displayName: "Gemma 4 E4B", tag: LocalInferenceBackend.defaultModelTag, diskGB: 5, memoryGB: 8, verified: true),
         LocalModelOption(displayName: "Gemma 3 12B", tag: "mlx-community/gemma-3-12b-it-qat-4bit", diskGB: 8, memoryGB: 10, verified: false),
         LocalModelOption(displayName: "Gemma 4 26B", tag: LocalInferenceBackend.largeModelTag, diskGB: 16, memoryGB: 18, verified: true),
     ]

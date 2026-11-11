@@ -24,7 +24,7 @@ AGENTS.md 规定：未经讨论不得擅自确定核心语言、GUI 框架、数
 
 用户自有项目 Eira（`~/Desktop/Coding/Eira`）的实证：
 
-- Swift 6 + SwiftPM，**mlx-swift-lm 嵌入式推理**（用户 fork `Penrose0v0/mlx-swift-lm`，含三处 Gemma 4 视觉修复：pooler kernel 截断、保持宽高比缩放、多图打包），Gemma 4 系列 VLM 直接读截图。
+- Swift 6 + SwiftPM，**mlx-swift-lm 嵌入式推理**（上游 `ml-explore/mlx-swift-lm` 3.32.3；2026-11-11 前使用用户 fork，三处 Gemma 4 视觉修复均已进入上游），Gemma 4 系列 VLM 直接读截图。
 - 提示词严格分为 cacheable / dynamic 两段，跨轮复用 KV cache；截图用 dHash（9×8 灰度，阈值 5/64）判断"同屏不重发"；实测同页同屏追问 TTFT 从 5110 ms 降到 258 ms。
 - SwiftPM 不编译 `.metal`，Eira 用 `scripts/build-mlx-metallib.sh` 单独编译 9 个预置 kernel 为 `mlx.metallib` 放到 `Contents/MacOS/`，`scripts/bundle.sh` 组装 `.app`、嵌入 Swift 运行库、inside-out 签名。
 - 内存压力处理：`DispatchSource.makeMemoryPressureSource(.critical)` 时卸载模型；`MLX.Memory.cacheLimit = 1 GB` 让 VLM 的图像 prefill 临时缓冲归还系统。
@@ -42,13 +42,13 @@ AGENTS.md 规定：未经讨论不得擅自确定核心语言、GUI 框架、数
 | 音频采集 | ScreenCaptureKit 音频流（系统音频）+ `AVAudioEngine`（麦克风）；M5 阶段实现 | 均为系统 API；麦克风默认关闭 |
 | OCR | Apple Vision（`VNRecognizeTextRequest`） | 本地、免费、快、中英文可用；作为 VLM 的廉价前置与补充 |
 | ASR | WhisperKit（Swift / CoreML，MIT）首选，whisper.cpp 备选 | M5 阶段决定 |
-| LLM / VLM | **mlx-swift-lm 嵌入式**（沿用 Eira 的 fork 与 pin），`ModelProvider` 协议隔离；默认模型 `gemma-4-e4b-it-4bit`（后台常驻友好），可选 `gemma-4-26b-a4b-it-4bit`；外部 Provider（Claude API）作为显式开启的实现，MVP 不实现 | 用户确认。无外部服务依赖、分发体验好、KV cache 可控；本机权重已就绪；VLM 可直接理解截图，减少对 OCR 质量的依赖 |
+| LLM / VLM | **mlx-swift-lm 嵌入式**（上游 3.32.3，锁定确切版本），`ModelProvider` 协议隔离；默认模型 `gemma-4-e4b-it-4bit`（后台常驻友好），可选 `gemma-4-26b-a4b-it-4bit`；外部 Provider（Claude API）作为显式开启的实现，MVP 不实现 | 用户确认。无外部服务依赖、分发体验好、KV cache 可控；本机权重已就绪；VLM 可直接理解截图，减少对 OCR 质量的依赖 |
 | 索引 / 缓存 | SQLite，**GRDB.swift**（锁定主版本 7） | 用户确认；嵌入式、零运维；Eira 已验证 |
 | 配置 | JSON 文件（`Codable`） | 简单、可手改 |
 | 测试 | Swift Testing（单元 / 集成）+ XCTest（性能） | 官方工具链 |
 | 最低系统版本 | **macOS 15**（Sequoia） | 兼顾 ScreenCaptureKit / Vision 新 API 与未来分发；本机为 26 |
 
-外部依赖：GRDB.swift、mlx-swift-lm（fork）、mlx-swift、swift-huggingface、swift-transformers；后续 WhisperKit。引入其他依赖需在 ADR 或 PR 说明。
+外部依赖：GRDB.swift、mlx-swift-lm、mlx-swift、swift-huggingface、swift-transformers；后续 WhisperKit。引入其他依赖需在 ADR 或 PR 说明。
 
 ## 备选方案
 
@@ -77,7 +77,8 @@ AGENTS.md 规定：未经讨论不得擅自确定核心语言、GUI 框架、数
 | 风险 | 缓解 |
 |---|---|
 | SwiftPM 不编译 Metal，`swift run` 直接跑 MLX 会崩 | 沿用 Eira 的 `build-mlx-metallib.sh` + `bundle.sh`；测试中涉及 MLX 的用例需 metallib 并以环境变量门控 |
-| 依赖用户 fork 的 mlx-swift-lm 固定 commit | 上游合入后切回 tag；Package.swift 注释记录原因 |
+| ~~依赖用户 fork 的 mlx-swift-lm 固定 commit~~ | 2026-11-11 已切回上游 3.32.3（见下方更新记录） |
+| 通用加载函数在 VLM 加载失败时静默改用纯文本模型 | `MLXModelProvider` 只用 `VLMModelFactory` 加载，失败即报错；发布前用推理检查确认图片真正进入模型（docs/release.md） |
 | 常驻 VLM 的内存占用（e4b 约 5 GB，26b 约 18 GB） | 默认 e4b；按需加载、空闲超时卸载、内存压力时卸载；`cacheLimit` 限制缓冲池 |
 | 定时截图在画面不变时浪费资源 | dHash 去重不落盘；按电源状态拉长间隔 |
 | Swift 6 严格并发 + MLX 类型的 Sendable 约束 | Eira 用 Swift 5 语言模式规避；Amai 先尝试 6，仅在 `AmaiExtraction` 必要时降级 |
@@ -88,3 +89,8 @@ AGENTS.md 规定：未经讨论不得擅自确定核心语言、GUI 框架、数
 - 目录：`Package.swift`、`Sources/{AmaiCore,AmaiPerception,AmaiExtraction,AmaiMemory,Amai}/`、`Tests/`、`Resources/Info.plist`、`scripts/`。
 - 构建：`swift build` 编译；`./scripts/bundle.sh` 产出 `.build/Amai.app`（含 metallib、签名）；`swift test` 跑不依赖 MLX 的测试。
 - architecture.md 的感知层描述按定时采集修订；事件驱动方案移到"后续方向"。
+
+## 更新记录
+
+- **2026-11-11 · 切回上游 mlx-swift-lm 3.32.3，修复 E 系列视觉加载**：fork 锁定的版本早于上游 PR #384（MLXVLM 的 Gemma 4 支持 E 系列 KV 共享层），VLM 加载 Gemma 4 E4B 失败；通用的 `loadModelContainer` 吞掉错误、改用 MLXLLM 的纯文本 Gemma 4，模型照常回答却看不到截图，抽取只靠提示词中的 OCR 文字。3.32.3 已包含 #384，以及 fork 的三处视觉修复（pooler kernel：#290；保持宽高比与多图逐张编码：上游另行实现），不再需要 fork。同时 mlx-swift 升至 0.32.3，预编译 kernel 列表改由 `build-mlx-metallib.sh` 从 mlx-swift 自带的列表读取。
+

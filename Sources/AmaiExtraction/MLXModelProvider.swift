@@ -101,15 +101,18 @@ public actor MLXModelProvider: ModelProvider {
         if let loadTask { return try await loadTask.value }
         let config = configuration
         let tag = modelTag
+        // 只用 VLM 工厂加载：通用的 loadModelContainer 会在 VLM 加载失败时静默改用 LLM 工厂，
+        // 得到一个能回答文字、却看不到截图的模型（Gemma 4 E4B 曾因此只靠 OCR 文字描述屏幕）。
+        // 屏幕理解必须有视觉能力，所以 VLM 加载失败就明确报错。
         let task = Task<ModelContainer, Error> {
             do {
-                return try await loadModelContainer(
+                return try await VLMModelFactory.shared.loadContainer(
                     from: #hubDownloader(),
                     using: #huggingFaceTokenizerLoader(),
                     configuration: config
                 )
             } catch {
-                throw ModelProviderError.loadFailed("\(tag): \(type(of: error))")
+                throw ModelProviderError.loadFailed("\(tag) could not be loaded as a vision model: \(error)")
             }
         }
         loadTask = task

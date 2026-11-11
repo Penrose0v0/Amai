@@ -17,15 +17,15 @@ let package = Package(
         // 记忆层派生索引（SQLite + FTS5）。ADR-0002。
         .package(url: "https://github.com/groue/GRDB.swift.git", from: "7.0.0"),
 
-        // 嵌入式本地推理（ADR-0002）。沿用 Eira 项目的 fork 与 pin：
-        // upstream main + 三处 Gemma 4 视觉修复（pooler kernel 截断、保持宽高比缩放、
-        // 多图打包），这些修复尚未进入上游 tag。上游合入后切回 ml-explore/mlx-swift-lm。
+        // 嵌入式本地推理（ADR-0002）。3.32.3 已包含此前 fork 中的 Gemma 4 视觉修复
+        // （pooler kernel、保持宽高比缩放、多图逐张编码），以及 E 系列 KV 共享层的 VLM 加载（PR #384）。
+        // 锁定确切版本：升级后需重新运行推理检查（docs/release.md）。
         // 注意：SwiftPM 不编译 .metal，运行时需要 scripts/build-mlx-metallib.sh 产出的
         // mlx.metallib（由 scripts/bundle.sh 调用）。
-        .package(url: "https://github.com/Penrose0v0/mlx-swift-lm", revision: "6d73582ad31f9a7ee42f879d3570d96fe5a1a347"),
+        .package(url: "https://github.com/ml-explore/mlx-swift-lm", exact: "3.32.3"),
         // mlx-swift 是 mlx-swift-lm 的传递依赖；直接列出以便 `import MLX`
         // 使用 GPU 内存管理 API（cacheLimit、clearCache、内存压力处理）。
-        .package(url: "https://github.com/ml-explore/mlx-swift", from: "0.31.3"),
+        .package(url: "https://github.com/ml-explore/mlx-swift", from: "0.32.3"),
         .package(url: "https://github.com/huggingface/swift-huggingface", from: "0.9.0"),
         .package(url: "https://github.com/huggingface/swift-transformers", from: "1.3.0"),
         // 只读 MCP Server 的协议实现（官方 Swift SDK，ADR-0008）。只有 AmaiMCP 依赖它，App 不链接。

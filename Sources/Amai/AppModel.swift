@@ -268,6 +268,12 @@ final class AppModel {
             let output = URL(fileURLWithPath: args[i + 1], isDirectory: true)
             Task { await MemoryPreviewTour.runOnboarding(model: self, output: output) }
         }
+        if isMemoryPreview, let i = args.firstIndex(of: "--inference-check"), i + 1 < args.count {
+            let output = URL(fileURLWithPath: args[i + 1], isDirectory: true)
+            let tag = args.firstIndex(of: "--inference-model").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil }
+            let download = args.contains("--inference-download")
+            Task { await MemoryPreviewTour.runInferenceCheck(output: output, modelTag: tag, download: download) }
+        }
         // 开发用：用合成场景评测记忆整理，只在临时目录中运行，不读写真实记忆。
         // open .build/Amai.app --args --memory-eval <scenarios.json> --eval-output <目录> [--eval-local]
         if let i = args.firstIndex(of: "--memory-eval"), i + 1 < args.count, let context = modelContext {
