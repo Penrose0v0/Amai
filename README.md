@@ -8,7 +8,16 @@
 - 记忆系统：[docs/memory.md](docs/memory.md)
 - 路线图：[docs/roadmap.md](docs/roadmap.md)
 - 决策记录：[docs/decisions/](docs/decisions/)
+- 发布与安装：[docs/release.md](docs/release.md)
 - 参考研究：[docs/references/](docs/references/)
+
+## 安装
+
+```bash
+brew install --cask Penrose0v0/tap/amai
+```
+
+要求 Apple Silicon、macOS 15+。发布流程见 [docs/release.md](docs/release.md)。
 
 ## 开发
 
@@ -42,7 +51,8 @@ Sources/
 ├── AmaiMemoryCLI/    开发用记忆检索命令行 amai-memory
 └── Amai/             菜单栏应用、检查器，以及各层之间的装配
 Tests/                每个 target 一个测试 target
-scripts/              bundle.sh、build-mlx-metallib.sh
+scripts/              bundle.sh、build-mlx-metallib.sh、release.sh、verify-bundle.sh、set-version.sh
+packaging/homebrew/   Homebrew cask 模板
 ```
 
 当前阶段：M0 项目启动（技术栈已确认，见 [ADR-0002](docs/decisions/0002-tech-stack.md)）。

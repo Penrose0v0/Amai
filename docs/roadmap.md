@@ -272,6 +272,15 @@ HEVC 分段实测（2026-10-20 中午，同参数，质量 0.55，1662×1080）�
 - [ ] Claude Desktop、Atd 的实际对话中调用尚待在界面中确认（配置示例见 `docs/mcp.md`）。
 - [ ] 设置界面中的开关与分区选择（本次按要求不改界面）。
 
+### 安装分发（2026-11-10）
+
+- [x] `scripts/release.sh`：Release 构建（组装到 `.build/dist`，不影响开发版）、`verify-bundle.sh` 检查、zip、生成 cask 与发布说明；只打印发布命令，不发布。
+- [x] Homebrew cask 模板（`postflight_steps` 去隔离、`uninstall quit`、`zap` 不删记忆），通过 `brew style`；本地 tap 实测安装、去隔离、卸载。
+- [x] 版本号从 v0.1.0 开始，`scripts/set-version.sh` 升级版本。
+- [x] 发布前推理检查（`--inference-check`）：发现并修复 Gemma 4 E4B 在 VLM 加载失败时静默改用纯文本模型的问题（切回上游 mlx-swift-lm 3.32.3；只用 VLM 工厂加载，失败即报错）；E2B / E4B / 26B-A4B 均通过视觉对照。
+- [ ] 公证（notarization）。
+- [ ] 首次发布 v0.1.0（推送 tag、上传 Release、更新 tap）。
+
 ## M6 之后的方向（不承诺）
 
 - 基于记忆的对话问答界面。
@@ -289,3 +298,4 @@ HEVC 分段实测（2026-10-20 中午，同参数，质量 0.55，1662×1080）�
 | 2026-11-03 | Memory Schema v1 阶段 2：类别路由、依据清单与 kind 推导、操作式分区整理、评测 |
 | 2026-11-04 | 本地模型选择与应用内下载（ADR-0007）；`amai-extraction eval` 抽取评测；预览模式加入合成时间线 |
 | 2026-11-06 | 统一只读 Memory API 与 MCP Server `amai-mcp`（ADR-0008） |
+| 2026-11-10 | GitHub Releases + Homebrew Cask 分发流程，版本 0.1.0 |

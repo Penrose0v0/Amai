@@ -11,7 +11,8 @@ import MCP
 /// - 只读，不联网；日志不记录查询与记忆内容。
 public actor AmaiMCPServer {
     public static let name = "amai"
-    public static let version = "0.1.0"
+    /// 随 App 打包时 `Bundle.main` 就是 Amai.app，版本与 App 一致；开发时直接运行构建产物则为 "dev"。
+    public static let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev"
 
     private let configURL: URL
     private var index: (root: URL, index: MemoryIndex)?

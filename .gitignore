@@ -35,3 +35,6 @@ docs/private/
 eval/memory/results/
 # 抽取评测结果：由真实录屏生成，含个人屏幕内容（amai-extraction eval 默认输出目录）
 eval/extraction/
+
+# 发布产物（scripts/release.sh）
+dist/

@@ -1,0 +1,45 @@
+cask "amai" do
+  version "__VERSION__"
+  sha256 "__SHA256__"
+
+  url "https://github.com/Penrose0v0/Amai/releases/download/v#{version}/Amai-#{version}.zip"
+  name "Amai"
+  desc "Ambient personal AI that turns your screen activity into local Markdown memory"
+  homepage "https://github.com/Penrose0v0/Amai"
+
+  depends_on arch: :arm64
+  depends_on macos: :sequoia
+
+  app "Amai.app"
+
+  # Amai is signed but not notarized, so Gatekeeper would block the quarantined
+  # app on first launch. Strip the quarantine flag that Homebrew applies.
+  postflight_steps do
+    run "/usr/bin/xattr",
+        args:           ["-dr", "com.apple.quarantine", "{{appdir}}/Amai.app"],
+        writable_paths: ["{{appdir}}/Amai.app"]
+  end
+
+  # Quit before upgrading or uninstalling so recording stops cleanly.
+  uninstall quit: "com.amai.app"
+
+  # Memory files (~/.amai/memory by default) are the user's own notes and are
+  # never removed by Homebrew, not even by `zap`.
+  zap trash: [
+    "~/Library/Application Support/Amai",
+    "~/Library/Caches/com.amai.app",
+    "~/Library/HTTPStorages/com.amai.app",
+    "~/Library/Preferences/com.amai.app.plist",
+  ]
+
+  caveats <<~EOS
+    Amai lives in the menu bar. Open it once to start onboarding:
+      open #{appdir}/Amai.app
+
+    Your memory is stored as Markdown in ~/.amai/memory by default and is kept
+    when Amai is uninstalled.
+
+    The read-only MCP server for external agents is at:
+      #{appdir}/Amai.app/Contents/MacOS/amai-mcp
+  EOS
+end
