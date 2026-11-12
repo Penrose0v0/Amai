@@ -57,7 +57,9 @@ enum MemoryPreviewTour {
             browser.presentedSource = nil
         }
 
-        browser.query = "同步"
+        // 搜索词需与样本语言一致（英文样本用 `--memory-preview-query sync`）。
+        let args = CommandLine.arguments
+        browser.query = args.firstIndex(of: "--memory-preview-query").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil } ?? "同步"
         await browser.search(model.memoryBrowserEnvironment)
         await shot("08-search")
         browser.clearSearch()
