@@ -1,0 +1,246 @@
+[
+  {
+    "id": "687A25A4-4ED0-546E-9486-9B0ECAD6FE8C",
+    "timeRange": {
+      "start": "2026-11-07T09:00:00+09:00",
+      "end": "2026-11-07T10:30:00+09:00"
+    },
+    "title": "Lumen のオフライン同期キューを実装",
+    "summary": "Xcode でローカルの変更キューを書き、ネットワーク復帰後に順番にアップロードするようにした。",
+    "category": "work",
+    "apps": [
+      "com.apple.dt.Xcode"
+    ],
+    "observations": [],
+    "evidence": [
+      {
+        "eventId": "EF16FCAA-7A46-5BB2-93D2-8CDC83F23173",
+        "time": "2026-11-07T09:00:00+09:00",
+        "payloadRef": "sample.mov",
+        "frameIndex": 0
+      }
+    ],
+    "confidence": 0.88,
+    "provider": "sample",
+    "updatedAt": "2026-11-07T10:30:00+09:00"
+  },
+  {
+    "id": "E2257C73-EE17-5FA1-959A-D3FDBB8A344A",
+    "timeRange": {
+      "start": "2026-11-07T10:30:00+09:00",
+      "end": "2026-11-07T10:45:00+09:00"
+    },
+    "title": "共同研究者と同期プロトコルの詳細を確認",
+    "summary": "競合したときにどちらを優先するかを Slack で話し合った。",
+    "category": "communication",
+    "apps": [
+      "com.tinyspeck.slackmacgap"
+    ],
+    "observations": [],
+    "evidence": [
+      {
+        "eventId": "C58986B5-4546-5A97-BE96-F4A17E2EFB04",
+        "time": "2026-11-07T10:30:00+09:00",
+        "payloadRef": "sample.mov",
+        "frameIndex": 0
+      }
+    ],
+    "confidence": 0.88,
+    "provider": "sample",
+    "updatedAt": "2026-11-07T10:45:00+09:00"
+  },
+  {
+    "id": "F60FB5ED-CD30-5E74-B4B7-4FA9659ED557",
+    "timeRange": {
+      "start": "2026-11-07T10:45:00+09:00",
+      "end": "2026-11-07T12:10:00+09:00"
+    },
+    "title": "競合マージのタイムスタンプ比較のバグを修正",
+    "summary": "タイムゾーンをまたぐタイムスタンプ比較が原因と特定し、ユニットテストを追加した。",
+    "category": "work",
+    "apps": [
+      "com.apple.dt.Xcode",
+      "com.apple.Terminal"
+    ],
+    "observations": [],
+    "evidence": [
+      {
+        "eventId": "4EE7DA91-4C0F-5256-B978-C56FBAAFCAF9",
+        "time": "2026-11-07T10:45:00+09:00",
+        "payloadRef": "sample.mov",
+        "frameIndex": 0
+      }
+    ],
+    "confidence": 0.88,
+    "provider": "sample",
+    "updatedAt": "2026-11-07T12:10:00+09:00"
+  },
+  {
+    "id": "0A4B9CBE-682D-5B61-8562-804B20F0D1D4",
+    "timeRange": {
+      "start": "2026-11-07T12:10:00+09:00",
+      "end": "2026-11-07T13:20:00+09:00"
+    },
+    "title": "離席",
+    "summary": "",
+    "category": "idle",
+    "apps": [],
+    "observations": [],
+    "evidence": [],
+    "confidence": 0.6,
+    "provider": "rule:idle",
+    "updatedAt": "2026-11-07T13:20:00+09:00"
+  },
+  {
+    "id": "D0F26964-FF26-55D7-8E83-350552CFF378",
+    "timeRange": {
+      "start": "2026-11-07T13:20:00+09:00",
+      "end": "2026-11-07T14:20:00+09:00"
+    },
+    "title": "CRDT の論文を読む",
+    "summary": "Safari で競合のない複製データ型のサーベイを読み、メモを取った。",
+    "category": "research",
+    "apps": [
+      "com.apple.Safari"
+    ],
+    "observations": [],
+    "evidence": [
+      {
+        "eventId": "05799638-DF5E-51CB-9945-E9B3B4DE3697",
+        "time": "2026-11-07T13:20:00+09:00",
+        "payloadRef": "sample.mov",
+        "frameIndex": 0
+      }
+    ],
+    "confidence": 0.88,
+    "provider": "sample",
+    "updatedAt": "2026-11-07T14:20:00+09:00"
+  },
+  {
+    "id": "A9049957-60FD-5388-9F37-D1B8D312025B",
+    "timeRange": {
+      "start": "2026-11-07T14:20:00+09:00",
+      "end": "2026-11-07T15:00:00+09:00"
+    },
+    "title": "CloudKit と自前の同期サービスを比較",
+    "summary": "両方の長所と短所を整理し、Android に対応するため CloudKit をやめることにした。",
+    "category": "research",
+    "apps": [
+      "com.apple.Safari",
+      "com.apple.Notes"
+    ],
+    "observations": [],
+    "evidence": [
+      {
+        "eventId": "B1D95A69-CDD9-55B5-B9F8-EC779726B77A",
+        "time": "2026-11-07T14:20:00+09:00",
+        "payloadRef": "sample.mov",
+        "frameIndex": 0
+      }
+    ],
+    "confidence": 0.88,
+    "provider": "sample",
+    "updatedAt": "2026-11-07T15:00:00+09:00"
+  },
+  {
+    "id": "C51D053F-D78E-5D03-92E2-4C7D0F480B86",
+    "timeRange": {
+      "start": "2026-11-07T15:00:00+09:00",
+      "end": "2026-11-07T16:15:00+09:00"
+    },
+    "title": "研究室サイトのトップページのレイアウトを作り直す",
+    "summary": "VS Code でグリッドレイアウトに変え、メンバー一覧を更新した。",
+    "category": "work",
+    "apps": [
+      "com.microsoft.VSCode"
+    ],
+    "observations": [],
+    "evidence": [
+      {
+        "eventId": "C00B6C93-F5A5-5ECC-911F-8172A74D0F68",
+        "time": "2026-11-07T15:00:00+09:00",
+        "payloadRef": "sample.mov",
+        "frameIndex": 0
+      }
+    ],
+    "confidence": 0.88,
+    "provider": "sample",
+    "updatedAt": "2026-11-07T16:15:00+09:00"
+  },
+  {
+    "id": "EF0BA4D7-7A5A-51DE-B343-8A8A4DA883DA",
+    "timeRange": {
+      "start": "2026-11-07T16:15:00+09:00",
+      "end": "2026-11-07T16:40:00+09:00"
+    },
+    "title": "指導教員のメールに返信",
+    "summary": "来週のゼミの日時を確認し、進捗メモを添付した。",
+    "category": "communication",
+    "apps": [
+      "com.apple.mail"
+    ],
+    "observations": [],
+    "evidence": [
+      {
+        "eventId": "92987B3F-A8C5-5D9A-AE27-797DBA199F3A",
+        "time": "2026-11-07T16:15:00+09:00",
+        "payloadRef": "sample.mov",
+        "frameIndex": 0
+      }
+    ],
+    "confidence": 0.88,
+    "provider": "sample",
+    "updatedAt": "2026-11-07T16:40:00+09:00"
+  },
+  {
+    "id": "E1C2744E-09C5-5DB4-AD67-CDA4693FA62B",
+    "timeRange": {
+      "start": "2026-11-07T16:40:00+09:00",
+      "end": "2026-11-07T17:15:00+09:00"
+    },
+    "title": "Swift Forums で Observation に関する議論を読む",
+    "summary": "",
+    "category": "reading",
+    "apps": [
+      "com.apple.Safari"
+    ],
+    "observations": [],
+    "evidence": [
+      {
+        "eventId": "E209E779-C262-5FF3-B3E7-99327D24B0DA",
+        "time": "2026-11-07T16:40:00+09:00",
+        "payloadRef": "sample.mov",
+        "frameIndex": 0
+      }
+    ],
+    "confidence": 0.88,
+    "provider": "sample",
+    "updatedAt": "2026-11-07T17:15:00+09:00"
+  },
+  {
+    "id": "555BB0B3-89B5-51BF-BE4B-58AFCE054186",
+    "timeRange": {
+      "start": "2026-11-07T17:15:00+09:00",
+      "end": "2026-11-07T17:35:00+09:00"
+    },
+    "title": "今日の進捗をまとめてコードをコミット",
+    "summary": "",
+    "category": "work",
+    "apps": [
+      "com.apple.dt.Xcode",
+      "com.apple.Terminal"
+    ],
+    "observations": [],
+    "evidence": [
+      {
+        "eventId": "9E668528-8E8E-5323-993F-E09369C3C7AC",
+        "time": "2026-11-07T17:15:00+09:00",
+        "payloadRef": "sample.mov",
+        "frameIndex": 0
+      }
+    ],
+    "confidence": 0.88,
+    "provider": "sample",
+    "updatedAt": "2026-11-07T17:35:00+09:00"
+  }
+]
