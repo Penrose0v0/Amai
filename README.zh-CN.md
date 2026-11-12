@@ -14,7 +14,7 @@ Amai 在后台记下你在 Mac 上做的事，整理成每日时间线和长期�
 [![MCP](https://img.shields.io/badge/MCP-read--only-6e40c9)](docs/mcp.md)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-[English](README.md) · **简体中文**
+[English](README.md) · **简体中文** · [日本語](README.ja.md)
 
 <img src="screenshots/12-timeline.png" alt="Amai 时间线：一天中的各项活动，每项有标题、一句话摘要、类别和时长" width="860">
 

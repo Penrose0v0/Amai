@@ -14,7 +14,7 @@ plain Markdown, on your device, ready for your AI agents.
 [![MCP](https://img.shields.io/badge/MCP-read--only-6e40c9)](docs/mcp.md)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-**English** · [简体中文](README.zh-CN.md)
+**English** · [简体中文](README.zh-CN.md) · [日本語](README.ja.md)
 
 <img src="screenshots/en/12-timeline.png" alt="Amai timeline: a day of activities, each with a title, a one-line summary, a category and a duration" width="860">
 
