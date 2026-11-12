@@ -16,10 +16,6 @@ Amai 在后台记下你在 Mac 上做的事，整理成每日时间线和长期�
 
 [English](README.md) · **简体中文**
 
-```bash
-brew install --cask Penrose0v0/tap/amai
-```
-
 <img src="screenshots/12-timeline.png" alt="Amai 时间线：一天中的各项活动，每项有标题、一句话摘要、类别和时长" width="860">
 
 <sub>截图使用 <a href="samples/">samples/</a> 中的合成示例数据，并非真实用户的活动。</sub>
@@ -27,6 +23,14 @@ brew install --cask Penrose0v0/tap/amai
 </div>
 
 ---
+
+## 快速开始
+
+```bash
+brew install --cask Penrose0v0/tap/amai
+```
+
+也可以从 [GitHub Releases](https://github.com/Penrose0v0/Amai/releases/latest) 下载 zip。需要 Apple Silicon Mac 和 macOS 15 或更新版本，详见[安装](#安装)。
 
 ## 为什么是 Amai
 

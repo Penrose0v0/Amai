@@ -16,10 +16,6 @@ plain Markdown, on your device, ready for your AI agents.
 
 **English** · [简体中文](README.zh-CN.md)
 
-```bash
-brew install --cask Penrose0v0/tap/amai
-```
-
 <img src="screenshots/en/12-timeline.png" alt="Amai timeline: a day of activities, each with a title, a one-line summary, a category and a duration" width="860">
 
 <sub>Screenshots show synthetic sample data from <a href="samples/">samples/</a>, not a real person's activity.</sub>
@@ -27,6 +23,14 @@ brew install --cask Penrose0v0/tap/amai
 </div>
 
 ---
+
+## Quick start
+
+```bash
+brew install --cask Penrose0v0/tap/amai
+```
+
+Or download the zip from [GitHub Releases](https://github.com/Penrose0v0/Amai/releases/latest). Requires an Apple Silicon Mac with macOS 15 or later; see [Install](#install) for details.
 
 ## Why Amai
 
