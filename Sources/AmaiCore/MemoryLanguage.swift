@@ -22,10 +22,22 @@ public enum MemoryLanguage: String, Codable, Sendable, CaseIterable {
     /// 首次启动时的初始记忆语言：按系统首选语言决定一次（日文 → 日本語，英文 → English，其他 → 简体中文），
     /// 之后保存在配置中，不再跟随系统变化。
     public static func initial(preferredLanguages: [String]) -> MemoryLanguage {
-        guard let first = preferredLanguages.first?.lowercased() else { return .default }
-        if first.hasPrefix("ja") { return .ja }
-        if first.hasPrefix("en") { return .en }
-        return .default
+        preferredLanguages.first.flatMap(MemoryLanguage.init(languageTag:)) ?? .default
+    }
+
+    /// 把语言标签（`ja`、`ja-JP`、`en-GB`、`zh-Hans-CN`、`zh_CN` 等）归到支持的三种语言之一；
+    /// 繁体中文与其他语言返回 nil。界面语言也只有这三种，同样用它识别。
+    public init?(languageTag: String) {
+        let parts = languageTag.lowercased().replacingOccurrences(of: "_", with: "-").split(separator: "-")
+        switch parts.first {
+        case "ja": self = .ja
+        case "en": self = .en
+        case "zh":
+            let rest = Set(parts.dropFirst())
+            if rest.contains("hant") || !rest.isDisjoint(with: ["tw", "hk", "mo"]) && !rest.contains("hans") { return nil }
+            self = .zhHans
+        default: return nil
+        }
     }
 
     /// 无法识别的取值按默认语言处理，避免配置写错导致无法启动。

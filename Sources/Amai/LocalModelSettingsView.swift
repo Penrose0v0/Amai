@@ -62,7 +62,7 @@ struct LocalModelSection: View {
     /// 资源需求与标记，用一行灰色文字表示。
     private func details(_ option: LocalModelOption) -> String {
         var parts = [String(localized: "下载约 \(option.diskGB) GB"), String(localized: "占约 \(option.memoryGB) GB 内存")]
-        if option.memoryGB > LocalModelCatalog.machineMemoryGB { parts[1] += "（超过本机内存）" }
+        if option.memoryGB > LocalModelCatalog.machineMemoryGB { parts[1] += String(localized: "（超过本机内存）") }
         if option == recommended { parts.append(String(localized: "推荐")) }
         if model.modelTag == option.tag { parts.append(String(localized: "运行中")) }
         if !option.verified { parts.append(String(localized: "未验证")) }

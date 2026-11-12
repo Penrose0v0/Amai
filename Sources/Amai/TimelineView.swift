@@ -283,7 +283,8 @@ private struct CategoryBadge: View {
         case .communication: String(localized: "沟通")
         case .reading: String(localized: "阅读")
         case .entertainment: String(localized: "娱乐")
-        case .idle: String(localized: "空闲")
+        // 与运行状态里的"空闲"（处理器空闲）同字不同义：日文分别是「離席」与「待機中」，所以单独一个键。
+        case .idle: String(localized: "timeline.category.idle", defaultValue: "空闲")
         case .other: String(localized: "其他")
         }
     }

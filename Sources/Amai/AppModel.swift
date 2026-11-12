@@ -559,8 +559,11 @@ final class AppModel {
     /// 只看本应用自己的偏好，不看全局语言列表（全局列表总是存在，无法区分"跟随系统"）。
     private static func storedInterfaceLanguage() -> InterfaceLanguage {
         let domain = Bundle.main.bundleIdentifier.flatMap { UserDefaults.standard.persistentDomain(forName: $0) }
-        guard let code = (domain?["AppleLanguages"] as? [String])?.first else { return .system }
-        return InterfaceLanguage(rawValue: code) ?? .system
+        // 系统设置的"按 App 设置语言"可能写入带地区的标签（例如 ja-JP），归一后再匹配。
+        guard let code = (domain?["AppleLanguages"] as? [String])?.first,
+              let language = MemoryLanguage(languageTag: code)
+        else { return .system }
+        return InterfaceLanguage(rawValue: language.rawValue) ?? .system
     }
 
     // MARK: - Memory language

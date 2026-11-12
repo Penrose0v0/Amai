@@ -244,6 +244,9 @@ MemoryEntry（写入 Markdown 的最小单元，见 memory.md）
 
 - 界面语言：简体中文（源语言）、English、日本語，或跟随系统。设置写入本应用偏好的 `AppleLanguages`，与 macOS 系统设置中"按 App 设置语言"是同一个设置，重启后生效。与记忆语言相互独立。
 - 文字集中在 `Resources/Localizable.xcstrings`（String Catalog）。SwiftUI 文本字面量会自动查找翻译；代码中拼出来的字符串使用 `String(localized:)`。记忆内容、提示词与语言自称（"简体中文"等）不走界面本地化。
-- `./scripts/localize.sh` 让编译器提取全部可本地化字符串（含插值占位符）并同步到 String Catalog，已有翻译保留。新增界面文字后运行它，再补英文与日文翻译。
+- `./scripts/localize.sh` 让编译器提取全部可本地化字符串（含插值占位符）并同步到 String Catalog，已有翻译保留，最后统一回仓库的 JSON 格式。新增界面文字后运行它，再补英文与日文翻译。
+- 品牌名与 OpenAI 规定的英文按钮文字（"Continue with ChatGPT"、"Manage usage" 等）标为 `shouldTranslate: false`，各语言相同。同一中文在不同位置含义不同、日文需要不同译法时，用带 `defaultValue` 的独立键（例如时间线的离开类别 `timeline.category.idle`：日文「離席」，运行状态的"空闲"为「待機中」）。
+- `Tests/AmaiCoreTests/LocalizationTests.swift` 检查每个需翻译的键都有英文与日文译文、占位符一致、日文中没有简体字，以及三种语言的权限说明齐全。界面排版用隔离预览检查：`--memory-preview <目录> --memory-preview-tour <输出目录> -AppleLanguages '(ja)'`（`--onboarding-tour` 同理）。
+- 日期与时间一律用系统格式化（`formatted(...)`），随界面语言显示；界面语言设置识别带地区的标签（`ja-JP`、`en-GB` 等）。
 - `scripts/bundle.sh` 把 String Catalog 编译成各语言的 `.lproj` 放进 App 主 bundle，权限说明的翻译在 `Resources/InfoPlist/*.lproj`；`Info.plist` 声明 `CFBundleLocalizations`。
 

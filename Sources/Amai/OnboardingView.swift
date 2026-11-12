@@ -280,7 +280,7 @@ private struct MemoryModelPage: View {
             Form {
                 // 预览模式不读写钥匙串，与设置窗口一致不显示这一部分。
                 if model.isMemoryPreview {
-                    Section { Text(verbatim: "Memory organization settings are hidden in preview mode.").foregroundStyle(.secondary) }
+                    Section { Text("预览模式中不显示记忆整理设置。").foregroundStyle(.secondary) }
                 } else {
                     ConsolidationModelSections(model: model, requiresChoice: !model.onboarding.memoryModelApplied) {
                         model.onboarding.memoryModelApplied = true

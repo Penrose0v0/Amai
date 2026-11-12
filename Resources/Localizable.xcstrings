@@ -111,7 +111,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ のシステムブロックの記号が不完全なため、内容を誤って消さないよう書き込みを停止しました"
+            "value": "%@ のシステムブロックのマーカーが不完全なため、内容を誤って消さないよう書き込みを停止しました"
           }
         }
       }
@@ -276,7 +276,9 @@
         }
       }
     },
-    "API": {},
+    "API": {
+      "shouldTranslate": false
+    },
     "API Key": {
       "localizations": {
         "en": {
@@ -325,7 +327,9 @@
         }
       }
     },
-    "Amai": {},
+    "Amai": {
+      "shouldTranslate": false
+    },
     "Amai 会在整理每日记录后自动写入。你也可以自己创建 %@ 并在里面书写。": {
       "localizations": {
         "en": {
@@ -385,7 +389,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Amai はメニューバーにいて、記録を始めるとバックグラウンドで静かに動きます。"
+            "value": "Amai はメニューバーに常駐し、記録を始めるとバックグラウンドで静かに動作します。"
           }
         }
       }
@@ -678,7 +682,9 @@
         }
       }
     },
-    "ChatGPT": {},
+    "ChatGPT": {
+      "shouldTranslate": false
+    },
     "ChatGPT 拒绝了当前登录，请重新登录": {
       "localizations": {
         "en": {
@@ -855,8 +861,12 @@
         }
       }
     },
-    "Continue with ChatGPT": {},
-    "Got it": {},
+    "Continue with ChatGPT": {
+      "shouldTranslate": false
+    },
+    "Got it": {
+      "shouldTranslate": false
+    },
     "ID token 校验失败（%@）": {
       "localizations": {
         "en": {
@@ -873,9 +883,15 @@
         }
       }
     },
-    "Manage usage": {},
-    "Using ChatGPT plan": {},
-    "You're using your ChatGPT plan": {},
+    "Manage usage": {
+      "shouldTranslate": false
+    },
+    "Using ChatGPT plan": {
+      "shouldTranslate": false
+    },
+    "You're using your ChatGPT plan": {
+      "shouldTranslate": false
+    },
     "daily 时间线中的对应条目会一并移除。原始截图在保留期结束后自动清理；需要立即删除请使用“删除时间段”。": {
       "localizations": {
         "en": {
@@ -908,7 +924,31 @@
         }
       }
     },
-    "·": {},
+    "timeline.category.idle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Idle"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "離席"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "空闲"
+          }
+        }
+      }
+    },
+    "·": {
+      "shouldTranslate": false
+    },
     "⚠︎ %@": {
       "localizations": {
         "en": {
@@ -2488,7 +2528,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "画面の理解"
+            "value": "画面理解"
           }
         }
       }
@@ -2680,7 +2720,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "スクリーンショット"
+            "value": "撮影枚数"
           }
         }
       }
@@ -3144,7 +3184,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "知覚"
+            "value": "キャプチャ"
           }
         }
       }
@@ -3416,7 +3456,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "許可"
+            "value": "許可する…"
           }
         }
       }
@@ -3560,7 +3600,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "推論の強さ"
+            "value": "推論の強度"
           }
         }
       }
@@ -3864,7 +3904,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "1 日のまとめの整理済み"
+            "value": "1 日のまとめ（整理済みの最終日）"
           }
         }
       }
@@ -3896,7 +3936,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "タイムラインと日次まとめ"
+            "value": "タイムラインと 1 日のまとめ"
           }
         }
       }
@@ -4024,7 +4064,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ に更新"
+            "value": "%@に更新"
           }
         }
       }
@@ -4072,7 +4112,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "置き換え"
+            "value": "キーを置き換え"
           }
         }
       }
@@ -4584,7 +4624,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ソース"
+            "value": "提供元"
           }
         }
       }
@@ -4920,7 +4960,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$lld 秒ごとにスクリーンショットを撮り、端末上のモデルが理解してアクティビティの記録を作ります。元のスクリーンショットは最長 %2$lld 時間だけ保持します。"
+            "value": "%1$lld 秒ごとにスクリーンショットを撮り、この Mac 上のモデルが内容を理解してアクティビティの記録を作ります。元のスクリーンショットは最長 %2$lld 時間保持します。"
           }
         },
         "zh-Hans": {
@@ -6094,7 +6134,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "記憶整理モデルは日次まとめと各分野の長期記憶を書きます。この Mac の画面理解モデルとクラウドのモデルのどちらでも使えます。選んだら「保存して適用」を押してください。あとで設定から変更できます。"
+            "value": "記憶整理モデルは、1 日のまとめと各分野の長期記憶を書きます。この Mac の画面理解モデルとクラウドのモデルのどちらも使えます。選んだら「保存して適用」をクリックしてください。あとから設定で変更できます。"
           }
         }
       }
@@ -6126,7 +6166,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "記憶の更新：%@"
+            "value": "%@に記憶を更新"
           }
         }
       }
@@ -6415,7 +6455,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "知覚データを読み込めませんでした"
+            "value": "キャプチャしたデータを読み込めませんでした"
           }
         }
       }
@@ -7172,6 +7212,22 @@
         }
       }
     },
+    "预览模式中不显示记忆整理设置。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Memory organization settings are hidden in preview mode."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プレビューモードでは記憶整理の設定は表示されません。"
+          }
+        }
+      }
+    },
     "首次使用引导": {
       "localizations": {
         "en": {
@@ -7296,6 +7352,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "（未インストール）"
+          }
+        }
+      }
+    },
+    "（超过本机内存）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " (more than this Mac's memory)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "（この Mac のメモリを超えます）"
           }
         }
       }

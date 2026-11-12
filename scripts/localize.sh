@@ -35,4 +35,11 @@ if [ ! -f "${CATALOG}" ]; then
     echo '{"sourceLanguage":"zh-Hans","strings":{},"version":"1.0"}' > "${CATALOG}"
 fi
 xcrun xcstringstool sync "${CATALOG}" --stringsdata "${FILES[@]}"
+# xcstringstool 的 JSON 写法（"key" : value）与仓库中的格式不同，统一回仓库格式，避免整份文件出现无关 diff。
+python3 - "${CATALOG}" <<'EOF'
+import json, sys
+path = sys.argv[1]
+data = json.load(open(path, encoding="utf-8"))
+open(path, "w", encoding="utf-8").write(json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True) + "\n")
+EOF
 echo "✓ synced ${#FILES[@]} files into ${CATALOG}"
