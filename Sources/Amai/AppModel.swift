@@ -464,11 +464,10 @@ final class AppModel {
     private(set) var showsOnboarding: Bool
     private let screenRecordingGrantedAtLaunch = ScreenRecordingPermission.isGranted()
 
-    /// 引导中的选择有些要重启才生效：新授予的屏幕录制权限、界面语言、改选的本地模型。
+    /// 引导中的选择有些要重启才生效：新授予的屏幕录制权限、改选的本地模型。界面语言即时生效。
     var onboardingNeedsRelaunch: Bool {
         guard !isMemoryPreview else { return false }
         return (onboarding.screenRecordingGranted && !screenRecordingGrantedAtLaunch)
-            || interfaceLanguage != interfaceLanguageAtLaunch
             || selectedModelTag != modelTag
     }
 
@@ -649,7 +648,8 @@ final class AppModel {
     /// 保存选定的本地模型。模型实例由抽取与本地整理共用，启动时创建，所以重启后生效。返回错误说明（成功为 nil）。
     // MARK: - Interface language
 
-    /// 界面语言。写入本应用偏好中的 AppleLanguages（与系统设置里"按 App 设置语言"是同一个设置），重启后生效。
+    /// 界面语言。写入本应用偏好中的 AppleLanguages（与系统设置里"按 App 设置语言"是同一个设置），
+    /// 并立即生效：文字查找经 `InterfaceLanguageBundle` 转到所选语言，各界面按 `interfaceLocale` 重建。
     enum InterfaceLanguage: String, CaseIterable {
         case system, zhHans = "zh-Hans", en, ja
 
@@ -663,8 +663,21 @@ final class AppModel {
         }
     }
 
-    /// 启动时生效的界面语言，用来判断是否需要重启。
-    let interfaceLanguageAtLaunch = AppModel.storedInterfaceLanguage()
+    /// 当前界面语言对应的 App 本地化（"zh-Hans"、"en"、"ja"）。跟随系统时取系统语言列表里 App 支持的第一个。
+    static func activeLocalization(for language: InterfaceLanguage) -> String {
+        if language != .system { return language.rawValue }
+        let global = UserDefaults.standard.persistentDomain(forName: UserDefaults.globalDomain)?["AppleLanguages"] as? [String]
+        let available = Bundle.main.localizations.filter { $0 != "Base" }
+        return Bundle.preferredLocalizations(from: available, forPreferences: global ?? Locale.preferredLanguages).first
+            ?? "zh-Hans"
+    }
+
+    /// 启动时（创建 AppModel 之前）调用：让文字查找跟随所选界面语言，之后切换语言不必重启。
+    @MainActor
+    static func applyInterfaceLanguageAtLaunch() {
+        InterfaceLanguageBundle.install()
+        InterfaceLanguageState.shared.apply(activeLocalization(for: storedInterfaceLanguage()))
+    }
 
     var interfaceLanguage: InterfaceLanguage {
         get { access(keyPath: \.interfaceLanguage); return Self.storedInterfaceLanguage() }
@@ -675,6 +688,7 @@ final class AppModel {
                 } else {
                     UserDefaults.standard.set([newValue.rawValue], forKey: "AppleLanguages")
                 }
+                InterfaceLanguageState.shared.apply(Self.activeLocalization(for: newValue))
             }
         }
     }

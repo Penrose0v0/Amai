@@ -152,6 +152,7 @@ final class ChatWindowController {
     ) -> NSView {
         let host = NSHostingView(
             rootView: ChatView(viewModel: viewModel, onOpenSource: onOpenSource, onOpenSettings: onOpenSettings)
+                .followsInterfaceLanguage()
         )
         let content: NSView
         if #available(macOS 26.0, *) {

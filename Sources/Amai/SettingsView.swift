@@ -72,11 +72,8 @@ private struct GeneralSettingsView: View {
                 )) {
                     ForEach(AppModel.InterfaceLanguage.allCases, id: \.self) { Text(verbatim: $0.title).tag($0) }
                 }
-                if model.interfaceLanguage != model.interfaceLanguageAtLaunch {
-                    LabeledContent("重新启动后生效") {
-                        Button("立即重启") { model.relaunch() }
-                    }
-                }
+                // 预览版与正式版共用偏好域，预览中不改界面语言。
+                .disabled(model.isMemoryPreview)
                 Picker("记忆语言", selection: Binding(
                     get: { model.memoryLanguage },
                     set: { languageMessage = model.setMemoryLanguage($0) }
@@ -89,7 +86,7 @@ private struct GeneralSettingsView: View {
             } header: {
                 Text("语言")
             } footer: {
-                Text("界面语言切换后需要重新启动。记忆语言用于之后新写入或修改的活动记录与记忆，已保存的内容保持原样。")
+                Text("记忆语言用于之后新写入或修改的活动记录与记忆，已保存的内容保持原样。")
             }
 
             Section("记忆存储") {

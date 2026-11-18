@@ -6,7 +6,7 @@ import SwiftUI
 /// 首次启动引导（参考 Eira 的引导）：语言 → 会记录什么 → 屏幕录制权限 → 屏幕理解模型 → 记忆整理模型 → 助手 → 开始记录。
 ///
 /// - 引导完成前不采集任何内容；最后一页点"开始记录"才开始。
-/// - 界面语言在引导内立即切换（通过环境中的 locale），其他窗口在重启后跟随。
+/// - 在第一页选择界面语言后立即生效，引导与其他窗口一起换成新语言。
 /// - 新授予的屏幕录制权限与新的界面语言都要重启 Amai 才完全生效，需要时在完成时自动重启。
 @MainActor
 @Observable
@@ -37,11 +37,6 @@ struct OnboardingView: View {
 
     private var state: OnboardingState { model.onboarding }
 
-    /// 让引导中的文字随所选界面语言立即切换。
-    private var locale: Locale {
-        model.interfaceLanguage == .system ? .current : Locale(identifier: model.interfaceLanguage.rawValue)
-    }
-
     var body: some View {
         VStack(spacing: 0) {
             progress
@@ -68,7 +63,6 @@ struct OnboardingView: View {
                 .padding(.bottom, 20)
         }
         .frame(width: 580, height: 520)
-        .environment(\.locale, locale)
         // 菜单栏应用默认不在前台，引导窗口打开时要主动激活。
         .onAppear { NSApp.activate(ignoringOtherApps: true) }
         .task {

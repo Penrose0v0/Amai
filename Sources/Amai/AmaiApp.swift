@@ -12,11 +12,18 @@ import SwiftUI
 /// 正常运行时只显示一行状态；出现异常时才列出具体问题和建议操作。
 @main
 struct AmaiApp: App {
-    @State private var model = AppModel()
+    @State private var model: AppModel
+
+    init() {
+        // 必须在创建 AppModel 之前：它在初始化时就会取出一些界面文字。
+        AppModel.applyInterfaceLanguageAtLaunch()
+        _model = State(initialValue: AppModel())
+    }
 
     var body: some Scene {
         MenuBarExtra {
             MenuContent(model: model)
+                .followsInterfaceLanguage()
         } label: {
             MenuBarIcon(kind: Self.icon(for: model), highlighted: model.updates.availableVersion != nil)
                 .modifier(WindowRequestListener(model: model))
@@ -27,6 +34,7 @@ struct AmaiApp: App {
                 ActivityTimelineView(model: model, day: day)
             }
             .background(SettingsRequestListener(model: model))
+            .followsInterfaceLanguage()
         }
         .defaultSize(width: 1100, height: 720)
         // 隔离预览模式（--memory-preview）启动后直接打开主窗口。
@@ -35,6 +43,7 @@ struct AmaiApp: App {
         // 首次启动的引导；完成前不开始记录。
         Window("欢迎使用 Amai", id: "onboarding") {
             OnboardingView(model: model)
+                .followsInterfaceLanguage()
         }
         .windowResizability(.contentSize)
         .restorationBehavior(.disabled)
@@ -43,13 +52,16 @@ struct AmaiApp: App {
         Settings {
             // 预览模式只显示屏幕理解（只读磁盘上的安装状态，下载与改选被禁用）：
             // 记忆整理会读写钥匙串中的 API Key。
-            if model.isMemoryPreview {
-                Form { LocalModelSection(model: model) }
-                    .formStyle(.grouped)
-                    .frame(width: 620, height: 420)
-            } else {
-                SettingsView(model: model)
+            Group {
+                if model.isMemoryPreview {
+                    Form { LocalModelSection(model: model) }
+                        .formStyle(.grouped)
+                        .frame(width: 620, height: 420)
+                } else {
+                    SettingsView(model: model)
+                }
             }
+            .followsInterfaceLanguage()
         }
     }
 

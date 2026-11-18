@@ -6773,6 +6773,7 @@
       }
     },
     "界面语言切换后需要重新启动。记忆语言用于之后新写入或修改的活动记录与记忆，已保存的内容保持原样。": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -7783,7 +7784,6 @@
       }
     },
     "记忆语言用于之后新写入或修改的活动记录与记忆，已保存的内容保持原样。": {
-      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
