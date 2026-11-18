@@ -90,7 +90,7 @@ cat <输出目录>/assistant.json
 参考 Eira：`UpdateController`（App）与 `AppUpdate`（AmaiCore，纯逻辑与测试）。
 
 - 启动 15 秒后检查一次 `https://api.github.com/repos/Penrose0v0/Amai/releases/latest`，之后每 6 小时一次；只读取公开的版本号，不发送用户数据，失败时静默跳过。草稿与预发布不算新版本。隔离预览模式不联网检查。
-- 有新版本：菜单栏图标换成蓝色（非模板的调色板符号），菜单最上方出现「更新到 vX」。
+- 有新版本：菜单栏图标换成蓝色（非模板图片：Amai 符号着色为蓝色，警告符号用调色板符号），菜单最上方出现「更新到 vX」。
 - Homebrew 安装的副本（在「应用程序」文件夹，且 Caskroom 中有 amai）：确认后像退出一样收尾（视频分段正常结束），由独立的 `/bin/sh` 运行 `brew upgrade --cask amai`，输出写入日志文件，结束后无论成败都重新打开 App。不能在 Amai 进程内等待：cask 的 `uninstall quit` 会在升级时退出 Amai。
 - 重新打开后读取升级记录（`$TMPDIR/amai-update/`）：退出码为 0 且版本确实变新才算成功；否则菜单中显示「更新到 vX 失败」与 brew 输出的最后几行，并提供「打开下载页面」。「更新到 vX」按钮同时就是重试。
 - 其他副本（开发构建 `.build/Amai.app`、手动下载）不能原地升级，点击后打开下载页面。

@@ -4,20 +4,22 @@
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>zh-Hans</string>
+	<key>CFBundleDisplayName</key>
+	<string>Amai</string>
+	<key>CFBundleExecutable</key>
+	<string>Amai</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.amai.app</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
 	<key>CFBundleLocalizations</key>
 	<array>
 		<string>zh-Hans</string>
 		<string>en</string>
 		<string>ja</string>
 	</array>
-	<key>CFBundleDisplayName</key>
-	<string>Amai</string>
-	<key>CFBundleExecutable</key>
-	<string>Amai</string>
-	<key>CFBundleIdentifier</key>
-	<string>com.amai.app</string>
-	<key>CFBundleInfoDictionaryVersion</key>
-	<string>6.0</string>
 	<key>CFBundleName</key>
 	<string>Amai</string>
 	<key>CFBundlePackageType</key>

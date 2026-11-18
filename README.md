@@ -1,6 +1,11 @@
 <div align="center">
 
-# Amai
+<h1>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/amai-wordmark-dark.svg">
+    <img src="docs/assets/amai-wordmark.svg" alt="Amai" width="240">
+  </picture>
+</h1>
 
 **Ambient Personal AI for macOS**
 

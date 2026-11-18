@@ -38,3 +38,6 @@ eval/extraction/
 
 # 发布产物（scripts/release.sh）
 dist/
+
+# 标志设计源文件与探索稿；应用和 README 用到的导出物在 Resources/ 与 docs/assets/
+design/

@@ -57,6 +57,8 @@ cp Resources/Info.plist "${APP_DIR}/Contents/Info.plist"
 if [ -f Resources/AppIcon.icns ]; then
     cp Resources/AppIcon.icns "${APP_DIR}/Contents/Resources/AppIcon.icns"
 fi
+# 菜单栏模板图标（记录中 / 已暂停 / 已停止），由 NSImage(named:) 从主 bundle 读取。
+cp Resources/MenuBar/*.png "${APP_DIR}/Contents/Resources/"
 
 # 界面文字：把 String Catalog 编译成各语言的 .lproj，放在 App 主 bundle 中（SwiftUI 默认从主 bundle 查找）。
 # Info.plist 中的权限说明另有 InfoPlist.strings。

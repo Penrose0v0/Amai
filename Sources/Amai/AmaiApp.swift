@@ -18,7 +18,7 @@ struct AmaiApp: App {
         MenuBarExtra {
             MenuContent(model: model)
         } label: {
-            MenuBarIcon(symbol: Self.symbol(for: model), highlighted: model.updates.availableVersion != nil)
+            MenuBarIcon(kind: Self.icon(for: model), highlighted: model.updates.availableVersion != nil)
                 .modifier(WindowRequestListener(model: model))
         }
 
@@ -53,13 +53,13 @@ struct AmaiApp: App {
         }
     }
 
-    private static func symbol(for model: AppModel) -> String {
-        if !model.issues.isEmpty { return "exclamationmark.triangle" }
+    private static func icon(for model: AppModel) -> MenuBarIcon.Kind {
+        if !model.issues.isEmpty { return .warning }
         switch model.status?.state {
-        case .running: return "record.circle"
-        case .paused: return "pause.circle"
-        case .permissionMissing, .error: return "exclamationmark.triangle"
-        case .stopped, nil: return "circle.dotted"
+        case .running: return .recording
+        case .paused: return .paused
+        case .permissionMissing, .error: return .warning
+        case .stopped, nil: return .stopped
         }
     }
 }
@@ -84,21 +84,67 @@ private struct WindowRequestListener: ViewModifier {
     }
 }
 
-/// 菜单栏图标。有新版本时换成固定的蓝色：菜单栏中的模板图片会忽略着色，
-/// 所以改用非模板的调色板符号（与 Eira 相同的做法）。
+/// 菜单栏图标：Amai 的符号（小写 a，圆环中的圆点是一只眼睛），按采集状态变化——
+/// 记录中是实心圆点，暂停时圆点变成一道短横，停止时没有圆点且整体变淡。
+/// 需要用户处理的问题沿用系统的警告符号，不属于品牌图形。
+///
+/// 有新版本时换成固定的蓝色：菜单栏中的模板图片会忽略着色，所以改用非模板的图片（与 Eira 相同的做法）。
 private struct MenuBarIcon: View {
-    let symbol: String
-    let highlighted: Bool
+    enum Kind {
+        case recording, paused, stopped, warning
 
-    var body: some View {
-        if highlighted, let image = Self.blue(symbol) {
-            Image(nsImage: image)
-        } else {
-            Image(systemName: symbol)
+        /// 主 bundle 中的模板图片（Resources/MenuBar，由 scripts/bundle.sh 复制）；警告没有自绘图形。
+        var resource: String? {
+            switch self {
+            case .recording: "MenuBarRecording"
+            case .paused: "MenuBarPaused"
+            case .stopped: "MenuBarStopped"
+            case .warning: nil
+            }
+        }
+
+        /// 警告使用的符号；也是不经 bundle.sh 直接运行可执行文件、找不到图片时的替代。
+        var symbol: String {
+            switch self {
+            case .recording: "record.circle"
+            case .paused: "pause.circle"
+            case .stopped: "circle.dotted"
+            case .warning: "exclamationmark.triangle"
+            }
         }
     }
 
-    private static func blue(_ symbol: String) -> NSImage? {
+    let kind: Kind
+    let highlighted: Bool
+
+    var body: some View {
+        if let image = Self.glyph(kind, blue: highlighted) {
+            Image(nsImage: image)
+        } else if highlighted, let image = Self.blueSymbol(kind.symbol) {
+            Image(nsImage: image)
+        } else {
+            Image(systemName: kind.symbol)
+        }
+    }
+
+    private static func glyph(_ kind: Kind, blue: Bool) -> NSImage? {
+        guard let name = kind.resource, let template = NSImage(named: name) else { return nil }
+        template.isTemplate = true
+        template.accessibilityDescription = "Amai"
+        guard blue else { return template }
+        // 保留图形的透明度，只把颜色换成蓝色。
+        let tinted = NSImage(size: template.size, flipped: false) { rect in
+            template.draw(in: rect)
+            NSColor.systemBlue.set()
+            rect.fill(using: .sourceAtop)
+            return true
+        }
+        tinted.isTemplate = false
+        tinted.accessibilityDescription = "Amai"
+        return tinted
+    }
+
+    private static func blueSymbol(_ symbol: String) -> NSImage? {
         guard let image = NSImage(systemSymbolName: symbol, accessibilityDescription: "Amai")?
             .withSymbolConfiguration(NSImage.SymbolConfiguration(paletteColors: [.systemBlue]))
         else { return nil }
