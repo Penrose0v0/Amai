@@ -84,7 +84,7 @@ struct MemoryAPITests {
         func cleanup() { try? FileManager.default.removeItem(at: root) }
     }
 
-    @Test("search expands long-term hits into entries with sources and kind, and only covers allowed categories")
+    @Test("search expands long-term hits into entries with source dates, and only covers allowed categories")
     func search() async throws {
         let f = try Fixture()
         defer { f.cleanup() }
@@ -94,7 +94,6 @@ struct MemoryAPITests {
         #expect(decision.content == "同步服务改为自建")
         #expect(decision.section == "决策")
         #expect(decision.sources == ["2026-10-18"] && decision.date == "2026-10-18")
-        #expect(decision.kind == .inferred)
         #expect(results.contains { $0.category == .daily && $0.date == "2026-10-19" })
         // health.md 也含"同步"，但没有授权。
         #expect(!results.contains { $0.category == .health })
@@ -113,7 +112,6 @@ struct MemoryAPITests {
         #expect(all.topics == ["计划", "决策"])
         #expect(all.sections.map(\.name) == ["计划", "决策"])
         #expect(all.sections[0].entries[0].sources == ["2026-10-10", "2026-10-12"])
-        #expect(all.sections[0].entries[0].kind == .stated)
         #expect(all.userNotes.contains("MVP 先只做 macOS。"))
         #expect(!all.userNotes.contains("amai:memory"))
 

@@ -89,7 +89,8 @@ struct AmaiMCPServerTests {
         #expect(search.isError == false)
         let results = try JSONDecoder().decode([String: [MemorySearchResult]].self, from: Data(text(search.content).utf8))["results"] ?? []
         #expect(results.map(\.content) == ["离线同步队列已完成，等待联调"])
-        #expect(results.first?.kind == .observed && results.first?.sources == ["2026-10-19"])
+        #expect(results.first?.sources == ["2026-10-19"])
+        #expect(!text(search.content).contains("kind"))
 
         let work = try await client.callTool(name: "get_memory", arguments: ["category": "work", "topic": "Lumen"])
         #expect(work.isError == false && text(work.content).contains("离线同步队列已完成"))

@@ -51,7 +51,7 @@ public actor AmaiMCPServer {
             title: "Amai Memory",
             instructions: """
             Read-only access to the user's Amai memory: long-term memory categories, a searchable history and daily activity timelines.
-            Timeline entries and most memory entries are inferred by a model from screen activity; `kind` tells whether an entry was observed, stated by the user, inferred or confirmed. Treat inferred entries as uncertain.
+            Timeline entries and most memory entries are inferred by a model from screen activity and may be inaccurate. Each memory entry lists its source dates; use get_timeline on those dates to see the underlying activity.
             Only the categories the user enabled are available.
             """,
             capabilities: .init(tools: .init(listChanged: false))
@@ -72,7 +72,7 @@ public actor AmaiMCPServer {
         Tool(
             name: "search_memory",
             title: "Search memory",
-            description: "Full-text search across the user's enabled Amai memory (long-term categories and, if enabled, daily records). Returns matching entries with category, section, content, date, source dates and evidence kind.",
+            description: "Full-text search across the user's enabled Amai memory (long-term categories and, if enabled, daily records). Returns matching entries with category, section, content, date and source dates.",
             inputSchema: .object([
                 "type": "object",
                 "properties": .object([
@@ -99,7 +99,7 @@ public actor AmaiMCPServer {
         Tool(
             name: "get_memory",
             title: "Get long-term memory",
-            description: "Read one long-term memory category: entries grouped by section, with source dates and evidence kind, plus the user's own notes. Pass topic to read a single section (for example a project name or Plans); the response lists available topics.",
+            description: "Read one long-term memory category: entries grouped by section, with source dates, plus the user's own notes. Pass topic to read a single section (for example a project name or Plans); the response lists available topics.",
             inputSchema: .object([
                 "type": "object",
                 "properties": .object([

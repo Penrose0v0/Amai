@@ -86,9 +86,9 @@ enum Prompts {
                         "\n- rename_project：プロジェクト名の変更。project に ID、text に新しい名前（本当に名前が変わったときだけ）。")
             : ""
         let subject = policy.requiresSelf
-            ? lang.pick("\n本分区的 add / update 必须填 subject：self（用户本人的数据）、third_party（他人的）或 unclear（无法确定）。只有 self 会被写入。",
-                        "\nIn this category, add / update must set subject: self (the user's own data), third_party (someone else's) or unclear (cannot tell). Only self is written.",
-                        "\nこの分野の add / update では subject を必ず指定する：self（ユーザー本人のデータ）、third_party（他人のもの）、unclear（判断できない）。書き込まれるのは self だけ。")
+            ? lang.pick("\n本分区的 add / update 必须填 subject：self（用户本人的数据）、third_party（他人的）或 unclear（无法确定）。只有 self 会被写入。\n本分区的条目只能引用用户本人写下的内容（S、U），并且要忠于原话；引用了其他依据或加入原话里没有的内容，条目会被丢弃。",
+                        "\nIn this category, add / update must set subject: self (the user's own data), third_party (someone else's) or unclear (cannot tell). Only self is written.\nEntries in this category may cite only what the user wrote themselves (S, U) and must stay faithful to their words; an entry that cites other evidence or adds anything not in their words is discarded.",
+                        "\nこの分野の add / update では subject を必ず指定する：self（ユーザー本人のデータ）、third_party（他人のもの）、unclear（判断できない）。書き込まれるのは self だけ。\nこの分野の項目が引用できるのはユーザー本人が書いた内容（S、U）だけで、本人の言葉に忠実でなければならない。ほかの根拠を引用したり、元の言葉にない内容を加えたりした項目は破棄される。")
             : ""
         let format = #"{"operations":[{"op":"add","item":"","items":[],"section":"","project":"","text":"…","evidence":["S1"],"subject":"","amount":"","currency":"","date":"","date_type":"","reason":""}]}"#
         return lang.pick(
@@ -106,10 +106,10 @@ enum Prompts {
             - merge：合并重复的条目，items 填编号列表，text 为合并后的内容，不能加入新信息。\(extra)
 
             依据规则（系统会核对，违反的操作会被丢弃）：
-            - 每个 add / update / retire 都必须引用依据编号。系统根据被引用依据的来源决定这条记忆是用户陈述、观察还是推断，你无法改变它。
-            - 引用用户写下的内容（S、U）时，条目尽量沿用原话，不要加"用户表示""用户自述"之类的前缀或改写；加入原话里没有的推测会让条目被记为推断。
+            - 每个 add / update / retire 都必须引用依据编号，系统据此记录来源日期。
+            - 引用用户写下的内容（S、U）时，条目尽量沿用原话，不要加"用户表示""用户自述"之类的前缀或改写。
             - 采集元数据（F）只能支持"某时段使用了某应用"这类事实。
-            - 已有条目标注了依据类型。不要用推断去修改或撤下 stated、observed 的条目；如果有同样可靠的新依据与之冲突，用 update 并写清原因。
+            - 不要仅凭屏幕推断去修改或撤下已有条目；如果有可靠的新依据与之冲突，用 update 并写清原因。
             - 新信息与已有条目重复时不要新增，必要时 update 已有条目。
             - 一天之内的琐事、一次性事件不要记录。
             - 用户手写在分区文件里的内容（U）已经在文件中，不要重复新增。
@@ -133,10 +133,10 @@ enum Prompts {
             - merge: merge duplicate entries; items lists the entry numbers, text is the merged content and must not add new information.\(extra)
 
             Evidence rules (the system checks them; violating operations are discarded):
-            - Every add / update / retire must cite evidence IDs. The system decides from the cited sources whether the memory is a user statement, an observation or an inference; you cannot change that.
-            - When citing what the user wrote (S, U), keep close to their own words; do not add prefixes like "the user said" or rephrase. Adding speculation that is not in their words makes the entry count as an inference.
+            - Every add / update / retire must cite evidence IDs; the system records the source dates from them.
+            - When citing what the user wrote (S, U), keep close to their own words; do not add prefixes like "the user said" or rephrase.
             - Capture metadata (F) can only support facts such as "used a certain app during a certain period".
-            - Existing entries show their basis. Never use an inference to change or retire a stated or observed entry; if equally reliable new evidence conflicts with it, use update and explain why.
+            - Do not change or retire an existing entry on the strength of a screen inference alone; if reliable new evidence conflicts with it, use update and explain why.
             - Do not add information that duplicates an existing entry; update the existing entry if needed.
             - Do not record trivial or one-off events within a single day.
             - Content the user wrote in the category file (U) is already there; do not add it again.
@@ -160,10 +160,10 @@ enum Prompts {
             - merge：重複した項目をまとめる。items に番号の一覧、text にまとめた内容。新しい情報を加えてはいけない。\(extra)
 
             根拠のルール（システムが確認し、違反した操作は破棄される）：
-            - add / update / retire には必ず根拠番号を付ける。この記憶がユーザーの発言、観察、推測のどれにあたるかは、引用された根拠の出どころからシステムが決める。あなたには変えられない。
-            - ユーザーが書いた内容（S、U）を引用するときは、できるだけ本人の言葉のままにし、「ユーザーによると」のような前置きや言い換えをしない。元の言葉にない推測を加えると推測として扱われる。
+            - add / update / retire には必ず根拠番号を付ける。システムはそこから出典の日付を記録する。
+            - ユーザーが書いた内容（S、U）を引用するときは、できるだけ本人の言葉のままにし、「ユーザーによると」のような前置きや言い換えをしない。
             - 記録メタデータ（F）が裏付けられるのは「ある時間帯にあるアプリを使った」という事実だけ。
-            - 既存の項目には根拠の種類が付いている。stated や observed の項目を推測で変更・取り下げしない。同じくらい確かな新しい根拠と矛盾する場合は update を使い、理由を書く。
+            - 画面からの推測だけで既存の項目を変更・取り下げしない。確かな新しい根拠と矛盾する場合は update を使い、理由を書く。
             - 既存の項目と重複する情報は追加しない。必要なら既存の項目を update する。
             - 1 日の中の細かな出来事や一度きりの出来事は記録しない。
             - ユーザーが分野のファイルに手書きした内容（U）はすでにファイルにあるので、重ねて追加しない。
@@ -200,7 +200,7 @@ enum Prompts {
             let attrs = item.attributes.isEmpty ? "" : "; " + item.attributes.sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value)" }.joined(separator: " ")
             let sources = item.sources.joined(separator: ",")
             parts.append("#\(i + 1) \(section)\(item.text)" + lang.pick(
-                "（\(item.kind.rawValue)；来源 \(sources)\(attrs)）", " (\(item.kind.rawValue); sources \(sources)\(attrs))", "（\(item.kind.rawValue)；出典 \(sources)\(attrs)）"
+                "（来源 \(sources)\(attrs)）", " (sources \(sources)\(attrs))", "（出典 \(sources)\(attrs)）"
             ))
         }
         if !history.isEmpty {

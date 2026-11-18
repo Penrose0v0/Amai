@@ -57,7 +57,7 @@ public enum MemoryAPIError: Error, Equatable, CustomStringConvertible {
 
 // MARK: - Results
 
-/// 一条检索结果。`sources` 为来源日期（对应 daily 文件）；`kind` 为依据类型（观察 / 陈述 / 推断 / 确认）。
+/// 一条检索结果。`sources` 为来源日期（对应 daily 文件）。
 public struct MemorySearchResult: Codable, Sendable, Equatable {
     public let category: MemoryCategory
     public let file: String
@@ -66,13 +66,11 @@ public struct MemorySearchResult: Codable, Sendable, Equatable {
     /// 内容对应的日期（YYYY-MM-DD）：daily 为当天，长期记忆为最近的来源日期；未知时为 nil。
     public let date: String?
     public let sources: [String]
-    public let kind: MemoryEntryKind?
 }
 
 public struct MemoryEntryView: Codable, Sendable, Equatable {
     public let text: String
     public let sources: [String]
-    public let kind: MemoryEntryKind
     /// 结构化字段（金额、币种、日期等），没有时为空。
     public let attributes: [String: String]
 }
@@ -156,7 +154,7 @@ public struct MemoryAPI: Sendable {
                     for item in items where !results.contains(where: { $0.file == hit.file && $0.content == item.text }) {
                         results.append(MemorySearchResult(
                             category: category, file: hit.file, section: item.section ?? hit.heading,
-                            content: item.text, date: item.sources.max(), sources: item.sources, kind: item.kind
+                            content: item.text, date: item.sources.max(), sources: item.sources
                         ))
                     }
                     continue
@@ -164,7 +162,7 @@ public struct MemoryAPI: Sendable {
             }
             results.append(MemorySearchResult(
                 category: category, file: hit.file, section: hit.heading, content: hit.excerpt,
-                date: day, sources: day.map { [$0] } ?? [], kind: nil
+                date: day, sources: day.map { [$0] } ?? []
             ))
         }
         return Array(results.prefix(limit))
@@ -184,7 +182,7 @@ public struct MemoryAPI: Sendable {
             let name = item.section ?? ""
             if grouped[name] == nil { order.append(name) }
             grouped[name, default: []].append(MemoryEntryView(
-                text: item.text, sources: item.sources, kind: item.kind, attributes: item.attributes
+                text: item.text, sources: item.sources, attributes: item.attributes
             ))
         }
         func matches(_ name: String) -> Bool {

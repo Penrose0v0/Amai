@@ -33,7 +33,7 @@ struct EvaluationTests {
         #expect(Set(scenarios.map(\.name)).count == scenarios.count)
     }
 
-    @Test("scoring counts routing, facts, kinds and forbidden content")
+    @Test("scoring counts routing, facts and forbidden content")
     func goodRun() async throws {
         let scenario = try #require(try MemoryEvaluation.load(Self.scenariosURL).first { $0.name == "health-self-versus-third-party" })
         let model = OracleModel()
@@ -46,7 +46,7 @@ struct EvaluationTests {
         let r = await MemoryEvaluation.run(scenario, model: model)
         #expect(r.errors.isEmpty)
         #expect(r.routeHit == 1 && r.routeExpected == 1 && r.routeExtra == 0)
-        #expect(r.factsFound == 1 && r.kindCorrect == 1)
+        #expect(r.factsFound == 1)
         #expect(r.forbiddenHits == 0 && r.forbiddenChecked == 4)
         #expect(r.rejectedOperations == 2)
         #expect(r.operationsProposed == 3 && r.malformedOutputs == 0 && r.modelCalls == 2)

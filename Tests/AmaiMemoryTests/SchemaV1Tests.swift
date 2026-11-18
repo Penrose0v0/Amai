@@ -3,94 +3,56 @@ import Foundation
 import Testing
 @testable import AmaiMemory
 
-@Suite("MemoryItem kind")
-struct MemoryItemKindTests {
-    @Test("legacy lines without kind parse as unknown and render unchanged")
-    func legacy() {
+@Suite("MemoryItem format")
+struct MemoryItemFormatTests {
+    @Test("lines with and without sources round-trip unchanged")
+    func roundTrip() {
         let body = "- 开发 Amai <!-- src:2026-10-19,2026-10-20 -->\n- 没有来源的条目"
         let items = MemoryItems.parse(body)
-        #expect(items.map(\.kind) == [.unknown, .unknown])
+        #expect(items[0].sources == ["2026-10-19", "2026-10-20"])
         #expect(items[1].sources.isEmpty)
         #expect(MemoryItems.render(items) == body)
     }
 
-    @Test("every kind round-trips through render and parse, with and without sources")
-    func roundTrip() {
-        let items = MemoryEntryKind.allCases.enumerated().map { i, kind in
-            MemoryItem(text: "条目 \(i)", sources: i.isMultiple(of: 2) ? ["2026-10-19"] : [], section: "小节", kind: kind)
-        }
+    @Test("legacy kind tags are read without losing the entry, sources or other fields, and are not written back")
+    func legacyKind() {
+        let items = MemoryItems.parse("""
+        ### 小节
+        - 条目 A <!-- src:2026-10-19 kind:inferred -->
+        - 条目 B <!-- kind:stated -->
+        - 条目 C <!-- src:2026-10-20 kind:rumour amount:300 cur:JPY -->
+        """)
+        #expect(items == [
+            MemoryItem(text: "条目 A", sources: ["2026-10-19"], section: "小节"),
+            MemoryItem(text: "条目 B", sources: [], section: "小节"),
+            MemoryItem(text: "条目 C", sources: ["2026-10-20"], section: "小节", attributes: ["amount": "300", "cur": "JPY"]),
+        ])
         let body = MemoryItems.render(items)
-        #expect(body.contains("- 条目 1 <!-- kind:stated -->"))
-        #expect(body.contains("- 条目 4 <!-- src:2026-10-19 -->"))
-        #expect(MemoryItems.parse(body) == items)
+        #expect(!body.contains("kind:"))
+        #expect(body.contains("- 条目 B\n"))
+        #expect(body.contains("- 条目 C <!-- src:2026-10-20 amount:300 cur:JPY -->"))
+        // 早期 JSON 中的 kind 字段同样忽略。
+        let decoded = try? JSONDecoder().decode(MemoryItem.self, from: Data(#"{"text":"x","sources":["2026-10-19"],"kind":"stated"}"#.utf8))
+        #expect(decoded == MemoryItem(text: "x", sources: ["2026-10-19"]))
     }
 
-    @Test("an unrecognised kind value keeps the entry as unknown instead of dropping it")
-    func unrecognised() {
-        let items = MemoryItems.parse("- 条目 <!-- src:2026-10-19 kind:rumour -->")
-        #expect(items == [MemoryItem(text: "条目", sources: ["2026-10-19"], kind: .unknown)])
-        let decoded = try? JSONDecoder().decode(MemoryItem.self, from: Data(#"{"text":"x","kind":"rumour"}"#.utf8))
-        #expect(decoded?.kind == .unknown)
-    }
-
-    @Test("JSON serialization keeps kind")
+    @Test("JSON serialization round-trips")
     func codable() throws {
-        let item = MemoryItem(text: "x", sources: ["2026-10-19"], section: "s", kind: .observed)
+        let item = MemoryItem(text: "x", sources: ["2026-10-19"], section: "s", attributes: ["cur": "JPY"])
         let data = try JSONEncoder().encode(item)
         #expect(try JSONDecoder().decode(MemoryItem.self, from: data) == item)
     }
 
-    @Test("merging only combines identical text with the same kind; sources are unioned")
+    @Test("merging combines entries with the same normalized text; sources are unioned")
     func merge() {
         let items = MemoryItems.sanitize([
-            MemoryItem(text: "完成 M2", sources: ["2026-10-19"], kind: .inferred),
-            MemoryItem(text: "完成 M2。", sources: ["2026-10-20"], kind: .inferred),
-            MemoryItem(text: "完成 M2", sources: ["2026-10-21"], kind: .stated),
+            MemoryItem(text: "完成 M2", sources: ["2026-10-19"]),
+            MemoryItem(text: "完成 M2。", sources: ["2026-10-21"]),
+            MemoryItem(text: "完成 M3", sources: ["2026-10-20"]),
         ], fallbackSource: nil, limit: 10)
         #expect(items == [
-            MemoryItem(text: "完成 M2", sources: ["2026-10-19", "2026-10-20"], kind: .inferred),
-            MemoryItem(text: "完成 M2", sources: ["2026-10-21"], kind: .stated),
-        ])
-    }
-
-    @Test("reconcile keeps the previous kind and blocks unapproved upgrades")
-    func illegalUpgrade() {
-        let previous = [
-            MemoryItem(text: "喜欢 Swift", sources: ["2026-10-18"], kind: .inferred),
-            MemoryItem(text: "住在东京", sources: ["2026-10-17"], kind: .unknown),
-            MemoryItem(text: "博士二年级", sources: ["2026-10-16"], kind: .stated),
-        ]
-        let proposed = [
-            MemoryItem(text: "喜欢 Swift。", sources: ["2026-10-19"], kind: .confirmed),
-            MemoryItem(text: "住在东京", sources: [], kind: .stated),
-            MemoryItem(text: "博士二年级", sources: ["2026-10-16"], kind: .inferred),
-            MemoryItem(text: "生日是 3 月", sources: ["2026-10-19"], kind: .stated),
-            MemoryItem(text: "常用 Xcode", sources: ["2026-10-19"], kind: .observed),
-        ]
-        let result = MemoryItems.reconcileKinds(proposed, previous: previous, defaultKind: .inferred)
-        #expect(result.map(\.kind) == [.inferred, .unknown, .stated, .inferred, .observed])
-        #expect(result[0].sources == ["2026-10-18", "2026-10-19"])
-        #expect(result[1].sources == ["2026-10-17"])
-
-        // 有明确依据时（由调用方判断）才允许升级。
-        let approved = MemoryItems.reconcileKinds(
-            [proposed[0]], previous: previous, defaultKind: .inferred, allowUpgrade: { _ in true }
-        )
-        #expect(approved.map(\.kind) == [.confirmed])
-    }
-
-    @Test("same text under different previous kinds stays as separate entries")
-    func splitKinds() {
-        let previous = [
-            MemoryItem(text: "在写论文", sources: ["2026-10-18"], kind: .stated),
-            MemoryItem(text: "在写论文", sources: ["2026-10-19"], kind: .inferred),
-        ]
-        let result = MemoryItems.reconcileKinds(
-            [MemoryItem(text: "在写论文", sources: ["2026-10-20"])], previous: previous, defaultKind: .inferred
-        )
-        #expect(result == [
-            MemoryItem(text: "在写论文", sources: ["2026-10-18", "2026-10-20"], kind: .stated),
-            MemoryItem(text: "在写论文", sources: ["2026-10-19", "2026-10-20"], kind: .inferred),
+            MemoryItem(text: "完成 M2", sources: ["2026-10-19", "2026-10-21"]),
+            MemoryItem(text: "完成 M3", sources: ["2026-10-20"]),
         ])
     }
 }
@@ -169,7 +131,6 @@ struct SchemaMigrationTests {
         #expect(general.contains("### 目标概况\n- 完成博士论文"))
         // 骨架标题不会被当作用户内容搬运。
         #expect(!general.contains("迁移自"))
-        #expect(try f.items("general.md").allSatisfy { $0.kind == .unknown })
 
         let work = try f.items("work.md")
         #expect(work.count == 46)
@@ -237,8 +198,10 @@ struct SchemaMigrationTests {
         let text = try f.read("work.md")
         #expect(text.hasPrefix("# 我的工作\n\n自己写的说明。\n"))
         let items = try f.items("work.md")
-        // 依据不同（observed vs unknown）的同文条目分开保留，旧条目没有被提升。
-        #expect(items.filter { $0.text.hasPrefix("进展 1") }.map(\.kind) == [.observed, .unknown])
+        // 已有文件与旧文件中的同文条目合并为一条，来源取并集；旧的 kind 字段不再写出。
+        let progress = items.filter { $0.text.hasPrefix("进展 1") }
+        #expect(progress.count == 1 && progress[0].sources.contains("2026-10-21"))
+        #expect(!text.contains("kind:"))
         #expect(f.exists(".archive/schema-v1/pre-migration"))
     }
 

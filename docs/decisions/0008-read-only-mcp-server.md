@@ -10,7 +10,7 @@
 ## 决策
 
 - **统一的 Memory API**（`AmaiMemory/MemoryAPI.swift`）：建立在 `MemoryLibrary`（Markdown 原文）与 `MemoryIndex`（派生全文索引）之上，不另建存储。
-  - `search(query, limit)`：在已授权分区中全文检索；长期记忆的命中展开为具体条目（小节、内容、来源日期、kind），daily 返回 section 摘录与日期。
+  - `search(query, limit)`：在已授权分区中全文检索；长期记忆的命中展开为具体条目（小节、内容、来源日期；kind 已由 ADR-0009 移除），daily 返回 section 摘录与日期。
   - `timeline(on: date)`：解析当天 daily 的时间线区块（起止时间、标题、摘要、置信度、低置信标记）与日终摘要。
   - `memory(category, topic?)`：按小节返回分区条目与用户手写部分；`topic` 接受三种语言的推荐小节名，也接受部分匹配（项目名）。
   - 所有调用先经过 `MemoryAccess`（可读分区集合）。返回值都是 `Codable` 结构。

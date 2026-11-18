@@ -41,7 +41,7 @@ Most AI assistants know only what you type into them. Amai builds that context f
 | 🌙 **Ambient** | No journaling, no prompts. Amai watches the screen and writes the timeline itself. |
 | 🔒 **Local first** | Screenshots are understood by a vision model running on your Mac. They never leave it. |
 | 📝 **Plain Markdown** | Memory lives in `~/.amai/memory` as files you can open, edit and back up with any tool. |
-| 🔍 **Traceable** | Every remembered item records where it came from: something you said, something observed, or something inferred. |
+| 🔍 **Traceable** | Every remembered item records the days it came from, so you can go back to what you were doing then. |
 | 🤖 **Agent ready** | A read-only MCP server lets Claude Desktop, Claude Code and other agents search your memory with your permission. |
 
 ## Features
@@ -68,7 +68,7 @@ Every ~15 minutes of screen activity becomes one or more timeline entries with a
 From each day's record, Amai updates five memory areas: **General**, **Work**, **Health**, **Finance** and **Goals**. Each is a single Markdown file.
 
 - Amai writes only inside its own marked block. Anything you write in the file is never changed.
-- Each item shows its basis (*you said*, *you confirmed*, *observed* or *inferred*) and the days it came from. Click a date to jump to that day's timeline.
+- Each item shows the days it came from. Click a date to jump to that day's timeline.
 - Replaced or retired items go to a change history, and a snapshot is saved before every rewrite.
 - Edits made in another editor show up in the app within seconds.
 
@@ -139,7 +139,7 @@ Amai ships a read-only MCP server, `amai-mcp`, inside the app. It is **off by de
 
 | Tool | What it returns |
 |---|---|
-| `search_memory` | Matching memory items with their area, date and basis |
+| `search_memory` | Matching memory items with their area, date and source dates |
 | `get_timeline` | One day's activities and daily summary (`today`, `yesterday` or a date) |
 | `get_memory` | One memory area, optionally a single section or project |
 

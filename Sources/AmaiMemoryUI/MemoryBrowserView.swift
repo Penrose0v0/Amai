@@ -1,5 +1,3 @@
-// 只按需导入：AmaiCore 的 `Observation` 类型会与 @Observable 宏依赖的 Observation 模块同名冲突。
-import enum AmaiCore.MemoryEntryKind
 import AmaiMemory
 import Observation
 import SwiftUI
@@ -7,7 +5,7 @@ import SwiftUI
 /// Amai 主窗口：日常回顾（时间线、每日总结）与长期记忆（五个分区）。
 ///
 /// - 长期记忆：渲染对应 Markdown。用户手写的内容原样渲染，系统区块按小节列出条目，
-///   每条带依据类型与来源日期（点开可看当天摘要、跳到当天时间线）；
+///   每条带来源日期（点开可看当天摘要、跳到当天时间线）；
 /// - 每日总结：当天 daily 文件中的日终摘要与手写笔记；
 /// - 时间线由 App 注入（需要抽取层的活动片段与关键帧），这个模块不依赖抽取层；
 /// - 搜索覆盖五个分区与每日记录；文件在外部被修改时自动刷新。
@@ -478,8 +476,6 @@ private struct MemoryItemRow: View {
                 .textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
             HStack(spacing: 6) {
-                Text(item.kind.label)
-                    .help(item.kind.explanation)
                 ForEach(item.sources, id: \.self) { day in
                     SourceButton(env: env, key: MemoryBrowserController.sourceKey(item, day), day: day)
                 }
@@ -658,28 +654,6 @@ extension MemoryCategory {
         case .finance: "banknote"
         case .goals: "target"
         case .daily: "calendar"
-        }
-    }
-}
-
-extension MemoryEntryKind {
-    var label: String {
-        switch self {
-        case .stated: String(localized: "你说过")
-        case .confirmed: String(localized: "你确认过")
-        case .observed: String(localized: "观察到")
-        case .inferred: String(localized: "推断")
-        case .unknown: String(localized: "依据未记录")
-        }
-    }
-
-    var explanation: String {
-        switch self {
-        case .stated: String(localized: "来自你自己写下的内容")
-        case .confirmed: String(localized: "你明确确认过这条信息")
-        case .observed: String(localized: "有直接的采集记录支持，例如使用了哪个应用")
-        case .inferred: String(localized: "Amai 根据屏幕活动推断，可能不准确")
-        case .unknown: String(localized: "较早整理的记忆，当时没有记录依据类型")
         }
     }
 }

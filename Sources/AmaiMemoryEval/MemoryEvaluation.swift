@@ -6,7 +6,8 @@ import Foundation
 ///
 /// 每个场景给出若干天的活动片段与用户笔记，以及期望结果：
 /// - `routes`：每天应路由到的分区（测召回与多余调用）；
-/// - `facts`：应写入某分区的事实（锚点全部出现在同一条有效条目中即视为命中），可附期望的依据类型；
+/// - `facts`：应写入某分区的事实（锚点全部出现在同一条有效条目中即视为命中）；
+///   旧场景文件中的期望依据类型 `kind` 已不再使用，解码时忽略；
 /// - `forbidden`：不应出现的内容（第三方数据、把关注写成诊断、屏幕上的商品价格等）；
 /// - `superseded`：跨天变化。旧信息不应再作为有效条目，新信息（如有）应当有效。
 public struct EvalScenario: Codable, Sendable {
@@ -31,7 +32,6 @@ public struct EvalScenario: Codable, Sendable {
         public var id: String
         public var category: MemoryCategory
         public var anchors: [String]
-        public var kind: MemoryEntryKind?
         /// 期望所在的小节（例如 Work 的项目名）；写进同一分区的其他小节也算错误归属。
         public var section: String?
     }
@@ -67,7 +67,6 @@ public struct WrittenItem: Codable, Sendable, Equatable {
     public var category: MemoryCategory
     public var section: String?
     public var text: String
-    public var kind: MemoryEntryKind
     public var sources: [String]
     /// 命中的期望事实 ID；未命中为 nil（需人工判断）。
     public var matchedFact: String?
@@ -92,8 +91,6 @@ public struct EvalResult: Codable, Sendable {
     public var factsFound = 0
     /// 只在错误的分区找到。
     public var factsMisattributed = 0
-    public var kindChecked = 0
-    public var kindCorrect = 0
     public var forbiddenChecked = 0
     public var forbiddenHits = 0
     public var supersededChecked = 0
@@ -124,7 +121,6 @@ public struct EvalSummary: Codable, Sendable {
     public var factRecall: Double { ratio(\.factsFound, \.factsExpected) }
     public var omissionRate: Double { 1 - factRecall }
     public var misattributionRate: Double { ratio(\.factsMisattributed, \.factsExpected) }
-    public var kindAccuracy: Double { ratio(\.kindCorrect, \.kindChecked) }
     public var falseMemoryRate: Double { ratio(\.forbiddenHits, \.forbiddenChecked) }
     public var supersededHandledRate: Double { ratio(\.supersededHandled, \.supersededChecked) }
     public var contradictions: Int { results.reduce(0) { $0 + $1.contradictions } }
@@ -154,7 +150,6 @@ public struct EvalSummary: Codable, Sendable {
             "| 类别路由召回率 | \(pct(routingRecall))（\(sum(\.routeHit))/\(sum(\.routeExpected))，多余路由 \(sum(\.routeExtra))，兜底 \(sum(\.routingFallbacks))） |",
             "| 事实召回率（1 − 遗漏率） | \(pct(factRecall))（\(sum(\.factsFound))/\(sum(\.factsExpected))） |",
             "| 错误归属 | \(sum(\.factsMisattributed)) 条（\(pct(misattributionRate))） |",
-            "| 依据类型正确率 | \(pct(kindAccuracy))（\(sum(\.kindCorrect))/\(sum(\.kindChecked))） |",
             "| 错误记忆（不应出现的内容） | \(sum(\.forbiddenHits))/\(sum(\.forbiddenChecked))（\(pct(falseMemoryRate))） |",
             "| 跨天变化 / 过时信息正确处理 | \(pct(supersededHandledRate))（\(sum(\.supersededHandled))/\(sum(\.supersededChecked))），新旧同时有效 \(contradictions) 处 |",
             "| 有效写入中命中期望事实的比例 | \(pct(precision))（共写入 \(sum(\.itemsWritten)) 条） |",
@@ -176,7 +171,7 @@ public struct EvalSummary: Codable, Sendable {
             for n in r.notes + r.errors { lines.append("  - \(n)") }
             for w in r.written {
                 let tag = w.matchedFact.map { "✓\($0)" } ?? "?"
-                lines.append("  - [\(tag)] \(w.category.rawValue)/\(w.section ?? "-")：\(w.text)（\(w.kind.rawValue)）")
+                lines.append("  - [\(tag)] \(w.category.rawValue)/\(w.section ?? "-")：\(w.text)")
             }
         }
         return lines.joined(separator: "\n")
@@ -288,7 +283,7 @@ public enum MemoryEvaluation {
         }
         result.written = active.filter { !initial.contains("\($0.0.rawValue)|\($0.1.text)") }.map { c, item in
             WrittenItem(
-                category: c, section: item.section, text: item.text, kind: item.kind, sources: item.sources,
+                category: c, section: item.section, text: item.text, sources: item.sources,
                 matchedFact: (scenario.facts ?? []).first { $0.category == c && matches(item, $0.anchors) }?.id
             )
         }
@@ -299,14 +294,8 @@ public enum MemoryEvaluation {
             if let expected = fact.section, !inCategory.isEmpty, !inCategory.contains(where: { $0.1.section == expected }) {
                 result.factsMisattributed += 1
                 result.notes.append("\(fact.id) 写进了小节 \(inCategory[0].1.section ?? "-")，期望 \(expected)")
-            } else if let hit = inCategory.first(where: { fact.section == nil || $0.1.section == fact.section }) {
+            } else if inCategory.contains(where: { fact.section == nil || $0.1.section == fact.section }) {
                 result.factsFound += 1
-                if let kind = fact.kind {
-                    result.kindChecked += 1
-                    if hit.1.kind == kind { result.kindCorrect += 1 } else {
-                        result.notes.append("\(fact.id) 依据类型为 \(hit.1.kind.rawValue)，期望 \(kind.rawValue)")
-                    }
-                }
             } else if let elsewhere = active.first(where: { matches($0.1, fact.anchors) }) {
                 result.factsMisattributed += 1
                 result.notes.append("\(fact.id) 写进了 \(elsewhere.0.rawValue)，期望 \(fact.category.rawValue)")

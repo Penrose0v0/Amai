@@ -60,10 +60,10 @@ struct MemoryItemsTests {
     func roundTrip() {
         let items = [
             MemoryItem(text: "常在深夜写代码", sources: ["2026-10-20"], section: "个人偏好"),
-            MemoryItem(text: "开发 Amai", sources: ["2026-10-19", "2026-10-20"], section: "工作概况", kind: .inferred),
+            MemoryItem(text: "开发 Amai", sources: ["2026-10-19", "2026-10-20"], section: "工作概况"),
         ]
         let body = MemoryItems.render(items, sections: MemorySchema.generalSections)
-        #expect(body.contains("### 工作概况\n- 开发 Amai <!-- src:2026-10-19,2026-10-20 kind:inferred -->"))
+        #expect(body.contains("### 工作概况\n- 开发 Amai <!-- src:2026-10-19,2026-10-20 -->"))
         #expect(body.contains("- 常在深夜写代码 <!-- src:2026-10-20 -->"))
         #expect(MemoryItems.parse(body) == items)
     }
@@ -236,8 +236,8 @@ struct ConsolidatorTests {
         #expect(f.model.categoryCalls.isEmpty)
     }
 
-    @Test("kind comes from the cited evidence, never from the model; unsupported entries are dropped")
-    func kinds() async throws {
+    @Test("source dates come from the cited evidence; entries without usable evidence are dropped")
+    func citations() async throws {
         let f = try Fixture()
         defer { f.cleanup() }
         try await f.seedDay(notes: "决定把 Amai 的记忆层改成按分区维护")
@@ -252,12 +252,11 @@ struct ConsolidatorTests {
         ])
         let report = try await f.consolidator.consolidateDay(f.day)
         let items = try f.items(.work)
-        // 只说"用了 Xcode"才是观察；说了在做什么就超出了 F 能证明的范围。
-        #expect(items.map(\.kind) == [.stated, .observed, .inferred, .inferred, .inferred])
+        #expect(items.count == 5)
         #expect(items.allSatisfy { $0.sources == ["2026-10-19"] && $0.section == "Amai" })
-        // 转述超出原话的内容被降为推断；F 依据与内容无关、没有依据的条目被拒绝。
-        #expect(items[4].text == "Amai 已经有一百个用户")
+        // F 依据与内容无关、没有依据的条目被拒绝；写出的文件不含依据类型。
         #expect(report.rejected.count == 2)
+        #expect(!(try f.read("work.md")).contains("kind:"))
         let work = try f.read("work.md")
         #expect(work.contains(#"### Amai <!-- project:p-"#))
     }
@@ -331,26 +330,27 @@ struct ConsolidatorTests {
         try await f.seedDay(notes: "MVP 推迟到明年三月，先把记忆系统做扎实")
         f.model.digest = Responses.digest(routes: ["goals"])
         f.model.operations[.goals] = Responses.ops([
-            ["op": "update", "item": "#1", "text": "年底前完成 Amai MVP 并发布", "evidence": ["I1"], "reason": "推断"],
-            ["op": "retire", "item": "#1", "evidence": ["I1"], "reason": "看起来没在做"],
             ["op": "update", "item": "#1", "text": "MVP 推迟到明年三月", "evidence": ["S1"], "reason": "用户改变计划"],
             ["op": "retire", "item": "#2", "evidence": ["I2"], "reason": "最近没有相关活动"],
+            ["op": "retire", "item": "#3", "evidence": ["I2"], "reason": ""],
             ["op": "add", "section": "长期目标", "text": "做 Ambient AI", "evidence": ["U1"]],
         ])
         let report = try await f.consolidator.consolidateDay(f.day)
         let items = try f.items(.goals)
         let active = items.filter { $0.section != "变更记录" }
         #expect(active.map(\.text) == ["做 Ambient AI", "MVP 推迟到明年三月", "准备 CVPR 投稿"])
-        #expect(active[1].kind == .stated && active[1].sources == ["2026-10-10", "2026-10-19"])
+        #expect(active[1].sources == ["2026-10-10", "2026-10-19"])
         let history = items.filter { $0.section == "变更记录" }.map(\.text)
         #expect(history.contains("2026-10-19 更新：「年底前完成 Amai MVP」→「MVP 推迟到明年三月」（用户改变计划）"))
         #expect(history.contains { $0.hasPrefix("2026-10-19 撤下：「似乎打算学习 Rust」") })
-        #expect(report.rejected.count == 2)
+        #expect(report.rejected.count == 1)
+        // 旧条目的 kind 字段读入后不再写出，条目与来源保留。
+        #expect(!(try f.read("goals.md")).contains("kind:"))
         #expect(try f.read("goals.md").contains("我的长期目标是做 Ambient AI。"))
         #expect(f.snapshots.snapshots().contains { $0.lastPathComponent.hasSuffix("goals.md") })
     }
 
-    @Test("Health keeps only the user's own data, and diagnoses only when the user stated them")
+    @Test("Health keeps only the user's own data in their own words, and diagnoses only when the user stated them")
     func health() async throws {
         let f = try Fixture()
         defer { f.cleanup() }
@@ -367,7 +367,6 @@ struct ConsolidatorTests {
         let report = try await f.consolidator.consolidateDay(f.day)
         let items = try f.items(.health)
         #expect(items.map(\.text) == ["昨晚只睡了四个小时", "医生诊断有轻度贫血"])
-        #expect(items.map(\.kind) == [.stated, .stated])
         #expect(report.rejected.count == 4)
     }
 
@@ -390,8 +389,7 @@ struct ConsolidatorTests {
         #expect(items[0].attributes == ["amount": "300000", "cur": "JPY", "txn": "2026-10-19"])
         #expect(items[0].text == "10 月工资到账 300000 日元（交易日 2026-10-19）〔300000 JPY〕")
         #expect(items[0].sources == ["2026-10-19"])
-        #expect(try f.read("finance.md").contains("amount:300000 cur:JPY kind:stated txn:2026-10-19") == false)
-        #expect(try f.read("finance.md").contains("<!-- src:2026-10-19 kind:stated amount:300000 cur:JPY txn:2026-10-19 -->"))
+        #expect(try f.read("finance.md").contains("<!-- src:2026-10-19 amount:300000 cur:JPY txn:2026-10-19 -->"))
     }
 
     @Test("a rewrite that retires most existing entries is rejected as a whole")
@@ -442,7 +440,7 @@ struct ConsolidatorTests {
         #expect(await f.consolidator.status.lastError != nil)
     }
 
-    @Test("General summarises category entries and inherits their kind; user text survives")
+    @Test("General summarises category entries and inherits their source dates; user text survives")
     func general() async throws {
         let f = try Fixture()
         defer { f.cleanup() }
@@ -491,18 +489,14 @@ struct ConsolidatorTests {
         ])
         #expect(try await f.consolidator.updateGeneral())
         let prompt = try #require(f.model.prompts[.general])
-        #expect(prompt.contains("[MW1]") && prompt.contains("（stated）"))
+        #expect(prompt.contains("[MW1]") && !prompt.contains("stated"))
         #expect(prompt.contains("[U1] 2026-10-20 某大学研究生"))
         let items = try f.items(.general)
         let byText = Dictionary(uniqueKeysWithValues: items.map { ($0.text, $0) })
-        #expect(byText["开发 Ambient Personal AI 项目 Amai"]?.kind == .stated)
         #expect(byText["开发 Ambient Personal AI 项目 Amai"]?.sources == ["2026-10-17", "2026-10-19"])
-        // 由用户确认的条目汇总而来也不会成为 confirmed。
-        #expect(byText["成为研究者"]?.kind == .stated)
-        #expect(byText["最近在做采集代码"]?.kind == .inferred)
-        // 只有摘要（推断）支持的基本信息照常记为推断；推断可以修改 unknown 条目。
-        #expect(byText["住在东京"]?.kind == .inferred)
-        #expect(byText["习惯深夜工作"]?.kind == .inferred)
+        #expect(byText["成为研究者"]?.sources == ["2026-10-15"])
+        #expect(byText["最近在做采集代码"] != nil && byText["住在东京"] != nil && byText["习惯深夜工作"] != nil)
+        #expect(!(try f.read("general.md")).contains("kind:"))
         #expect(try f.read("general.md").hasPrefix("# General\n\n## 基本信息\n某大学研究生\n"))
         #expect(await f.consolidator.status.lastGeneralAt != nil)
     }

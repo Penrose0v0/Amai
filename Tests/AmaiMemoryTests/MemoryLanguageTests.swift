@@ -38,7 +38,7 @@ struct MemoryLanguageTests {
         #expect(f.model.lastDigestPrompt.contains("frontmost apps: Xcode"))
 
         let goals = try f.read("goals.md")
-        #expect(goals.contains("### Plans\n- Plan to submit the paper to UIST next April <!-- src:2026-10-19 kind:stated -->"))
+        #expect(goals.contains("### Plans\n- Plan to submit the paper to UIST next April <!-- src:2026-10-19 -->"))
         #expect(goals.contains("### Change history"))
         // 旧记录与旧条目文字不翻译；新记录用英文。
         #expect(goals.contains("- 2026-10-01 撤下：「学 Rust」（不再需要）"))

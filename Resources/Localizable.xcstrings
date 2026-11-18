@@ -522,22 +522,6 @@
         }
       }
     },
-    "Amai 根据屏幕活动推断，可能不准确": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Inferred by Amai from screen activity; may be inaccurate"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Amai が画面の活動から推測したもので、不正確な場合があります"
-          }
-        }
-      }
-    },
     "Amai 正在启动…": {
       "localizations": {
         "en": {
@@ -1413,54 +1397,6 @@
         }
       }
     },
-    "你明确确认过这条信息": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "You explicitly confirmed this"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "あなたが明示的に確認した情報"
-          }
-        }
-      }
-    },
-    "你确认过": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Confirmed by you"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "確認済み"
-          }
-        }
-      }
-    },
-    "你说过": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "You said"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "あなたの発言"
-          }
-        }
-      }
-    },
     "使用完整模型 ID": {
       "localizations": {
         "en": {
@@ -1505,22 +1441,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "例：claude-opus-5-5"
-          }
-        }
-      }
-    },
-    "依据未记录": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Basis not recorded"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "根拠の記録なし"
           }
         }
       }
@@ -4267,22 +4187,6 @@
         }
       }
     },
-    "有直接的采集记录支持，例如使用了哪个应用": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Backed by direct capture records, such as which app was used"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "使ったアプリなど、直接の記録に裏付けられています"
-          }
-        }
-      }
-    },
     "服务端错误（%lld），稍后重试": {
       "localizations": {
         "en": {
@@ -4759,22 +4663,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "提供元"
-          }
-        }
-      }
-    },
-    "来自你自己写下的内容": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "From what you wrote yourself"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "あなた自身が書いた内容から"
           }
         }
       }
@@ -6129,22 +6017,6 @@
         }
       }
     },
-    "观察到": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Observed"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "観察"
-          }
-        }
-      }
-    },
     "观察（%lld）": {
       "localizations": {
         "en": {
@@ -6670,22 +6542,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "スキップ"
-          }
-        }
-      }
-    },
-    "较早整理的记忆，当时没有记录依据类型": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "An earlier memory, organized before the basis was recorded"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "以前に整理された記憶で、当時は根拠の種類を記録していませんでした"
           }
         }
       }

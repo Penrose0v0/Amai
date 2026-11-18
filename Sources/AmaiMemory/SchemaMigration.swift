@@ -277,12 +277,12 @@ public struct SchemaMigration: Sendable {
         )
     }
 
-    /// 迁移专用合并：文字（逐字）与依据都相同才合并，来源取并集。不做规范化，保证文字原样保留。
+    /// 迁移专用合并：文字逐字相同才合并，来源取并集。不做规范化，保证文字原样保留。
     static func mergeExact(_ items: [MemoryItem]) -> [MemoryItem] {
         var result: [MemoryItem] = []
         var index: [String: Int] = [:]
         for item in items {
-            let key = "\(item.kind.rawValue)|\(item.text)"
+            let key = item.text
             if let i = index[key] {
                 result[i].sources = Array(Set(result[i].sources + item.sources)).sorted()
                 continue
@@ -300,7 +300,7 @@ public struct SchemaMigration: Sendable {
         let items = MemoryItems.parse(Consolidator.memoryBlock.content(in: text) ?? "")
         for f in legacy {
             for old in f.items {
-                let found = items.contains { $0.text == old.text && $0.kind == old.kind && Set(old.sources).isSubset(of: $0.sources) }
+                let found = items.contains { $0.text == old.text && Set(old.sources).isSubset(of: $0.sources) }
                 guard found else { throw MigrationError.verificationFailed("\(path)：缺少来自 \(f.path) 的条目") }
             }
             if let fragment = f.userFragment, !text.contains(fragment) {

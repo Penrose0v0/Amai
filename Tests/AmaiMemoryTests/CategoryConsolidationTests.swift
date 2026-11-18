@@ -52,20 +52,23 @@ struct EvidenceLedgerTests {
         #expect(ledger.entries.map(\.basis) == [.inference])
     }
 
-    @Test("derivation takes the weakest cited basis, ignores unknown IDs, and never yields confirmed")
+    @Test("derivation collects source dates from valid citations and flags entries resting on the user's own words")
     func derive() {
         var ledger = EvidenceLedger()
         ledger.append(.userStatement, day: "2026-10-19", text: "计划周五前提交初稿")
-        ledger.append(.observation, day: "2026-10-19", text: "03:00–04:00 前台应用：Xcode", apps: ["Xcode"])
-        ledger.append(.memory, prefix: "MG", day: "2026-10-15", text: "成为研究者", memoryKind: .confirmed, sourceDays: ["2026-10-14", "2026-10-15"])
-        #expect(ledger.derive(text: "计划周五前提交初稿", citing: ["S1"])?.kind == .stated)
-        #expect(ledger.derive(text: "计划在周五前提交初稿", citing: ["S1"])?.kind == .stated)
-        #expect(ledger.derive(text: "下周要答辩", citing: ["S1"])?.kind == .inferred)
-        // F 只能证明用了 Xcode，"在 Xcode 中准备初稿"超出了这一点，取最弱即推断。
-        #expect(ledger.derive(text: "计划周五前提交初稿，在 Xcode 中准备", citing: ["S1", "F1"])?.kind == .inferred)
-        #expect(ledger.derive(text: "使用 Xcode", citing: ["S1", "F1"])?.kind == .inferred)
-        #expect(ledger.derive(text: "成为研究者", citing: ["MG1"]) == .init(kind: .stated, sources: ["2026-10-14", "2026-10-15"], cited: ["MG1"]))
-        #expect(ledger.derive(text: "x", citing: ["Z9", "F1"]) == nil)
+        ledger.append(.observation, day: "2026-10-18", text: "03:00–04:00 前台应用：Xcode", apps: ["Xcode"])
+        ledger.append(.memory, prefix: "MG", day: "2026-10-15", text: "成为研究者", sourceDays: ["2026-10-14", "2026-10-15"])
+        #expect(ledger.derive(text: "计划周五前提交初稿", citing: ["S1"]) == .init(sources: ["2026-10-19"], cited: ["S1"], restsOnUserStatements: true))
+        #expect(ledger.derive(text: "计划在周五前提交初稿", citing: ["S1"])?.restsOnUserStatements == true)
+        // 原话里没有的内容，或混入其他依据，都不算出自用户本人原话。
+        #expect(ledger.derive(text: "下周要答辩", citing: ["S1"])?.restsOnUserStatements == false)
+        let mixed = ledger.derive(text: "计划周五前提交初稿，在 Xcode 中准备", citing: ["S1", "F1"])
+        #expect(mixed?.sources == ["2026-10-18", "2026-10-19"] && mixed?.restsOnUserStatements == false)
+        // M 依据沿用原条目的来源日期；无效编号被忽略。
+        #expect(ledger.derive(text: "成为研究者", citing: ["MG1", "Z9"]) == .init(sources: ["2026-10-14", "2026-10-15"], cited: ["MG1"], restsOnUserStatements: false))
+        // F 依据与内容无关（没提到其中的应用）时不采纳。
+        #expect(ledger.derive(text: "在 Safari 中查资料", citing: ["F1"]) == nil)
+        #expect(ledger.derive(text: "x", citing: ["Z9"]) == nil)
         #expect(ledger.derive(text: "x", citing: []) == nil)
     }
 }
@@ -80,13 +83,13 @@ struct CategoryUpdaterTests {
     }
 
     let items = [
-        MemoryItem(text: "计划学习 Rust", sources: ["2026-10-10"], section: "计划", kind: .inferred),
-        MemoryItem(text: "计划写 Rust 版本", sources: ["2026-10-11"], section: "计划", kind: .inferred),
-        MemoryItem(text: "成为研究者", sources: ["2026-10-01"], section: "长期目标", kind: .confirmed),
-        MemoryItem(text: "每天写代码", sources: ["2026-10-02"], section: "计划", kind: .stated),
+        MemoryItem(text: "计划学习 Rust", sources: ["2026-10-10"], section: "计划"),
+        MemoryItem(text: "计划写 Rust 版本", sources: ["2026-10-11"], section: "计划"),
+        MemoryItem(text: "成为研究者", sources: ["2026-10-01"], section: "长期目标"),
+        MemoryItem(text: "每天写代码", sources: ["2026-10-02"], section: "计划"),
     ]
 
-    @Test("merge only combines same-kind entries in one section and cannot add new content")
+    @Test("merge only combines entries in one section and cannot add new content")
     func merge() {
         let updater = CategoryUpdater(policy: .policy(for: .goals), ledger: ledger(), day: "2026-10-19")
         let ok = updater.apply([MemoryOperation(op: "merge", items: ["#1", "#2"], text: "计划学习 Rust 并写 Rust 版本")], to: items, sectionMeta: [:])
@@ -95,22 +98,26 @@ struct CategoryUpdaterTests {
 
         let invented = updater.apply([MemoryOperation(op: "merge", items: ["#1", "#2"], text: "已经发布了 Rust 版本的商业产品")], to: items, sectionMeta: [:])
         #expect(!invented.changed && invented.rejected.count == 1)
-        let crossKind = updater.apply([MemoryOperation(op: "merge", items: ["#1", "#4"], text: "计划学习 Rust 每天写代码")], to: items, sectionMeta: [:])
-        #expect(!crossKind.changed)
+        let crossSection = updater.apply([MemoryOperation(op: "merge", items: ["#1", "#3"], text: "计划学习 Rust 成为研究者")], to: items, sectionMeta: [:])
+        #expect(!crossSection.changed)
     }
 
-    @Test("confirmed entries are never retired or overwritten by consolidation")
-    func confirmed() {
+    @Test("update and retire need valid entries, evidence and a reason, and leave a history record")
+    func updateAndRetire() {
         let updater = CategoryUpdater(policy: .policy(for: .goals), ledger: ledger(), day: "2026-10-19")
         let r = updater.apply([
-            MemoryOperation(op: "retire", item: "#3", evidence: ["S1"], reason: "决定不再做"),
-            MemoryOperation(op: "update", item: "#3", text: "决定不再做 Rust 版本", evidence: ["S1"]),
+            MemoryOperation(op: "retire", item: "#3", evidence: ["S1"]),
+            MemoryOperation(op: "retire", item: "#3", evidence: ["Z9"], reason: "过时"),
+            MemoryOperation(op: "update", item: "#9", text: "决定不再做 Rust 版本", evidence: ["S1"]),
             MemoryOperation(op: "retire", item: "#2", evidence: ["S1"], reason: "决定不再做 Rust 版本"),
             MemoryOperation(op: "explode", item: "#1"),
         ], to: items, sectionMeta: [:])
-        #expect(r.rejected.count == 3)
+        #expect(r.rejected.count == 4)
         #expect(r.items.contains(items[2]))
-        #expect(r.items.contains { $0.section == "变更记录" && $0.text.contains("撤下：「计划写 Rust 版本」") && $0.kind == .stated })
+        #expect(!r.items.contains(items[1]))
+        let record = r.items.first { $0.section == "变更记录" }
+        #expect(record?.text.contains("撤下：「计划写 Rust 版本」") == true)
+        #expect(record?.sources == ["2026-10-11", "2026-10-19"])
     }
 
     @Test("history is capped, oldest first")
@@ -125,7 +132,7 @@ struct CategoryUpdaterTests {
 
     @Test("attributes and section metadata survive render/parse, including spaces")
     func attributes() {
-        let items = [MemoryItem(text: "房租", sources: ["2026-10-20"], section: "Amai 项目", kind: .stated, attributes: ["amount": "85000", "cur": "JPY", "note": "a b%c"])]
+        let items = [MemoryItem(text: "房租", sources: ["2026-10-20"], section: "Amai 项目", attributes: ["amount": "85000", "cur": "JPY", "note": "a b%c"])]
         let body = MemoryItems.render(items, sectionMeta: ["Amai 项目": ["project": "p-abc123", "aka": "Amai 项目进展|Amai"]])
         #expect(MemoryItems.parse(body) == items)
         let sections = MemoryItems.sections(body)
@@ -154,24 +161,14 @@ struct StatementCoverageTests {
     }
 }
 
-@Suite("Kind derivation fixes")
-struct KindDerivationFixTests {
+@Suite("Evidence checks")
+struct EvidenceCheckTests {
     @Test("a shared English name does not carry an embellished entry over the statement threshold")
     func properNoun() {
         let note = "Atlas 项目正式改名为 Orbit，仓库也一起改了名。"
         #expect(EvidenceLedger.coverage(of: "搭建 Orbit 的数据标注工具", in: note) < EvidenceLedger.statementCoverage)
         #expect(EvidenceLedger.coverage(of: "Atlas 项目改名为 Orbit", in: note) >= EvidenceLedger.statementCoverage)
         #expect(EvidenceLedger.units("用 Xcode 写 SyncEngine2") == ["用", "xcode", "写", "syncengine2"])
-    }
-
-    @Test("app-usage evidence supports only app-usage claims")
-    func appUsage() {
-        #expect(EvidenceLedger.onlyStatesAppUsage("09:00–11:30 使用 Xcode 约两个半小时", apps: ["Xcode"]))
-        #expect(!EvidenceLedger.onlyStatesAppUsage("在 Safari 中阅读马拉松训练计划", apps: ["Safari"]))
-        var ledger = EvidenceLedger()
-        ledger.append(.observation, day: "2026-11-11", text: "07:30–08:10 前台应用：Safari", apps: ["Safari"])
-        #expect(ledger.derive(text: "阅读马拉松训练计划（Safari）", citing: ["F1"])?.kind == .inferred)
-        #expect(ledger.derive(text: "使用 Safari 约 40 分钟", citing: ["F1"])?.kind == .observed)
     }
 
     @Test("an entry already recorded in another category is not added again")

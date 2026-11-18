@@ -9,7 +9,7 @@ public struct MemoryDocument: Sendable, Equatable {
     public let markdown: String
     /// 去掉系统区块后的内容（用户手写部分，系统永不改写）。
     public let userMarkdown: String
-    /// 系统区块中的条目，带小节、来源日期与依据类型。
+    /// 系统区块中的条目，带小节与来源日期。
     public let systemItems: [MemoryItem]
     public let modifiedAt: Date?
 }

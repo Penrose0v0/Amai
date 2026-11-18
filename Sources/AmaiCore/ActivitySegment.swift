@@ -12,7 +12,7 @@ public enum ActivityCategory: String, Codable, Sendable, CaseIterable {
 }
 
 /// 一段时间内用户活动的识别结果。活动识别本质上是推断，
-/// 写入记忆时一律按 `inferred` 处理。
+/// 记忆整理时作为推断依据（I）使用。
 ///
 /// 一个处理窗口可以产生多个片段，片段也可以跨窗口延续：延续时沿用原 `id`
 /// 并扩展 `timeRange`，`updatedAt` 随之更新，记忆层据此做增量写入。

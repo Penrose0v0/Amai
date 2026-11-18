@@ -2,8 +2,8 @@ import AmaiCore
 import Foundation
 
 /// 系统记忆的一条条目。在 Markdown 中渲染为
-/// `- 条目文字 <!-- src:2026-10-19,2026-10-20 kind:inferred -->`，可按 `### 小节` 分组。
-/// `kind` 为 `unknown` 时不写 `kind:`，与 Schema v1 之前的旧格式一致。
+/// `- 条目文字 <!-- src:2026-10-19,2026-10-20 -->`，可按 `### 小节` 分组。
+/// 早期版本写过依据类型 `kind:`（ADR-0009 已移除），读取时忽略，下次整理改写该文件时不再写出。
 /// 其他结构化字段（例如财务的 `cur:JPY txn:2026-10-20`）以 `键:值` 写在同一注释里，读写不丢失。
 public struct MemoryItem: Codable, Sendable, Equatable {
     public var text: String
@@ -11,23 +11,20 @@ public struct MemoryItem: Codable, Sendable, Equatable {
     public var sources: [String]
     /// 所属小节（`### 小节`）；没有分组时为 nil。
     public var section: String?
-    /// 依据类型。旧条目没有记录时为 `unknown`。
-    public var kind: MemoryEntryKind
     /// 结构化字段（键为小写字母）。
     public var attributes: [String: String]
 
     public init(
         text: String, sources: [String], section: String? = nil,
-        kind: MemoryEntryKind = .unknown, attributes: [String: String] = [:]
+        attributes: [String: String] = [:]
     ) {
         self.text = text
         self.sources = sources
         self.section = section
-        self.kind = kind
         self.attributes = attributes
     }
 
-    private enum CodingKeys: String, CodingKey { case text, sources, section, kind, attributes }
+    private enum CodingKeys: String, CodingKey { case text, sources, section, attributes }
 
     /// 模型常漏写 sources 或写成单个字符串，宽松解码；缺失的来源由 `MemoryItems.sanitize` 补上。
     public init(from decoder: any Decoder) throws {
@@ -41,7 +38,6 @@ public struct MemoryItem: Codable, Sendable, Equatable {
             sources = []
         }
         section = try? c.decodeIfPresent(String.self, forKey: .section)
-        kind = (try? c.decodeIfPresent(MemoryEntryKind.self, forKey: .kind)) ?? .unknown
         attributes = (try? c.decodeIfPresent([String: String].self, forKey: .attributes)) ?? [:]
     }
 }
@@ -84,10 +80,9 @@ public enum MemoryItems {
     static func line(_ item: MemoryItem) -> String {
         var fields: [String: String] = item.attributes
         fields.removeValue(forKey: "src")
-        fields.removeValue(forKey: "kind")
+        fields.removeValue(forKey: Self.legacyKindKey)
         var parts: [String] = []
         if !item.sources.isEmpty { parts.append("src:\(item.sources.joined(separator: ","))") }
-        if item.kind != .unknown { parts.append("kind:\(item.kind.rawValue)") }
         let rest = tags(fields)
         if !rest.isEmpty { parts.append(rest) }
         return parts.isEmpty ? "- \(item.text)" : "- \(item.text) <!-- \(parts.joined(separator: " ")) -->"
@@ -157,7 +152,10 @@ public enum MemoryItems {
         return (name.trimmingCharacters(in: .whitespaces), meta)
     }
 
-    /// 从区块正文解析条目（渲染的逆过程）。没有 `kind:` 的旧条目解析为 `unknown`。
+    /// 早期版本记录依据类型的字段名。读取时丢弃，不进入 `attributes`，也不再写出。
+    static let legacyKindKey = "kind"
+
+    /// 从区块正文解析条目（渲染的逆过程）。带旧 `kind:` 字段的条目照常读入，只是忽略该字段。
     public static func parse(_ body: String) -> [MemoryItem] {
         var items: [MemoryItem] = []
         var section: String?
@@ -170,7 +168,6 @@ public enum MemoryItems {
             guard line.hasPrefix("- ") else { continue }
             var text = String(line.dropFirst(2))
             var sources: [String] = []
-            var kind = MemoryEntryKind.unknown
             var attributes: [String: String] = [:]
             let range = NSRange(text.startIndex..., in: text)
             if let m = tagRegex.firstMatch(in: text, range: range), let r = Range(m.range(at: 1), in: text) {
@@ -178,21 +175,19 @@ public enum MemoryItems {
                 if let src = attributes.removeValue(forKey: "src") {
                     sources = src.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
                 }
-                if let k = attributes.removeValue(forKey: "kind") {
-                    kind = MemoryEntryKind(rawValue: k) ?? .unknown
-                }
+                attributes.removeValue(forKey: Self.legacyKindKey)
                 if let whole = Range(m.range, in: text) { text.removeSubrange(whole) }
             }
             text = text.trimmingCharacters(in: .whitespaces)
             if !text.isEmpty {
-                items.append(MemoryItem(text: text, sources: sources, section: section, kind: kind, attributes: attributes))
+                items.append(MemoryItem(text: text, sources: sources, section: section, attributes: attributes))
             }
         }
         return items
     }
 
     /// 清理模型输出：去换行与注释符号、截断、凭据脱敏、来源只保留合法日期，
-    /// 缺来源时补 `fallbackSource`；按规范化文本 + 依据类型去重并合并来源。
+    /// 缺来源时补 `fallbackSource`；按规范化文本去重并合并来源。
     public static func sanitize(_ items: [MemoryItem], fallbackSource: String?, limit: Int) -> [MemoryItem] {
         var cleaned: [MemoryItem] = []
         for item in items {
@@ -206,18 +201,17 @@ public enum MemoryItems {
             guard !text.isEmpty else { continue }
             var sources = item.sources.filter(isDate)
             if sources.isEmpty, let fallbackSource { sources = [fallbackSource] }
-            cleaned.append(MemoryItem(text: text, sources: sources, section: item.section, kind: item.kind, attributes: item.attributes))
+            cleaned.append(MemoryItem(text: text, sources: sources, section: item.section, attributes: item.attributes))
         }
         return Array(merge(cleaned).prefix(limit))
     }
 
-    /// 合并重复条目：规范化文本相同**且**依据类型相同才合并，来源取并集。
-    /// 依据不同的同文条目分开保留，避免合并时把推断"顺带"提升为用户陈述，或反过来丢掉用户陈述。
+    /// 合并重复条目：规范化文本相同即合并，来源取并集，结构化字段以先出现的为准。
     public static func merge(_ items: [MemoryItem]) -> [MemoryItem] {
         var result: [MemoryItem] = []
         var index: [String: Int] = [:]
         for item in items {
-            let key = "\(item.kind.rawValue)|\(normalize(item.text))"
+            let key = normalize(item.text)
             if let i = index[key] {
                 result[i].sources = Array(Set(result[i].sources + item.sources)).sorted()
                 result[i].attributes.merge(item.attributes) { old, _ in old }
@@ -229,46 +223,6 @@ public enum MemoryItems {
             result.append(copy)
         }
         return result
-    }
-
-    /// 依据类型校验（防止非法升级）。把模型改写后的条目与改写前的条目按规范化文本对应：
-    ///
-    /// - 对应到旧条目：沿用旧条目的依据，来源取并集。只有 `allowUpgrade` 认可时，
-    ///   才允许从非用户依据（observed / inferred / unknown）提升为 stated / confirmed；
-    ///   其他改动（包括降级）一律保持旧依据。旧条目同文但依据不同时各保留一条。
-    /// - 新条目：采用提出的依据；提出 stated / confirmed 但未获认可、或未给出依据时用 `defaultKind`。
-    public static func reconcileKinds(
-        _ proposed: [MemoryItem],
-        previous: [MemoryItem],
-        defaultKind: MemoryEntryKind,
-        allowUpgrade: (MemoryItem) -> Bool = { _ in false }
-    ) -> [MemoryItem] {
-        var byText: [String: [MemoryItem]] = [:]
-        for item in previous { byText[normalize(item.text), default: []].append(item) }
-
-        var result: [MemoryItem] = []
-        for item in proposed {
-            let matches = byText[normalize(item.text)] ?? []
-            if matches.isEmpty {
-                var copy = item
-                if item.kind == .unknown || (item.kind.isUserBacked && !allowUpgrade(item)) {
-                    copy.kind = defaultKind
-                }
-                result.append(copy)
-                continue
-            }
-            var kinds: [MemoryEntryKind] = []
-            for m in matches where !kinds.contains(m.kind) { kinds.append(m.kind) }
-            for old in kinds {
-                var copy = item
-                copy.kind = old
-                if item.kind.isUserBacked, !old.isUserBacked, allowUpgrade(item) { copy.kind = item.kind }
-                let oldSources = matches.filter { $0.kind == old }.flatMap(\.sources)
-                copy.sources = Array(Set(item.sources + oldSources)).sorted()
-                result.append(copy)
-            }
-        }
-        return merge(result)
     }
 
     static func normalize(_ text: String) -> String {

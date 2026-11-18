@@ -10,8 +10,8 @@ struct CategoryPolicy: Sendable {
     let sectionList: [MemorySchema.Section]?
     /// 改写条目内容时把旧内容记入"变更记录"。撤下条目总是记录。
     let historyOnUpdate: Bool
-    /// 是否接受只有推断依据的条目。Health / Finance 不接受：屏幕上的推断无法确认是用户本人的数据。
-    let allowsInferred: Bool
+    /// 是否只接受出自用户本人原话的条目。Health / Finance 如此：屏幕上的信息无法确认是用户本人的数据。
+    let requiresUserStatement: Bool
     /// 是否要求标明数据主体为用户本人。
     let requiresSelf: Bool
     /// 提示词中的分区规则。
@@ -35,7 +35,7 @@ struct CategoryPolicy: Sendable {
         switch category {
         case .work:
             CategoryPolicy(
-                category: .work, language: lang, sectionList: nil, historyOnUpdate: false, allowsInferred: true, requiresSelf: false,
+                category: .work, language: lang, sectionList: nil, historyOnUpdate: false, requiresUserStatement: false, requiresSelf: false,
                 guidance: lang.pick(
                     """
                     - 按项目或研究方向组织。已有项目用 project 字段填项目 ID（如 p-1a2b3c）；只有确实是新的持续项目时才填 new:项目名。
@@ -57,7 +57,7 @@ struct CategoryPolicy: Sendable {
         case .goals:
             CategoryPolicy(
                 category: .goals, language: lang, sectionList: MemorySchema.goalsSectionList,
-                historyOnUpdate: true, allowsInferred: true, requiresSelf: false,
+                historyOnUpdate: true, requiresUserStatement: false, requiresSelf: false,
                 guidance: lang.pick(
                     """
                     - 长期目标：用户想达成的长期方向。计划：具体打算与时间点。已完成：有依据表明已经做完的事。决策：重要选择及原因。
@@ -82,7 +82,7 @@ struct CategoryPolicy: Sendable {
         case .health:
             CategoryPolicy(
                 category: .health, language: lang, sectionList: MemorySchema.healthSectionList,
-                historyOnUpdate: true, allowsInferred: false, requiresSelf: true,
+                historyOnUpdate: true, requiresUserStatement: true, requiresSelf: true,
                 guidance: lang.pick(
                     """
                     - 只记录用户本人的健康信息。屏幕上出现的他人信息、新闻、科普文章、商品介绍都不是用户的数据：subject 填 third_party，系统会丢弃。无法确定是谁的，subject 填 unclear。
@@ -107,7 +107,7 @@ struct CategoryPolicy: Sendable {
         case .finance:
             CategoryPolicy(
                 category: .finance, language: lang, sectionList: MemorySchema.financeSectionList,
-                historyOnUpdate: true, allowsInferred: false, requiresSelf: true,
+                historyOnUpdate: true, requiresUserStatement: true, requiresSelf: true,
                 guidance: lang.pick(
                     """
                     - 只记录用户本人的财务信息。屏幕上的商品价格、他人账户、新闻里的金额都不是用户的数据：subject 填 third_party。
@@ -132,26 +132,26 @@ struct CategoryPolicy: Sendable {
         case .general, .daily:
             CategoryPolicy(
                 category: .general, language: lang, sectionList: MemorySchema.generalSectionList,
-                historyOnUpdate: true, allowsInferred: true, requiresSelf: false,
+                historyOnUpdate: true, requiresUserStatement: false, requiresSelf: false,
                 guidance: lang.pick(
                     """
                     - 综合档案：对用户的整体理解，而不是各分区内容的副本。每个方面用一两条概括最重要、最稳定的信息。
                     - 从各分区条目中归纳：跨多天反复出现、或由用户本人陈述的信息优先；一次性事件、细节进展不写。
-                    - 姓名、生日、邮箱、住址等基本信息只能来自用户陈述（U 或依据类型为 stated 的条目），没有就不写。
+                    - 姓名、生日、邮箱、住址等基本信息只能来自用户本人写下的内容（S、U），没有就不写。
                     - 推测出的习惯与偏好要写成"似乎""经常"。
                     - 引用依据时填所依据的分区条目编号（M…）或摘要（D…）。
                     """,
                     """
                     - The general profile is an overall understanding of the user, not a copy of the categories. Summarize each aspect in one or two of its most important and stable points.
                     - Generalize from the category entries: prefer information that recurs across days or that the user stated; leave out one-off events and detailed progress.
-                    - Basic information such as name, birthday, email or address may only come from user statements (U, or entries whose basis is stated); if there is none, do not write it.
+                    - Basic information such as name, birthday, email or address may only come from what the user wrote themselves (S, U); if there is none, do not write it.
                     - Write inferred habits and preferences with "seems to" or "often".
                     - Cite the category entries (M…) or digests (D…) you rely on as evidence.
                     """,
                     """
                     - 総合プロフィールはユーザーの全体像であり、各分野の写しではない。各側面について、最も重要で安定した点を 1〜2 項目でまとめる。
                     - 各分野の項目から一般化する：複数日にわたって繰り返し現れる情報や、ユーザー本人が述べた情報を優先し、一度きりの出来事や細かい進捗は書かない。
-                    - 名前、誕生日、メールアドレス、住所などの基本情報は、ユーザーの発言（U、または根拠が stated の項目）からのみ書く。なければ書かない。
+                    - 名前、誕生日、メールアドレス、住所などの基本情報は、ユーザー本人が書いた内容（S、U）からのみ書く。なければ書かない。
                     - 推測した習慣や好みは「〜のようだ」「よく〜」と書く。
                     - 根拠として、よりどころにした分野の項目番号（M…）または要約（D…）を挙げる。
                     """
@@ -218,8 +218,7 @@ struct CategoryUpdateResult: Sendable, Equatable {
 }
 
 /// 把模型给出的操作应用到分区条目上。所有规则都在代码里：
-/// 依据类型由引用推导（模型自称无效）、不得以弱依据覆盖或撤下强依据的条目、变化留痕、
-/// 分区专属校验（主体、诊断措辞、金额要素）、防大量丢失。
+/// 必须引用依据（来源日期由引用推导）、变化留痕、分区专属校验（本人原话、主体、诊断措辞、金额要素）、防大量丢失。
 struct CategoryUpdater {
     let policy: CategoryPolicy
     let ledger: EvidenceLedger
@@ -253,8 +252,8 @@ struct CategoryUpdater {
         func reject(_ op: MemoryOperation, _ why: String) {
             result.rejected.append("\(op.op) \(op.item.isEmpty ? op.text.prefix(30) : Substring(op.item))：\(why)")
         }
-        func record(_ text: String, kind: MemoryEntryKind, sources: [String]) {
-            newHistory.append(MemoryItem(text: text, sources: Array(Set(sources + [day])).filter(MemoryItems.isDate).sorted(), section: policy.historySection, kind: kind))
+        func record(_ text: String, sources: [String]) {
+            newHistory.append(MemoryItem(text: text, sources: Array(Set(sources + [day])).filter(MemoryItems.isDate).sorted(), section: policy.historySection))
         }
         func count(in section: String) -> Int {
             (slots.compactMap { $0 } + appended).filter { $0.section == section }.count
@@ -278,7 +277,7 @@ struct CategoryUpdater {
                     reject(op, "已记录在\(other.localizedName)分区"); continue
                 }
                 if let dup = (slots.compactMap { $0 } + appended).firstIndex(where: {
-                    MemoryItems.normalize($0.text) == MemoryItems.normalize(candidate.text) && $0.kind == candidate.kind
+                    MemoryItems.normalize($0.text) == MemoryItems.normalize(candidate.text)
                 }) {
                     // 已有同一条：只合并来源，不新增。
                     let all = slots.compactMap { $0 } + appended
@@ -298,14 +297,11 @@ struct CategoryUpdater {
             case "update":
                 guard let i = index(op.item), let old = slots[i] else { reject(op, "条目编号无效"); continue }
                 guard var candidate = candidate(op, section: old.section ?? "", reject: reject) else { continue }
-                guard candidate.kind.rank >= old.kind.rank else {
-                    reject(op, "新依据（\(candidate.kind.rawValue)）弱于已有条目（\(old.kind.rawValue)），不覆盖"); continue
-                }
                 candidate.sources = Array(Set(old.sources + candidate.sources)).sorted()
                 candidate.attributes = old.attributes.merging(candidate.attributes) { _, new in new }
                 if policy.historyOnUpdate, MemoryItems.normalize(old.text) != MemoryItems.normalize(candidate.text) {
                     record(Self.updatedRecord(day: day, old: old.text, new: candidate.text, reason: Self.clean(op.reason), lang: policy.language),
-                           kind: candidate.kind, sources: candidate.sources)
+                           sources: candidate.sources)
                 }
                 slots[i] = candidate
                 result.applied.append("update")
@@ -313,15 +309,10 @@ struct CategoryUpdater {
             case "retire":
                 guard let i = index(op.item), let old = slots[i] else { reject(op, "条目编号无效"); continue }
                 guard !op.reason.isEmpty else { reject(op, "撤下需要说明原因"); continue }
-                guard old.kind != .confirmed else { reject(op, "用户确认过的条目不由整理撤下"); continue }
                 guard let d = ledger.derive(text: Self.clean(op.reason), citing: op.evidence) else {
                     reject(op, "撤下没有可采纳的依据"); continue
                 }
-                // 推断可以撤下推断；观察到或用户陈述的事实只能由同等或更强的依据撤下。
-                guard d.kind.rank >= old.kind.rank || old.kind.rank <= MemoryEntryKind.inferred.rank else {
-                    reject(op, "依据（\(d.kind.rawValue)）弱于已有条目（\(old.kind.rawValue)），不撤下"); continue
-                }
-                record(Self.retiredRecord(day: day, old: old.text, reason: Self.clean(op.reason), lang: policy.language), kind: d.kind, sources: old.sources + d.sources)
+                record(Self.retiredRecord(day: day, old: old.text, reason: Self.clean(op.reason), lang: policy.language), sources: old.sources + d.sources)
                 slots[i] = nil
                 removed += 1
                 result.applied.append("retire")
@@ -330,8 +321,8 @@ struct CategoryUpdater {
                 let ids = op.items.compactMap(index)
                 guard Set(ids).count >= 2, Set(ids).count == op.items.count else { reject(op, "合并需要至少两个有效编号"); continue }
                 let group = Array(Set(ids)).sorted().compactMap { slots[$0] }
-                guard Set(group.map(\.kind)).count == 1, Set(group.map { $0.section ?? "" }).count == 1 else {
-                    reject(op, "只合并同一小节、依据类型相同的条目"); continue
+                guard Set(group.map { $0.section ?? "" }).count == 1 else {
+                    reject(op, "只合并同一小节的条目"); continue
                 }
                 let text = Self.clean(op.text)
                 // 合并结果不能夹带被合并条目里没有的新内容。
@@ -342,7 +333,7 @@ struct CategoryUpdater {
                 for g in group { attributes.merge(g.attributes) { old, _ in old } }
                 let merged = MemoryItem(
                     text: text, sources: Array(Set(group.flatMap(\.sources))).sorted(),
-                    section: group[0].section, kind: group[0].kind, attributes: attributes
+                    section: group[0].section, attributes: attributes
                 )
                 let sorted = Array(Set(ids)).sorted()
                 slots[sorted[0]] = merged
@@ -390,8 +381,8 @@ struct CategoryUpdater {
         var text = Self.clean(op.text)
         guard !text.isEmpty else { reject(op, "空内容"); return nil }
         guard let d = ledger.derive(text: text, citing: op.evidence) else { reject(op, "没有可采纳的依据"); return nil }
-        guard policy.allowsInferred || d.kind.rank >= MemoryEntryKind.observed.rank else {
-            reject(op, "该分区不接受只有推断依据的条目"); return nil
+        guard !policy.requiresUserStatement || d.restsOnUserStatements else {
+            reject(op, "该分区只接受出自用户本人原话的条目"); return nil
         }
         if policy.requiresSelf, op.subject != "self" {
             reject(op, "不是用户本人的数据（subject=\(op.subject.isEmpty ? "未填" : op.subject)）"); return nil
@@ -399,9 +390,9 @@ struct CategoryUpdater {
         var attributes: [String: String] = [:]
         switch policy.category {
         case .health:
-            if MemorySchema.sectionKey(section, in: MemorySchema.healthSectionList) == "diagnoses" {
-                guard d.kind == .stated else { reject(op, "医学诊断只接受用户本人陈述"); return nil }
-            } else if Self.diagnosisPattern.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil {
+            // 医学诊断与其他健康条目一样只收用户本人原话（上面已校验）；诊断措辞不得出现在其他小节。
+            if MemorySchema.sectionKey(section, in: MemorySchema.healthSectionList) != "diagnoses",
+               Self.diagnosisPattern.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil {
                 reject(op, "诊断性措辞只能出现在「医学诊断」"); return nil
             }
         case .finance:
@@ -417,7 +408,7 @@ struct CategoryUpdater {
         default:
             break
         }
-        return MemoryItem(text: text, sources: d.sources, section: section, kind: d.kind, attributes: attributes)
+        return MemoryItem(text: text, sources: d.sources, section: section, attributes: attributes)
     }
 
     /// 两段文字互相覆盖都达到 80% 视为同一条记忆。

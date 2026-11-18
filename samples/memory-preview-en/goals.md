@@ -13,7 +13,7 @@ Code block example
 
 <!-- amai:memory:begin · Maintained by Amai from daily records -->
 ### Plans
-- Will submit the paper to UIST next April instead of CHI <!-- src:2026-10-12 kind:stated -->
+- Will submit the paper to UIST next April instead of CHI <!-- src:2026-10-12 -->
 ### Decisions
-- Decided not to pursue a PhD; will start working after graduation <!-- src:2026-11-12 kind:confirmed -->
+- Decided not to pursue a PhD; will start working after graduation <!-- src:2026-11-12 -->
 <!-- amai:memory:end -->

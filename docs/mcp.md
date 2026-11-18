@@ -6,13 +6,14 @@ Amai 带有一个只读的 MCP Server `amai-mcp`（ADR-0008）。Claude Desktop�
 
 | Tool | 参数 | 返回 | 需要的分区 |
 |---|---|---|---|
-| `search_memory` | `query`，`limit`（1–50，默认 10） | 匹配的条目：分区、小节、内容、日期、来源日期、依据类型（observed / stated / inferred / confirmed） | 只搜索已开放的分区 |
+| `search_memory` | `query`，`limit`（1–50，默认 10） | 匹配的条目：分区、小节、内容、日期、来源日期 | 只搜索已开放的分区 |
 | `get_timeline` | `date`（`YYYY-MM-DD`、`today`、`yesterday`） | 当天的活动片段（起止时间、标题、摘要、置信度、低置信标记）、日终摘要、手写笔记 | `daily` |
-| `get_memory` | `category`（general / work / health / finance / goals），`topic`（可选，小节名或项目名） | 按小节分组的条目（来源日期、依据类型、结构化字段）、你手写的内容、可选的专题列表 | 对应分区 |
+| `get_memory` | `category`（general / work / health / finance / goals），`topic`（可选，小节名或项目名） | 按小节分组的条目（来源日期、结构化字段）、你手写的内容、可选的专题列表 | 对应分区 |
 
 - 只读：不会修改、删除或新增任何记忆，也不触发整理。
 - 不联网：`amai-mcp` 只读取本机的 Markdown 文件。
-- 时间线和大多数条目是模型根据屏幕活动推断的，`kind` 标明依据。
+- 时间线和大多数条目是模型根据屏幕活动推断的，可能不准确。每条记忆带来源日期，可以用 `get_timeline` 查看当天的活动。
+- 早期版本的输出带依据类型 `kind`，已移除（ADR-0009）。
 
 ## 启用
 

@@ -1,8 +1,7 @@
 import AmaiCore
 import Foundation
 
-/// 一条可被整理结果引用的依据。依据的类型由**代码**根据它的来源决定，模型只能引用编号，
-/// 不能声明依据类型（ADR-0006）。
+/// 一条可被整理结果引用的依据。模型只能引用编号；条目的来源日期由被引用的依据决定（ADR-0006）。
 public struct EvidenceEntry: Sendable, Equatable {
     public enum Basis: String, Sendable {
         /// 用户本人写下的内容：daily 中系统区块之外的手写部分，或分区文件的手写部分。
@@ -11,7 +10,7 @@ public struct EvidenceEntry: Sendable, Equatable {
         case observation = "F"
         /// 抽取层的模型推断：活动片段的标题与摘要。
         case inference = "I"
-        /// 已有记忆条目（General 汇总时引用各分区的条目），沿用该条目的依据。
+        /// 已有记忆条目（General 汇总时引用各分区的条目），沿用该条目的来源日期。
         case memory = "M"
         /// 日终摘要（模型生成）。
         case digest = "D"
@@ -24,23 +23,20 @@ public struct EvidenceEntry: Sendable, Equatable {
     public let text: String
     /// `observation` 依据涉及的应用名。
     public let apps: [String]
-    /// `memory` 依据的原条目依据类型。
-    public let memoryKind: MemoryEntryKind?
     /// `memory` 依据的原条目来源日期；引用它的条目继承这些来源。
     public let sourceDays: [String]
 
-    public init(id: String, basis: Basis, day: String, text: String, apps: [String] = [], memoryKind: MemoryEntryKind? = nil, sourceDays: [String] = []) {
+    public init(id: String, basis: Basis, day: String, text: String, apps: [String] = [], sourceDays: [String] = []) {
         self.id = id
         self.basis = basis
         self.day = day
         self.text = text
         self.apps = apps
-        self.memoryKind = memoryKind
         self.sourceDays = sourceDays
     }
 }
 
-/// 整理时提供给模型的依据清单，以及从引用推导依据类型的规则。
+/// 整理时提供给模型的依据清单，以及从引用推导来源日期的规则。
 public struct EvidenceLedger: Sendable, Equatable {
     public private(set) var entries: [EvidenceEntry] = []
 
@@ -57,58 +53,45 @@ public struct EvidenceLedger: Sendable, Equatable {
     @discardableResult
     public mutating func append(
         _ basis: EvidenceEntry.Basis, prefix: String? = nil, day: String, text: String,
-        apps: [String] = [], memoryKind: MemoryEntryKind? = nil, sourceDays: [String] = []
+        apps: [String] = [], sourceDays: [String] = []
     ) -> String {
         let p = prefix ?? basis.rawValue
         let n = entries.filter { $0.id.hasPrefix(p) && Int($0.id.dropFirst(p.count)) != nil }.count + 1
-        entries.append(EvidenceEntry(id: "\(p)\(n)", basis: basis, day: day, text: text, apps: apps, memoryKind: memoryKind, sourceDays: sourceDays))
+        entries.append(EvidenceEntry(id: "\(p)\(n)", basis: basis, day: day, text: text, apps: apps, sourceDays: sourceDays))
         return "\(p)\(n)"
     }
 
-    // MARK: - Kind derivation
+    // MARK: - Citation
 
     public struct Derivation: Sendable, Equatable {
-        public let kind: MemoryEntryKind
         public let sources: [String]
         /// 实际被采纳的依据编号。
         public let cited: [String]
+        /// 采纳的依据是否全部是用户本人写下的内容，并且条目文字确实出自原话（字符二元组覆盖率达标）。
+        /// Health / Finance 只接受这样的条目：屏幕上的信息无法证明是用户本人的数据。
+        public let restsOnUserStatements: Bool
     }
 
-    /// 根据引用推导条目的依据类型与来源日期：
-    /// - 只看引用的依据**从哪里来**，不看模型怎么说；
-    /// - 用户陈述（S/U）要求条目内容确实出自该陈述（字符二元组覆盖率），转述过度时按推断处理；
-    /// - 采集元数据（F）要求条目提到其中的应用，否则不采纳该引用；
-    /// - 多个依据取最弱的一个（unknown < inferred < observed < stated），由汇总得到的条目不会是 confirmed；
+    /// 根据引用推导条目的来源日期：
+    /// - 只采纳清单中存在的编号，来源日期取依据所属的日期（M 依据沿用原条目的来源日期）；
+    /// - 采集元数据（F）只证明某时段用了哪些应用，条目没提到其中的应用时不采纳该引用；
     /// - 没有任何可采纳的依据时返回 nil：调用方应当拒绝写入。
     public func derive(text: String, citing ids: [String]) -> Derivation? {
-        var kinds: [MemoryEntryKind] = []
         var days: Set<String> = []
         var cited: [String] = []
+        var userOnly = true
         for id in ids {
             guard let e = self[id], !cited.contains(e.id) else { continue }
-            let kind: MemoryEntryKind
-            switch e.basis {
-            case .userStatement:
-                kind = Self.coverage(of: text, in: e.text) >= Self.statementCoverage ? .stated : .inferred
-            case .observation:
-                guard e.apps.contains(where: { text.localizedCaseInsensitiveContains($0) }) else { continue }
-                // F 只能证明"某时段使用了某应用"。条目说的比这更多（做了什么、为什么），多出的部分是推断。
-                kind = Self.onlyStatesAppUsage(text, apps: e.apps) ? .observed : .inferred
-            case .inference, .digest:
-                kind = .inferred
-            case .memory:
-                let k = e.memoryKind ?? .unknown
-                kind = k == .confirmed ? .stated : k
-            }
-            kinds.append(kind)
+            if e.basis == .observation, !e.apps.contains(where: { text.localizedCaseInsensitiveContains($0) }) { continue }
+            if e.basis != .userStatement || Self.coverage(of: text, in: e.text) < Self.statementCoverage { userOnly = false }
             if e.sourceDays.isEmpty { days.insert(e.day) } else { days.formUnion(e.sourceDays) }
             cited.append(e.id)
         }
-        guard let weakest = kinds.min(by: { $0.rank < $1.rank }) else { return nil }
-        return Derivation(kind: weakest, sources: days.filter(MemoryItems.isDate).sorted(), cited: cited)
+        guard !cited.isEmpty else { return nil }
+        return Derivation(sources: days.filter(MemoryItems.isDate).sorted(), cited: cited, restsOnUserStatements: userOnly)
     }
 
-    /// 条目文字中有多少比例的字符二元组出现在陈述里。只用来**降低**依据等级，不用来授予依据。
+    /// 条目文字中有多少比例的字符二元组出现在陈述里。
     static let statementCoverage = 0.4
     static let framingPattern = #"\d{4}\s*[-年./]\s*\d{1,2}\s*(月|[-./])?\s*(\d{1,2}\s*日?)?(中旬|上旬|下旬)?(那一周|那周|当天)?|用户(本人)?(自述|表示|提到|称|说)?|自述|据用户|(?i:\bthe user (said|says|stated|states|mentioned|mentions|reported|reports)( that)?\b|\baccording to the user\b)|ユーザー(本人)?(によると|は|が)?(述べた|言った|話した)?"#
 
@@ -141,17 +124,6 @@ public struct EvidenceLedger: Sendable, Equatable {
         if !word.isEmpty { result.append(word) }
         return result
     }
-
-    /// 条目是否只陈述了"在某时段使用了某应用（多久）"。去掉应用名、时间、时长与"使用 / 在…中"等
-    /// 框架词后，剩下的内容不超过 2 个字才算。
-    static func onlyStatesAppUsage(_ text: String, apps: [String]) -> Bool {
-        var rest = text
-        for app in apps { rest = rest.replacingOccurrences(of: app, with: "", options: .caseInsensitive) }
-        rest = rest.replacingOccurrences(of: appUsageFrame, with: "", options: .regularExpression)
-        return MemoryItems.normalize(rest).count <= 2
-    }
-
-    static let appUsageFrame = #"[\d:：–\-~～.]+|大约|左右|累计|总计|共计|使用了|使用|用了|打开了|打开|前台|应用|时段|期间|小时|分钟|半|一|两|三|四|五|六|七|八|九|十|个|约|共|在|中|里|上|了|的|(?i:\b(used|using|use|opened|open|in|the|app|application|for|about|around|roughly|approximately|total|during|from|to|and|a|an|half|one|two|three|four|five|six|seven|eight|nine|ten|hours?|minutes?|mins?|hrs?|h|m)\b)|を|で|に|約|時間|分間|分|使用|使った|利用|起動|アプリ|ほど|ごろ"#
 
     // MARK: - Building
 
@@ -235,7 +207,7 @@ public struct EvidenceLedger: Sendable, Equatable {
             (.observation, lang.pick("采集元数据（F，可直接核对的事实：时段与前台应用）", "Capture metadata (F, verifiable facts: time ranges and frontmost apps)", "記録メタデータ（F、確認できる事実：時間帯と最前面のアプリ）")),
             (.inference, lang.pick("屏幕活动的模型描述（I，推断）", "Model descriptions of screen activity (I, inferences)", "画面活動のモデルによる説明（I、推測）")),
             (.digest, lang.pick("日终摘要（D，推断）", "Daily summaries (D, inferences)", "1 日のまとめ（D、推測）")),
-            (.memory, lang.pick("已有记忆条目（M，括号内为该条目的依据类型）", "Existing memory entries (M, basis in parentheses)", "既存の記憶項目（M、括弧内はその項目の根拠の種類）")),
+            (.memory, lang.pick("已有记忆条目（M）", "Existing memory entries (M)", "既存の記憶項目（M）")),
         ]
         var parts: [String] = []
         for (basis, title) in groups {
@@ -243,8 +215,7 @@ public struct EvidenceLedger: Sendable, Equatable {
             guard !list.isEmpty else { continue }
             parts.append(title + lang.pick("：", ":", "："))
             for e in list {
-                let kind = e.memoryKind.map { lang.pick("（\($0.rawValue)）", " (\($0.rawValue))", "（\($0.rawValue)）") } ?? ""
-                parts.append("[\(e.id)] \(e.day) \(e.text)\(kind)")
+                parts.append("[\(e.id)] \(e.day) \(e.text)")
             }
         }
         return parts.isEmpty ? lang.pick("（无）", "(none)", "（なし）") : parts.joined(separator: "\n")
@@ -255,18 +226,5 @@ public struct EvidenceLedger: Sendable, Equatable {
         calendar.timeZone = timeZone
         let c = calendar.dateComponents([.hour, .minute], from: date)
         return String(format: "%02d:%02d", c.hour ?? 0, c.minute ?? 0)
-    }
-}
-
-extension MemoryEntryKind {
-    /// 依据强弱，用于"取最弱"与"不得以弱覆盖强"。confirmed 只能来自用户确认。
-    public var rank: Int {
-        switch self {
-        case .unknown: 0
-        case .inferred: 1
-        case .observed: 2
-        case .stated: 3
-        case .confirmed: 4
-        }
     }
 }

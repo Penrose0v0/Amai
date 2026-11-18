@@ -27,8 +27,8 @@ public struct OutputSchema: Sendable, Equatable {
 /// 2. 分区整理：只对路由到的 Work / Goals / Health / Finance 调用对应整理器；
 /// 3. General：每周根据各分区条目与最近的摘要汇总。
 ///
-/// 模型只提出操作（新增、更新、撤下、合并）并引用依据编号；条目的依据类型、来源日期、
-/// 能否覆盖已有事实、分区专属校验与防大量丢失都由代码决定（`CategoryUpdater`）。
+/// 模型只提出操作（新增、更新、撤下、合并）并引用依据编号；条目的来源日期、
+/// 分区专属校验与防大量丢失都由代码决定（`CategoryUpdater`）。
 /// 只写系统区块，用户手写内容永不覆盖；每次改写前存快照。
 public actor Consolidator {
     public static let digestBlock = digestBlock(.zhHans)
@@ -330,7 +330,7 @@ public actor Consolidator {
             // 2. 分区整理
             for category in Self.processingOrder where report.routed.contains(category) && !progress.done.contains(category.rawValue) {
                 let policy = CategoryPolicy.policy(for: category, language: lang)
-                if !policy.allowsInferred && !ledger.hasUserStatements {
+                if policy.requiresUserStatement && !ledger.hasUserStatements {
                     report.skipped.append(category)
                     progress.done.append(category.rawValue)
                     try saveProgress(progress, for: dayName)
@@ -438,7 +438,7 @@ public actor Consolidator {
 
     // MARK: - 3. general.md
 
-    /// 用各分区条目（带依据类型）与最近 7 天的日终摘要更新 general.md 的系统区块。
+    /// 用各分区条目与最近 7 天的日终摘要更新 general.md 的系统区块。
     @discardableResult
     public func updateGeneral() async throws -> Bool {
         status.running = true
@@ -500,7 +500,7 @@ public actor Consolidator {
         }
     }
 
-    /// 把各分区条目作为 M 依据加入清单。超出字数预算时按"依据更强、来源更新"排序选取，
+    /// 把各分区条目作为 M 依据加入清单。超出字数预算时按来源日期从新到旧选取，
     /// 而不是按文件顺序截取前几条；每个分区先保底几条，避免条目多的分区占满预算。
     private func addCategoryEvidence(to base: EvidenceLedger, today: String) async -> EvidenceLedger {
         var ledger = base
@@ -511,7 +511,7 @@ public actor Consolidator {
             candidates += CategoryUpdater.split(MemoryItems.parse(body)).items.map { Candidate(category: category, item: $0) }
         }
         let ranked = candidates.sorted {
-            ($0.item.kind.rank, $0.item.sources.max() ?? "") > ($1.item.kind.rank, $1.item.sources.max() ?? "")
+            ($0.item.sources.max() ?? "") > ($1.item.sources.max() ?? "")
         }
         var chosen: [Candidate] = []
         for category in Self.dailyCategories {
@@ -530,7 +530,7 @@ public actor Consolidator {
                 let label = c.item.section.map { "[\(name)·\($0)] " } ?? "[\(name)] "
                 ledger.append(
                     .memory, prefix: prefixes[category], day: c.item.sources.max() ?? today, text: label + c.item.text,
-                    memoryKind: c.item.kind, sourceDays: c.item.sources
+                    sourceDays: c.item.sources
                 )
             }
         }
