@@ -249,7 +249,7 @@ struct ChatView: View {
     private func suggestionChip(_ suggestion: Suggestion) -> some View {
         Button {
             viewModel.input = suggestion.prompt
-            viewModel.send()
+            viewModel.send(includeMemory: suggestion.usesMemory)
         } label: {
             HStack(spacing: 10) {
                 Image(systemName: suggestion.icon)
@@ -275,8 +275,13 @@ struct ChatView: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 14) {
                     ForEach(viewModel.messages) { message in
-                        MessageBubble(message: message, onOpenSource: onOpenSource)
-                            .id(message.id)
+                        let isLast = message.id == viewModel.messages.last?.id
+                        MessageBubble(
+                            message: message, onOpenSource: onOpenSource,
+                            showsActions: !(isLast && viewModel.isStreaming),
+                            onRegenerate: isLast && viewModel.canRegenerate ? { viewModel.regenerate() } : nil
+                        )
+                        .id(message.id)
                     }
                 }
                 .padding(.horizontal, 16)
@@ -310,14 +315,18 @@ struct ChatView: View {
         let icon: String
         let label: String
         let prompt: String
+        /// 翻译、润色只处理选中的文字，不检索记忆。
+        var usesMemory = true
     }
 
     /// 有选区时建议针对选区，否则建议针对屏幕与记忆。
     private func suggestions() -> [Suggestion] {
         if !(viewModel.focus?.selectedText ?? "").isEmpty {
             return [
-                Suggestion(icon: "text.alignleft", label: String(localized: "概括所选内容"), prompt: String(localized: "请帮我概括我选中的内容。")),
+                Suggestion(icon: "character.bubble", label: String(localized: "翻译所选内容"), prompt: String(localized: "请把我选中的内容翻译成中文。"), usesMemory: false),
+                Suggestion(icon: "wand.and.stars", label: String(localized: "润色所选内容"), prompt: String(localized: "请润色我选中的文字：修正语法、错别字和不通顺的地方，保持原来的语言、意思和语气，不添加新内容。只输出润色后的文字。"), usesMemory: false),
                 Suggestion(icon: "questionmark.circle", label: String(localized: "解释所选内容"), prompt: String(localized: "请解释我选中的内容。")),
+                Suggestion(icon: "text.alignleft", label: String(localized: "概括所选内容"), prompt: String(localized: "请帮我概括我选中的内容。")),
             ]
         }
         return [

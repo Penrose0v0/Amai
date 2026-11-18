@@ -33,15 +33,15 @@
 内置助手（ADR-0010，2026-11-18）在这条后台流水线旁边，是只读的使用方：
 
 ```text
-用户（快捷键） → 助手面板 / 快速操作面板（App）
+用户（快捷键） → 助手面板（App）
                     │
-            AmaiAssistant：Agent 循环 · 上下文组装 · 工具 · 快速操作
+            AmaiAssistant：Agent 循环 · 上下文组装 · 工具
               │ ChatModel            │ LiveContextReading        │ MemoryAPI（只读）
    AmaiInference（本地 MLX）   AmaiPerception（交互式读取）      AmaiMemory
    AmaiCloud（云端来源）       与后台采集共用截图 / OCR / AX / 隐私策略
 ```
 
-助手不写记忆、不操作其他应用（唯一的例外是用户点击「替换」时写回选区）。详见 §2.6。
+助手不写记忆、不操作其他应用。打开聊天面板之前唯一可能的操作，是辅助功能读不到选区时执行一次目标应用的菜单"拷贝"（随后恢复剪贴板）。详见 §2.6。
 
 ## 2. 模块职责
 
@@ -142,7 +142,7 @@ Memory Schema v1（ADR-0006）：每个分区一个 Markdown 文件；`MemoryLib
 
 | 模块 | 职责 |
 |---|---|
-| `LocalModelRuntime` / `LocalModelHost` | 每个本地模型标签在进程内只有一个持有者；抽取、整理、Agent 选了同一个模型时共用一份权重。按需加载、空闲 5 分钟卸载、内存压力卸载（用户刚对话过时暂缓） |
+| `LocalModelRuntime` / `LocalModelHost` | 每个本地模型标签在进程内只有一个持有者；抽取、整理、Agent 选了同一个模型时共用一份权重。按需加载、空闲 5 分钟卸载、内存压力卸载（用户刚对话过时暂缓）。助手的本地对话模型例外（参考 Eira）：启动时后台预加载并常驻，只在 critical 内存压力时释放；向量模型随之常驻 |
 | `InferenceGate` | 本机推理的串行闸门，交互式请求先于后台请求出队。后台任务在开始一批工作前检查最近是否有交互式请求，有则推迟 |
 | `MLXModelProvider` | 单次调用（抽取、整理），每次新建会话 |
 | `MLXChatModel` | 对话：流式、跨轮复用 KV cache；`prepare` 可以在用户提交之前把已确定的前缀算进缓存。一次性请求（快速操作）不读写对话的缓存 |
@@ -158,7 +158,8 @@ Memory Schema v1（ADR-0006）：每个分区一个 Markdown 文件；`MemoryLib
 | `LiveContextReader` | `LiveContextReading` 的实现：焦点（应用、窗口标题、选区）、即时截图（完整显示器 / 前台窗口）、屏幕文字（OCR）、最近状态。经过与后台采集相同的隐私策略 |
 | 最新帧缓存 | 采集器每次截图后把画面留在内存；交互式读取在 2 秒内且前台应用没变时复用，否则现截。不依赖正在写入的视频分段 |
 | `RecentContextBuffer` | 最近约 5 分钟、最多 5 个状态；应用切换或画面明显变化时新增。只存压缩画面，OCR 在被读取时才做并缓存 |
-| `AccessibilityReader` | 窗口标题、选中文字，以及用户要求时写回选区。只在交互时查询，不监听键盘 |
+| `AccessibilityReader` | 窗口标题、选中文字（只读）。只在交互时查询，不监听键盘与选区。读取顺序：`AXSelectedText` → Web Text Marker → `AXSelectedTextRange` + `AXStringForRange` → `AXValue` 截取；焦点控件读不到时搜索子控件（前 20 个）与父控件（10 层）；Chromium / Electron 在 Amai 面板拿着键盘时不报告焦点控件，只剩焦点窗口，此时在窗口内有限搜索网页区域（24 层、400 个节点，包括嵌在网页里的 webview，如 VS Code 的扩展面板）读文档选区。单条消息 250 ms 超时、整次读取 800 ms 时限，应用无响应即放弃。密码框与安全输入时拒绝 |
+| `SystemSelectionCopier` | 只在聊天快捷键打开面板之前、且辅助功能读不到选区时调用：只在菜单栏"拷贝"可用时执行它（菜单可用是"有选区"的证据；不发送任何按键）；剪贴板先完整快照、读完立即恢复，只认复制后变化了的剪贴板内容 |
 | `TargetAppTracker` | 记住最近一个不是 Amai 自己的前台应用 |
 | `VisionTextRecognizer` | Apple Vision OCR。契约 `TextRecognizer` 在 AmaiCore，后台抽取与交互式读取用同一个实现 |
 | OCR 结果复用 | 画面哈希与上一次识别时基本相同、且在 90 秒内，直接返回上次的文字。OCR 只在助手面板唤出时进行，不在后台持续做 |
@@ -184,12 +185,11 @@ system（固定） → 历史（只追加） → <context> 屏幕上下文 → <
 | `DateMentions` | 用规则认出问题里的日期（中英日；单独的某天与一段时间） |
 | `ContextBuilder` | 固定的 system；`<context>` 块（时间、应用 / 窗口、选区、屏幕文字、最近状态）；整条 user 消息的排列。屏幕文字没变不重复，最近状态只带新的 |
 | `ScreenLook` | 用户打开"带上屏幕"时取截图，随消息直接发给模型（现有来源都能看图） |
-| `QuickActions` | 翻译、润色、解释：一次性请求，不带历史与记忆 |
 | `ChatSessionStore` | 对话记录（SQLite）：提问、回答、来源；不含截图与屏幕文字 |
 
 今后要加 Agent 能力时，`ChatModel` 的工具调用契约与各来源的实现都在，在这条流水线之上加循环即可；普通问答不需要它。
 
-App 中的 `AssistantController` 负责装配：按 `config.json` 的 `assistant` 段创建模型与会话，持有聊天面板、快速操作面板与全局快捷键（默认 ⌘⇧Space 打开对话、⌥⇧Space 快速操作）；面板唤出时触发 `prepare()` 并在后台给新增的记忆补算向量。聊天界面移植自 Eira。
+App 中的 `AssistantController` 负责装配：按 `config.json` 的 `assistant` 段创建模型与会话，持有聊天面板与全局快捷键（默认 ⌘⇧Space 打开对话）；面板唤出前读一次焦点（经复制读到的选区交给聊天面板），唤出时触发 `prepare()` 并在后台给新增的记忆补算向量。聊天界面移植自 Eira。
 
 ### 2.5 横切模块
 

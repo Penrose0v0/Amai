@@ -9,6 +9,12 @@ struct MessageBubble: View {
     let message: ChatItem
     /// 点击某个记忆来源。
     var onOpenSource: ((MemorySource) -> Void)? = nil
+    /// 回答下方显示复制等按钮（正在生成的那条不显示）。
+    var showsActions = true
+    /// 重新生成这条回答（只有最后一条回答提供）。
+    var onRegenerate: (() -> Void)? = nil
+
+    @State private var copied = false
 
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
@@ -67,8 +73,48 @@ struct MessageBubble: View {
                 if !message.sources.isEmpty {
                     SourceChips(sources: message.sources, onOpen: onOpenSource)
                 }
+                if showsActions, message.activity == nil {
+                    actionRow
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    /// 回答下方的操作：复制整条回答（Markdown 原文），最后一条还可以重新生成。
+    private var actionRow: some View {
+        HStack(spacing: 2) {
+            actionButton(
+                copied ? "checkmark" : "doc.on.doc",
+                help: copied ? String(localized: "已复制") : String(localized: "复制")
+            ) { copyAnswer() }
+            if let onRegenerate {
+                actionButton("arrow.clockwise", help: String(localized: "重新生成"), action: onRegenerate)
+            }
+        }
+        .padding(.top, -2)
+    }
+
+    private func actionButton(_ symbol: String, help: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(.secondary)
+                .frame(width: 24, height: 22)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(help)
+        .accessibilityLabel(Text(verbatim: help))
+    }
+
+    private func copyAnswer() {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(message.content, forType: .string)
+        copied = true
+        Task {
+            try? await Task.sleep(for: .milliseconds(1200))
+            copied = false
         }
     }
 

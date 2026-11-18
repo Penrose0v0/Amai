@@ -63,6 +63,11 @@ public struct MLXTextEmbedder: TextEmbedder {
         await host.unload()
     }
 
+    /// 常驻：不做空闲卸载（助手使用本地对话模型时，向量模型跟着常驻，第一次记忆检索不必等加载）。
+    public func setResident(_ resident: Bool) async {
+        await host.setResident(resident)
+    }
+
     actor Host {
         private static let hosts = EmbedderHosts()
 
@@ -73,7 +78,18 @@ public struct MLXTextEmbedder: TextEmbedder {
         private let modelTag: String
         private var container: EmbedderModelContainer?
         private var unloadTask: Task<Void, Never>?
+        private var resident = false
         private let log = AmaiLog.logger("inference.embedder")
+
+        func setResident(_ value: Bool) {
+            resident = value
+            if value {
+                unloadTask?.cancel()
+                unloadTask = nil
+            } else if container != nil {
+                scheduleUnload()
+            }
+        }
 
         init(modelTag: String) {
             self.modelTag = modelTag
@@ -136,6 +152,10 @@ public struct MLXTextEmbedder: TextEmbedder {
 
         private func scheduleUnload() {
             unloadTask?.cancel()
+            guard !resident else {
+                unloadTask = nil
+                return
+            }
             unloadTask = Task { [weak self] in
                 try? await Task.sleep(for: .seconds(300))
                 guard !Task.isCancelled else { return }

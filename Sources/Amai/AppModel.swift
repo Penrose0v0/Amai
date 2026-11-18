@@ -58,7 +58,7 @@ final class AppModel {
     var settingsRequests = 0
     /// 递增时打开主窗口（助手回答里的记忆来源被点击）。
     var mainWindowRequests = 0
-    /// 内置助手（对话面板、快速操作、全局快捷键）。预览模式与初始化失败时为 nil。
+    /// 内置助手（对话面板、全局快捷键）。预览模式与初始化失败时为 nil。
     private(set) var assistant: AssistantController?
     /// 当前的助手配置。修改通过 `applyAssistant` 进行。
     var assistantConfiguration: AssistantConfiguration { configuration.assistant }
@@ -151,7 +151,7 @@ final class AppModel {
             let model = MLXModelProvider(modelTag: config.extraction.modelTag)
             localModel = model
             // 电池低于 40%、低电量模式或过热时推迟推理，插电后追赶。
-            // 用户正在用助手（对话或快速操作）时后台任务也整批推迟：交互式推理优先，不与它争 GPU 和内存。
+            // 用户正在用助手时后台任务也整批推迟：交互式推理优先，不与它争 GPU 和内存。
             let heavyWorkAllowed: @Sendable () -> Bool = { [perception] in
                 if InferenceGate.shared.interactiveRecentlyActive() { return false }
                 switch perception.currentPowerProfile {

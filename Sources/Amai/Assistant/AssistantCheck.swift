@@ -14,9 +14,9 @@ import struct AmaiCore.ChatRequest
 ///   Amai --memory-preview <目录> --assistant-check <输出目录> [--assistant-model <标签>]
 ///
 /// 用预览目录里的合成记忆和一个本地模型，走真实的装配路径（AssistantController → AssistantSession → MLX）：
-/// 记忆问答（后端检索与来源，不经过工具调用）、追问（KV cache 复用）、快速操作，以及真实的交互式屏幕读取。
+/// 记忆问答（后端检索与来源，不经过工具调用）、追问（KV cache 复用），以及真实的交互式屏幕读取。
 /// 同一个问题分别以"直接提交"和"面板唤出时提前准备后提交"两种方式各问一次，记录各阶段耗时。
-/// 结果写到 `assistant.json`，并截下聊天面板与快速操作面板。屏幕读取只记录尺寸与耗时，不保存截图和文字。
+/// 结果写到 `assistant.json`，并截下聊天面板。屏幕读取只记录尺寸与耗时，不保存截图和文字。
 @MainActor
 enum AssistantCheck {
     static func run(model: AppModel, output: URL, modelTag: String?) async {
@@ -182,32 +182,6 @@ enum AssistantCheck {
 
             controller.showChat()
             await shot(controller, title: "chat", output: output)
-
-            // 4. 快速操作：翻译与润色（一次性请求，不进入对话历史）。
-            let selection = "The quick brown fox jumps over the lazy dog."
-            let quick = QuickActionModel(
-                focus: FocusSnapshot(appName: "TextEdit", selectedText: selection, selectionIsEditable: true, accessibilityGranted: true),
-                assistant: controller
-            )
-            var quickResults: [String: String] = [:]
-            for action in [QuickAction.translate, .polish] {
-                quick.run(action)
-                while quick.running != nil { try? await Task.sleep(for: .milliseconds(100)) }
-                quickResults[action.rawValue] = quick.error ?? quick.result
-            }
-            result["quickActions"] = quickResults
-            controller.toggleChat()
-            try? await Task.sleep(for: .milliseconds(400))
-            let panel = QuickActionPanelController()
-            panel.show(quick)
-            await shot(controller, title: "quick", output: output)
-            panel.close()
-            checks["translated"] = (quickResults["translate"] ?? "").unicodeScalars.contains { (0x4E00...0x9FFF).contains($0.value) }
-            checks["polished"] = !(quickResults["polish"] ?? "").isEmpty && quick.canReplace
-            checks["quickActionsLeaveHistoryAlone"] = chat.messages.count == 6
-            // 快速操作之后接着对话：对话的缓存不应被一次性请求顶掉。
-            let after = await ask("谢谢。用一句话总结一下。")
-            checks["cacheSurvivesQuickActions"] = (after["cachedPromptTokens"] as? Int ?? 0) > (semantic["promptTokens"] as? Int ?? .max)
         }
 
         result["checks"] = checks

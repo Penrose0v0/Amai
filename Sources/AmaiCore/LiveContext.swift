@@ -1,6 +1,6 @@
 import Foundation
 
-// 交互式（用户正在使用 Agent 或快速操作时）读取屏幕的数据契约。
+// 交互式（用户正在使用助手时）读取屏幕的数据契约。
 // 由感知层实现：与后台采集共用同一套截图、OCR、辅助功能读取和隐私策略，只是读取时机不同——
 // 后台按固定间隔采集并写入原始缓冲，交互式读取只在用户发起时进行，结果只留在内存里。
 
@@ -37,15 +37,15 @@ public struct FocusSnapshot: Sendable, Equatable {
     public var pid: Int32?
     public var windowTitle: String?
     public var selectedText: String?
-    /// 选区所在的控件是否可编辑（决定能否"替换选中文字"）。
-    public var selectionIsEditable: Bool
+    /// 选区是经"复制"读到的（辅助功能看不到它，之后的只读辅助功能刷新也读不到）。
+    public var selectionIsCopied: Bool = false
     /// 是否有辅助功能权限。
     public var accessibilityGranted: Bool
     public var capturedAt: Date
 
     public init(
         appName: String? = nil, bundleId: String? = nil, pid: Int32? = nil, windowTitle: String? = nil,
-        selectedText: String? = nil, selectionIsEditable: Bool = false, accessibilityGranted: Bool = false,
+        selectedText: String? = nil, accessibilityGranted: Bool = false,
         capturedAt: Date = Date()
     ) {
         self.appName = appName
@@ -53,7 +53,6 @@ public struct FocusSnapshot: Sendable, Equatable {
         self.pid = pid
         self.windowTitle = windowTitle
         self.selectedText = selectedText
-        self.selectionIsEditable = selectionIsEditable
         self.accessibilityGranted = accessibilityGranted
         self.capturedAt = capturedAt
     }
@@ -90,7 +89,7 @@ public enum LiveContextError: Error, Equatable, Sendable {
     case unavailable(String)
 }
 
-/// Agent 与快速操作读取实时上下文的接口。
+/// 助手读取实时上下文的接口。
 public protocol LiveContextReading: Sendable {
     /// 当前焦点：应用、窗口、选区。被隐私策略拦下时只返回空快照（不含应用名）。
     func focus() async -> FocusSnapshot

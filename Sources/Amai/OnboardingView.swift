@@ -323,7 +323,7 @@ private struct DonePage: View {
                 row("clock", "时间线与每日总结", "打开 Amai 查看每天做了什么。活动整理会在记录开始几分钟后出现。")
                 row("brain", "长期记忆", "每天凌晨 4 点后，Amai 会把前一天的记录整理进综合、工作、健康、财务、目标五个分区。")
                 if let assistant = model.assistant, assistant.isReady {
-                    row("sparkles", "助手", "按 \(assistant.configuration.chatHotKey.title) 打开对话；选中文字后按 \(assistant.configuration.quickActionHotKey.title) 做翻译、润色或解释。")
+                    row("sparkles", "助手", "按 \(assistant.configuration.chatHotKey.title) 打开对话；先选中文字再打开，可以翻译、润色或解释。")
                 }
             }
             if model.onboardingNeedsRelaunch {

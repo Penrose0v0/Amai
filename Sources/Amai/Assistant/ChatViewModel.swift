@@ -57,8 +57,12 @@ final class ChatViewModel {
     private(set) var currentSessionId = UUID()
     private unowned let assistant: AssistantController
     private var streamingTask: Task<Void, Never>?
-    /// 从快速操作面板带过来的焦点（"Ask Amai"）：下一条消息用它而不是重新读取。
+    /// 打开面板时交接过来的焦点（经复制读到的选区）：下一条消息用它而不是重新读取。
     private var handedOverFocus: FocusSnapshot?
+    /// 最近一轮的交接焦点与是否检索记忆。重新生成最后一条回答时沿用：
+    /// 否则经复制读到的选区会丢，翻译也会重新挂上记忆来源。
+    private var lastTurnFocus: FocusSnapshot?
+    private var lastTurnIncludesMemory = true
 
     init(assistant: AssistantController) {
         self.assistant = assistant
@@ -74,7 +78,7 @@ final class ChatViewModel {
     /// 面板出现时调用：立刻开始为下一个问题做准备——读焦点、对当前窗口做 OCR、预热模型并预填充上下文。
     /// 用户还在打字的时候这些就在后台进行；顶部提示在焦点读到后马上更新，不等 OCR。
     func onPopoverOpened() {
-        // 从快速操作面板转来时，`handOver` 已经带着选区开始准备了。
+        // 打开面板时交接过来选区的话，`handOver` 已经带着它开始准备了。
         guard !isStreaming, handedOverFocus == nil else { return }
         Task { [weak self] in
             guard let self else { return }
@@ -98,7 +102,12 @@ final class ChatViewModel {
         }
     }
 
-    /// 快速操作面板的"Ask Amai"：带着已读到的选区开始提问。
+    /// 丢掉上一次交接过来、但没有用于提问的选区（再次打开聊天框时，它可能早已不是当前选区）。
+    func discardHandOver() {
+        handedOverFocus = nil
+    }
+
+    /// 打开聊天面板时读到的、只能经复制得到的选区：带着它开始提问。
     func handOver(focus: FocusSnapshot) {
         handedOverFocus = focus
         self.focus = focus
@@ -116,6 +125,8 @@ final class ChatViewModel {
         attachScreen = false
         lastContext = nil
         handedOverFocus = nil
+        lastTurnFocus = nil
+        lastTurnIncludesMemory = true
         // 先清掉旧对话的状态，再为新对话做准备（顺序反了的话，刚准备好的上下文会被清掉）。
         Task { [weak self] in
             await self?.assistant.session?.reset()
@@ -129,6 +140,8 @@ final class ChatViewModel {
         input = ""
         lastContext = nil
         handedOverFocus = nil
+        lastTurnFocus = nil
+        lastTurnIncludesMemory = true
         currentSessionId = id
         let saved = (try? assistant.store?.messages(in: id)) ?? []
         messages = saved.map { ChatItem(id: $0.id, role: $0.role == .user ? .user : .assistant, content: $0.text, sources: $0.sources, createdAt: $0.createdAt) }
@@ -154,16 +167,15 @@ final class ChatViewModel {
 
     /// Agent 被重新配置（换模型、改可读分区）：当前对话接到新的会话对象上。
     func sessionDidChange() {
-        let history = messages.filter { $0.role != .system && !$0.content.isEmpty }.map {
-            DisplayMessage(id: $0.id, role: $0.role == .user ? .user : .assistant, text: $0.content, sources: $0.sources, createdAt: $0.createdAt)
-        }
+        let history = Self.history(messages[...])
         cancelStreaming()
         Task { await assistant.session?.restore(history) }
     }
 
     // MARK: - Sending
 
-    func send() {
+    /// - Parameter includeMemory: 翻译、润色这类只处理选中文字的建议传 false，不检索记忆。
+    func send(includeMemory: Bool = true) {
         let text = input.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, !isStreaming else { return }
         guard let session = assistant.session else {
@@ -176,15 +188,55 @@ final class ChatViewModel {
         var options = AssistantSession.TurnOptions()
         options.attachScreen = attachScreen ? .focusedWindow : nil
         options.focus = handedOverFocus
+        options.includeMemory = includeMemory
+        lastTurnFocus = handedOverFocus
+        lastTurnIncludesMemory = includeMemory
         attachScreen = false
         handedOverFocus = nil
 
         let user = ChatItem(role: .user, content: text)
         messages.append(user)
+        try? assistant.store?.save(
+            DisplayMessage(id: user.id, role: .user, text: text, createdAt: user.createdAt),
+            in: currentSessionId, suggestedTitle: text
+        )
+        startTurn(text, session: session, options: options, rewindTo: nil)
+    }
+
+    /// 最后一条消息是已完成的回答时，可以重新生成。
+    var canRegenerate: Bool {
+        !isStreaming && messages.last?.role == .assistant
+            && messages.dropLast().contains { $0.role == .user }
+    }
+
+    /// 撤回最后一条回答，把会话退回到那个问题之前，再问一次同样的问题。
+    func regenerate() {
+        guard canRegenerate, let session = assistant.session,
+              let userIndex = messages.lastIndex(where: { $0.role == .user })
+        else { return }
+        let old = messages.removeLast()
+        try? assistant.store?.deleteMessage(old.id)
+        errorBanner = nil
+        let text = messages[userIndex].content
+        var options = AssistantSession.TurnOptions()
+        options.focus = lastTurnFocus
+        options.includeMemory = lastTurnIncludesMemory
+        startTurn(text, session: session, options: options, rewindTo: Self.history(messages[..<userIndex]))
+    }
+
+    private static func history(_ items: ArraySlice<ChatItem>) -> [DisplayMessage] {
+        items.filter { $0.role != .system && !$0.content.isEmpty }.map {
+            DisplayMessage(id: $0.id, role: $0.role == .user ? .user : .assistant, text: $0.content, sources: $0.sources, createdAt: $0.createdAt)
+        }
+    }
+
+    /// 生成一轮回答。`rewindTo` 不为 nil 时先把会话恢复到这段历史（重新生成）。
+    private func startTurn(
+        _ text: String, session: AssistantSession, options: AssistantSession.TurnOptions, rewindTo history: [DisplayMessage]?
+    ) {
         // 发送时就记下会话：生成过程中用户新建对话，回答仍写回原来的会话。
         let sessionId = currentSessionId
         let store = assistant.store
-        try? store?.save(DisplayMessage(id: user.id, role: .user, text: text, createdAt: user.createdAt), in: sessionId, suggestedTitle: text)
 
         var reply = ChatItem(role: .assistant, content: "")
         reply.activity = String(localized: "正在检索记忆…")
@@ -193,6 +245,7 @@ final class ChatViewModel {
         isStreaming = true
 
         streamingTask = Task { [weak self] in
+            if let history { await session.restore(history) }
             var finished: (text: String, sources: [MemorySource])?
             do {
                 for try await event in session.send(text, options: options) {

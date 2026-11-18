@@ -111,6 +111,8 @@ public actor LiveContextReader: LiveContextReading, ScreenCaptureObserver {
         public var policy: any PrivacyPolicy
         public var ocr: any TextRecognizer
         public var focus: any FocusReading
+        /// 辅助功能读不到选区时的菜单复制回退。只用于聊天快捷键打开面板之前（`focusForChatOpening`）；nil 时不复制。
+        public var copier: (any SelectionCopying)?
         public var clock: any AmaiClock
         /// 截图时额外从画面中抠掉的应用（Amai 自己，避免把聊天面板截进去）。
         public var alwaysExcludedBundleIds: Set<String>
@@ -123,6 +125,7 @@ public actor LiveContextReader: LiveContextReading, ScreenCaptureObserver {
             policy: any PrivacyPolicy,
             ocr: any TextRecognizer,
             focus: any FocusReading,
+            copier: (any SelectionCopying)? = nil,
             clock: any AmaiClock = SystemClock(),
             alwaysExcludedBundleIds: Set<String> = []
         ) {
@@ -133,6 +136,7 @@ public actor LiveContextReader: LiveContextReading, ScreenCaptureObserver {
             self.policy = policy
             self.ocr = ocr
             self.focus = focus
+            self.copier = copier
             self.clock = clock
             self.alwaysExcludedBundleIds = alwaysExcludedBundleIds
         }
@@ -147,6 +151,8 @@ public actor LiveContextReader: LiveContextReading, ScreenCaptureObserver {
 
     /// 一个状态的文字上限：足够看出"当时屏幕上是什么"，又不至于把上下文撑大。
     static let recentTextLimit = 1200
+    /// 一次焦点读取（窗口标题 + 选区）的总时限，超过就当作没有读到。
+    static let focusReadLimit: Duration = .milliseconds(1200)
     /// 当前屏幕文字的上限。
     static let screenTextLimit = 6000
     /// 应用切换后等画面稳定再记录的时间。
@@ -164,7 +170,6 @@ public actor LiveContextReader: LiveContextReading, ScreenCaptureObserver {
     private var recent = RecentContextBuffer()
     private var backgroundActive = false
     private var switchTask: Task<Void, Never>?
-    private var lastSelection: TextSelection?
     private let log = AmaiLog.logger("perception.live")
 
     public init(dependencies: Dependencies, targetHeight: Int = 1080) {
@@ -194,7 +199,6 @@ public actor LiveContextReader: LiveContextReading, ScreenCaptureObserver {
         latest = nil
         lastRecognition = nil
         recent.clear()
-        lastSelection = nil
         switchTask?.cancel()
     }
 
@@ -244,26 +248,44 @@ public actor LiveContextReader: LiveContextReading, ScreenCaptureObserver {
 
     // MARK: - LiveContextReading
 
+    /// 只经辅助功能读取焦点与选区，不发送任何按键、不碰剪贴板。聊天面板的定期刷新用它。
     public func focus() async -> FocusSnapshot {
+        await readFocus(copyFallback: false)
+    }
+
+    /// 聊天快捷键打开面板之前调用一次：辅助功能读不到选区时，只在菜单栏"拷贝"可用（有选区的证据）
+    /// 时经菜单复制一次，随后恢复剪贴板；不发送按键，不用于任何定期或自动的读取。
+    public func focusForChatOpening() async -> FocusSnapshot {
+        await readFocus(copyFallback: true)
+    }
+
+    private func readFocus(copyFallback: Bool) async -> FocusSnapshot {
         let now = deps.clock.now()
         let trusted = deps.focus.isTrusted
         guard let app = await deps.target.frontmostApp(), (try? checkPolicy(app)) != nil else {
-            lastSelection = nil
             return FocusSnapshot(accessibilityGranted: trusted, capturedAt: now)
         }
         var snapshot = FocusSnapshot(
             appName: app.name, bundleId: app.bundleId, pid: app.pid, accessibilityGranted: trusted, capturedAt: now
         )
         guard trusted else { return snapshot }
-        // AX 查询是同步的进程间调用，放到后台线程，不占用 actor。
+        // AX 查询是同步的进程间调用，放到专用队列并限定总时长，不占用 actor。
         let reader = deps.focus
-        let (title, selection) = await Task.detached(priority: .userInitiated) {
-            (reader.windowTitle(pid: app.pid), reader.selection(pid: app.pid, bundleId: app.bundleId))
-        }.value
+        let (title, read) = await BlockingCall.value(
+            within: Self.focusReadLimit, fallback: (String?.none, SelectionRead.none(.unresponsive))
+        ) {
+            (reader.windowTitle(pid: app.pid), reader.readSelection(pid: app.pid, bundleId: app.bundleId))
+        }
+        var selection = read.selection
+        if copyFallback { log.info("chat opening read: \(Self.describe(read), privacy: .public)") }
+        if copyFallback, let copier = deps.copier, !deps.secureInput.isSecureInputActive(),
+           CopyFallback.applies(read: read, amaiHasKeyboard: false, secureInput: false),
+           let text = await copier.copySelection(from: app.pid) {
+            selection = TextSelection(text: text, pid: app.pid, source: .copy)
+        }
         snapshot.windowTitle = title
         snapshot.selectedText = selection?.text
-        snapshot.selectionIsEditable = selection?.isEditable ?? false
-        lastSelection = selection
+        snapshot.selectionIsCopied = selection?.source == .copy
         return snapshot
     }
 
@@ -329,17 +351,17 @@ public actor LiveContextReader: LiveContextReading, ScreenCaptureObserver {
         return recent.distinctStates()
     }
 
-    /// 把上一次 `focus()` 读到的选区替换为 `text`（用户点击"替换"时调用）。
-    public func replaceSelection(expecting original: String, with text: String) async -> ReplaceOutcome {
-        guard let selection = lastSelection, selection.text == original else { return .selectionChanged }
-        guard !deps.secureInput.isSecureInputActive() else { return .notSupported }
-        let reader = deps.focus
-        let outcome = await Task.detached(priority: .userInitiated) { reader.replace(selection, with: text) }.value
-        if outcome == .replaced { lastSelection = nil }
-        return outcome
-    }
-
     // MARK: - Private
+
+    /// 读取结果的类别（不含文字）。
+    private static func describe(_ read: SelectionRead) -> String {
+        switch read {
+        case .text: "text"
+        case .unknown: "unknown"
+        case .emptyField: "emptyField"
+        case .none(let miss): "none(\(miss))"
+        }
+    }
 
     private func checkPolicy(_ app: FrontmostApp?) throws {
         let context = CaptureContext(

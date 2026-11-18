@@ -91,6 +91,7 @@ public actor PerceptionCoordinator {
                 policy: configuration.exclusions.policy,
                 ocr: VisionTextRecognizer(),
                 focus: AccessibilityReader(),
+                copier: SystemSelectionCopier(),
                 alwaysExcludedBundleIds: ownBundleIds
             ),
             targetHeight: configuration.screen.targetHeight

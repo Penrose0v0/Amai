@@ -156,7 +156,7 @@ struct AssistantModelSections: View {
             } header: {
                 Text("Agent 模型")
             } footer: {
-                Text("对话、记忆问答和选中文字的快速操作都用这个模型。本地模型不联网；云端模型更强，但内容会发给该服务。")
+                Text("对话、记忆问答和对选中文字的翻译润色都用这个模型。本地模型不联网；云端模型更强，但内容会发给该服务。")
             }
 
             Section {
@@ -321,7 +321,6 @@ struct AssistantSettingsView: View {
     private var shortcuts: some View {
         Section {
             hotKeyPicker(String(localized: "打开对话"), \.chatHotKey)
-            hotKeyPicker(String(localized: "对选中文字快速操作"), \.quickActionHotKey)
             if let problems = model.assistant?.hotKeyProblems, !problems.isEmpty {
                 Text("无法注册 \(problems.joined(separator: "、"))：可能已被其他应用占用，请换一个组合。")
                     .foregroundStyle(.orange)
@@ -330,7 +329,7 @@ struct AssistantSettingsView: View {
         } header: {
             Text("快捷键")
         } footer: {
-            Text("快速操作：在任意应用里选中文字后按快捷键，可以翻译、润色、解释，或带着这段文字提问。")
+            Text("在任意应用里选中文字后打开对话，可以翻译、润色、解释，或带着这段文字提问。")
         }
     }
 
@@ -340,9 +339,7 @@ struct AssistantSettingsView: View {
             set: { binding in
                 var updated = model.assistantConfiguration
                 updated[keyPath: keyPath] = binding
-                message = updated.chatHotKey == updated.quickActionHotKey
-                    ? String(localized: "两个快捷键不能相同。")
-                    : model.applyAssistant(updated)
+                message = model.applyAssistant(updated)
             }
         )) {
             ForEach(HotKeyBinding.presets, id: \.self) { Text(verbatim: $0.title).tag($0) }

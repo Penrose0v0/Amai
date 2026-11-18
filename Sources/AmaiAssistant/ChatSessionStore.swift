@@ -102,6 +102,13 @@ public final class ChatSessionStore: Sendable {
         }
     }
 
+    /// 删除一条消息（重新生成时撤回旧的回答）。
+    public func deleteMessage(_ id: UUID) throws {
+        try database.write { db in
+            try db.execute(sql: "DELETE FROM messages WHERE id = ?", arguments: [id.uuidString])
+        }
+    }
+
     public func deleteSession(_ session: UUID) throws {
         try database.write { db in
             try db.execute(sql: "DELETE FROM messages WHERE sessionId = ?", arguments: [session.uuidString])

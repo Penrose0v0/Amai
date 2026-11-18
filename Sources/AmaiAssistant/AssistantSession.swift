@@ -35,13 +35,19 @@ public actor AssistantSession {
         public var includeLiveContext = true
         /// 用户明确要求随这条消息带上屏幕截图。
         public var attachScreen: ScreenScope?
-        /// 已经读好的焦点信息（从快速操作面板转来的"Ask Amai"：选区在面板出现前就读了）。
+        /// 已经读好的焦点信息（打开面板时经复制读到的选区：面板出现前就读了）。
         public var focus: FocusSnapshot?
+        /// 是否检索记忆。翻译、润色这类只处理选中文字的请求不需要记忆，检索只会带来无关的来源。
+        public var includeMemory = true
 
-        public init(includeLiveContext: Bool = true, attachScreen: ScreenScope? = nil, focus: FocusSnapshot? = nil) {
+        public init(
+            includeLiveContext: Bool = true, attachScreen: ScreenScope? = nil, focus: FocusSnapshot? = nil,
+            includeMemory: Bool = true
+        ) {
             self.includeLiveContext = includeLiveContext
             self.attachScreen = attachScreen
             self.focus = focus
+            self.includeMemory = includeMemory
         }
     }
 
@@ -217,7 +223,7 @@ public actor AssistantSession {
         for index in transcript.indices { transcript[index].images = [] }
 
         // 记忆检索与屏幕上下文的确认同时进行。
-        let recall = recall
+        let recall = options.includeMemory ? recall : nil
         let (previous, days, shown, now) = (lastQuestion, lastDays, shownMemory, clock.now())
         async let recalling: (memory: RecalledMemory?, ms: Int) = {
             let started = Date()

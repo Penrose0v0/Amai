@@ -48,7 +48,6 @@ struct HotKeyBinding: Codable, Equatable, Hashable {
     var modifiers: UInt32
 
     static let chatDefault = HotKeyBinding(keyCode: UInt32(kVK_Space), modifiers: UInt32(cmdKey | shiftKey))
-    static let quickActionDefault = HotKeyBinding(keyCode: UInt32(kVK_Space), modifiers: UInt32(optionKey | shiftKey))
 
     /// 设置中可选的组合。不提供任意录制：少数几个不与系统冲突的组合足够，且不会被误设成常用按键。
     static let presets: [HotKeyBinding] = [
@@ -88,25 +87,23 @@ struct AssistantConfiguration: Codable, Equatable {
     var memoryCategories: [MemoryCategory]
     var cloudAcknowledged: Bool
     var chatHotKey: HotKeyBinding
-    var quickActionHotKey: HotKeyBinding
 
     /// 默认可读分区：综合、工作、目标与每日记录。健康与财务需要用户自己勾选。
     static let defaultCategories: [MemoryCategory] = [.general, .work, .goals, .daily]
 
     static let `default` = AssistantConfiguration(
         agent: nil, memoryCategories: defaultCategories, cloudAcknowledged: false,
-        chatHotKey: .chatDefault, quickActionHotKey: .quickActionDefault
+        chatHotKey: .chatDefault
     )
 
     init(
         agent: AssistantModelChoice?, memoryCategories: [MemoryCategory],
-        cloudAcknowledged: Bool, chatHotKey: HotKeyBinding, quickActionHotKey: HotKeyBinding
+        cloudAcknowledged: Bool, chatHotKey: HotKeyBinding
     ) {
         self.agent = agent
         self.memoryCategories = memoryCategories
         self.cloudAcknowledged = cloudAcknowledged
         self.chatHotKey = chatHotKey
-        self.quickActionHotKey = quickActionHotKey
     }
 
     var access: MemoryAccess { MemoryAccess(categories: Set(memoryCategories)) }
@@ -115,7 +112,7 @@ struct AssistantConfiguration: Codable, Equatable {
     var usesCloud: Bool { agent?.isCloud == true }
 
     private enum CodingKeys: String, CodingKey {
-        case agent, memoryCategories, cloudAcknowledged, chatHotKey, quickActionHotKey
+        case agent, memoryCategories, cloudAcknowledged, chatHotKey
     }
 
     /// 缺字段补默认值；不认识的分区名忽略。
@@ -127,7 +124,6 @@ struct AssistantConfiguration: Codable, Equatable {
         memoryCategories = names.map { $0.compactMap(MemoryCategory.init(rawValue:)) } ?? d.memoryCategories
         cloudAcknowledged = (try? c.decodeIfPresent(Bool.self, forKey: .cloudAcknowledged)) ?? false
         chatHotKey = (try? c.decodeIfPresent(HotKeyBinding.self, forKey: .chatHotKey)) ?? d.chatHotKey
-        quickActionHotKey = (try? c.decodeIfPresent(HotKeyBinding.self, forKey: .quickActionHotKey)) ?? d.quickActionHotKey
     }
 }
 

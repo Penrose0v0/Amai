@@ -238,7 +238,6 @@ private struct MenuContent: View {
         Button("打开 Amai") { showMain() }
         if let assistant = model.assistant {
             Button("问 Amai（\(assistant.configuration.chatHotKey.title)）") { assistant.toggleChat() }
-            Button("对选中文字快速操作（\(assistant.configuration.quickActionHotKey.title)）") { assistant.showQuickActions() }
         }
         Button("立即同步") { model.syncNow() }
 

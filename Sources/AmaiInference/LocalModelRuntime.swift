@@ -39,7 +39,8 @@ public enum LocalModelRuntime {
 
 /// 一个本地 MLX 模型的唯一持有者（mlx-swift-lm 嵌入式，ADR-0002；会话缓存部分移植自 Eira 的 MLXClient）。
 ///
-/// - 按需加载，空闲一段时间后卸载；macOS 内存压力达到 critical 时卸载（用户正在对话时暂缓）；
+/// - 按需加载，空闲一段时间后卸载；设为常驻（助手的对话模型，参考 Eira）时不做空闲卸载；
+///   macOS 内存压力达到 critical 时照样卸载（用户正在对话时暂缓）；
 /// - 模型未在本地时直接报错，绝不在后台自动下载；
 /// - 所有生成都经过 `InferenceGate`，交互式请求优先于后台；
 /// - 单次调用（抽取、整理）每次新建会话；对话保留 KV cache，下一轮只需处理新增的部分。
@@ -69,7 +70,8 @@ public actor LocalModelHost {
 
     private let configuration: ModelConfiguration
     private let gate: InferenceGate
-    private var idleUnloadAfter: TimeInterval = 300
+    /// 空闲多久后卸载；nil 表示常驻。
+    private var idleUnloadAfter: TimeInterval? = 300
     private var container: ModelContainer?
     private var loadTask: Task<ModelContainer, Error>?
     private var unloadTask: Task<Void, Never>?
@@ -152,8 +154,27 @@ public actor LocalModelHost {
 
     public var isLoaded: Bool { container != nil }
 
-    public func setIdleUnload(after seconds: TimeInterval) {
+    /// 空闲卸载的时长；nil 表示常驻（只有 critical 内存压力才释放）。
+    public func setIdleUnload(after seconds: TimeInterval?) {
         idleUnloadAfter = seconds
+        if seconds == nil {
+            unloadTask?.cancel()
+            unloadTask = nil
+        } else if container != nil {
+            scheduleUnload()
+        }
+    }
+
+    /// 在后台提前加载权重，让第一次对话直接进入预填充（冷加载 5–15 秒）。模型没下载时什么也不做，
+    /// 绝不触发下载。
+    public func warmUp() async {
+        guard container == nil, LocalInferenceBackend.isInstalled(tag: modelTag) else { return }
+        do {
+            _ = try await loadContainer(priority: .interactive)
+            scheduleUnload()
+        } catch {
+            log.error("warm up failed: \(String(describing: type(of: error)), privacy: .public)")
+        }
     }
 
     // MARK: - 单次调用
@@ -647,7 +668,10 @@ public actor LocalModelHost {
 
     private func scheduleUnload() {
         unloadTask?.cancel()
-        let delay = idleUnloadAfter
+        guard let delay = idleUnloadAfter else {
+            unloadTask = nil
+            return
+        }
         unloadTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(delay))
             guard !Task.isCancelled else { return }

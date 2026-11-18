@@ -12,7 +12,7 @@ import protocol AmaiCore.ChatModel
 import struct AmaiCore.FocusSnapshot
 import enum AmaiCore.MemoryLanguage
 
-/// 内置助手在 App 里的装配点：按配置创建模型与对话会话，持有聊天面板、快速操作面板与全局快捷键。
+/// 内置助手在 App 里的装配点：按配置创建模型与对话会话，持有聊天面板与全局快捷键。
 /// 不含业务逻辑：问答流水线在 AmaiAssistant，屏幕读取在 AmaiPerception，模型在 AmaiInference / AmaiCloud。
 @MainActor
 @Observable
@@ -46,9 +46,10 @@ final class AssistantController {
     @ObservationIgnored private let hotKeys = HotKeyManager()
     @ObservationIgnored private(set) lazy var chat = ChatViewModel(assistant: self)
     @ObservationIgnored private var chatWindow: ChatWindowController?
-    @ObservationIgnored private var quickPanel: QuickActionPanelController?
     @ObservationIgnored private let log = AmaiLog.logger("assistant")
     @ObservationIgnored private var embedding: Task<Void, Never>?
+    /// 设为常驻的本地对话模型。换模型时把旧的恢复为空闲卸载。
+    @ObservationIgnored private var residentModelTag: String?
 
     init(configuration: AssistantConfiguration, environment: Environment) {
         self.configuration = configuration
@@ -86,7 +87,6 @@ final class AssistantController {
     /// 配置变化后调用（已由调用方保存到 config.json）。
     func apply(_ configuration: AssistantConfiguration) {
         let hotKeysChanged = configuration.chatHotKey != self.configuration.chatHotKey
-            || configuration.quickActionHotKey != self.configuration.quickActionHotKey
         self.configuration = configuration
         rebuild()
         chat.sessionDidChange()
@@ -124,11 +124,30 @@ final class AssistantController {
             embedder: environment.embedder
         )
         chatModel = model
+        keepResident(choice.source.mode == .local ? choice.localModelTag : nil)
         session = AssistantSession(
             model: model, memory: memory, live: environment.live,
             builder: ContextBuilder(language: languageName)
         )
         log.info("assistant ready: \(model.identifier, privacy: .public), off-device=\(model.sendsDataOffDevice), categories=\(self.configuration.memoryCategories.count)")
+    }
+
+    /// 参考 Eira：助手的本地对话模型常驻后台，启动时就在后台预加载，按下快捷键时不必等 5–15 秒的冷加载。
+    /// 只有 critical 内存压力（且最近两分钟没有对话）才释放。后台抽取用的模型不受影响，仍然空闲 5 分钟卸载。
+    private func keepResident(_ tag: String?) {
+        let previous = residentModelTag
+        guard tag != previous else { return }
+        residentModelTag = tag
+        let embedder = environment.embedder
+        Task.detached(priority: .utility) {
+            if let previous { await LocalModelRuntime.host(for: previous).setIdleUnload(after: 300) }
+            await embedder?.setResident(tag != nil)
+            guard let tag else { return }
+            let host = LocalModelRuntime.host(for: tag)
+            await host.setIdleUnload(after: nil)
+            await host.warmUp()
+            await embedder?.warmUp()
+        }
     }
 
     // MARK: - Prepare
@@ -161,11 +180,6 @@ final class AssistantController {
         if !hotKeys.register(id: 1, keyCode: configuration.chatHotKey.keyCode, modifiers: configuration.chatHotKey.modifiers, handler: { [weak self] in self?.toggleChat() }) {
             problems.append(configuration.chatHotKey.title)
         }
-        if configuration.quickActionHotKey == configuration.chatHotKey {
-            hotKeys.unregister(id: 2)
-        } else if !hotKeys.register(id: 2, keyCode: configuration.quickActionHotKey.keyCode, modifiers: configuration.quickActionHotKey.modifiers, handler: { [weak self] in self?.showQuickActions() }) {
-            problems.append(configuration.quickActionHotKey.title)
-        }
         hotKeyProblems = problems
     }
 
@@ -175,8 +189,23 @@ final class AssistantController {
 
     // MARK: - Chat panel
 
+    /// 聊天快捷键。打开面板之前先读一次焦点：只有辅助功能看不到、经菜单复制读到的选区（微信等）
+    /// 才交给聊天框保留（面板打开后的定期刷新只用辅助功能，会读不到它）。
     func toggleChat() {
-        chatController().toggle()
+        let controller = chatController()
+        guard !controller.isVisible, let live = environment.live else {
+            controller.toggle()
+            return
+        }
+        Task {
+            let focus = await live.focusForChatOpening()
+            if focus.selectionIsCopied, !(focus.selectedText ?? "").isEmpty {
+                chat.handOver(focus: focus)
+            } else {
+                chat.discardHandOver()
+            }
+            controller.toggle()
+        }
     }
 
     func showChat() {
@@ -193,29 +222,6 @@ final class AssistantController {
         )
         chatWindow = controller
         return controller
-    }
-
-    // MARK: - Quick actions
-
-    /// 读取当前选区并显示快速操作面板。读取在面板出现之前完成：面板一出现，焦点就可能变化。
-    func showQuickActions() {
-        Task {
-            let focus = await environment.live?.focus() ?? FocusSnapshot()
-            let model = QuickActionModel(focus: focus, assistant: self)
-            if quickPanel == nil { quickPanel = QuickActionPanelController() }
-            quickPanel?.show(model)
-        }
-    }
-
-    func closeQuickActions() {
-        quickPanel?.close()
-    }
-
-    /// 快速操作面板的"Ask Amai"：把选区交给聊天面板。
-    func askAmai(about focus: FocusSnapshot) {
-        closeQuickActions()
-        chat.handOver(focus: focus)
-        showChat()
     }
 
     func openSettings() {

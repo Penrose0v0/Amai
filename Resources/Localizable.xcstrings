@@ -1366,6 +1366,7 @@
       }
     },
     "两个快捷键不能相同。": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -1446,6 +1447,7 @@
       }
     },
     "云端模型：选中的文字会发送给 %@。": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2358,6 +2360,7 @@
       }
     },
     "原应用没有声明选区可编辑，将尝试粘贴到原处 (⌘↩)": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2369,6 +2372,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "元のアプリは選択範囲を編集可能と報告していません。その場へのペーストを試みます (⌘↩)"
+          }
+        }
+      }
+    },
+    "原文所在位置不可编辑。结果已复制到剪贴板。": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The original text is not editable. The result was copied to the clipboard."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "元のテキストは編集できません。結果をクリップボードにコピーしました。"
           }
         }
       }
@@ -2497,6 +2517,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "コールバックサービスがキャンセルされました"
+          }
+        }
+      }
+    },
+    "在任意应用里选中文字后打开对话，可以翻译、润色、解释，或带着这段文字提问。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select text in any app, then open the chat to translate, polish or explain it, or ask about it."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "任意のアプリでテキストを選択してから会話を開くと、翻訳・推敲・解説や、そのテキストについての質問ができます。"
           }
         }
       }
@@ -2789,7 +2825,24 @@
         }
       }
     },
+    "对话、记忆问答和对选中文字的翻译润色都用这个模型。本地模型不联网；云端模型更强，但内容会发给该服务。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chat, memory questions and translating or polishing selected text all use this model. Local models stay offline; cloud models are stronger, but content is sent to that service."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "会話、記憶への質問、選択テキストの翻訳・推敲はすべてこのモデルを使います。ローカルモデルはオフラインで動作します。クラウドモデルはより高性能ですが、内容がそのサービスに送信されます。"
+          }
+        }
+      }
+    },
     "对话、记忆问答和选中文字的快速操作都用这个模型。本地模型不联网；云端模型更强，但内容会发给该服务。": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2854,6 +2907,7 @@
       }
     },
     "对选中文字快速操作": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2870,6 +2924,7 @@
       }
     },
     "对选中文字快速操作（%@）": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3334,6 +3389,7 @@
       }
     },
     "已替换": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3478,6 +3534,7 @@
       }
     },
     "带着这段文字打开对话": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3814,6 +3871,7 @@
       }
     },
     "快速操作": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3830,6 +3888,7 @@
       }
     },
     "快速操作：在任意应用里选中文字后按快捷键，可以翻译、润色、解释，或带着这段文字提问。": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4229,7 +4288,24 @@
         }
       }
     },
+    "按 %@ 打开对话；先选中文字再打开，可以翻译、润色或解释。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Press %@ to open the chat. Select text first to translate, polish or explain it."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ で会話を開きます。先にテキストを選択してから開くと、翻訳・推敲・解説ができます。"
+          }
+        }
+      }
+    },
     "按 %@ 打开对话；选中文字后按 %@ 做翻译、润色或解释。": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4342,6 +4418,7 @@
       }
     },
     "授权辅助功能…": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -5084,6 +5161,7 @@
       }
     },
     "替换原文": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -6322,6 +6400,7 @@
       }
     },
     "没有可处理的文字。": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -6370,6 +6449,7 @@
       }
     },
     "没有读到选中的文字。先在任意应用里选中一段文字，再按快捷键。有些应用不提供选区，可以改用「问 Amai」。": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -6386,6 +6466,7 @@
       }
     },
     "没有辅助功能权限，无法替换。结果已复制到剪贴板。": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -6418,6 +6499,7 @@
       }
     },
     "润色": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -6429,6 +6511,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "推敲"
+          }
+        }
+      }
+    },
+    "润色所选内容": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Polish selection"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選択範囲を推敲"
           }
         }
       }
@@ -6530,6 +6628,7 @@
       }
     },
     "用结果替换原来选中的文字 (⌘↩)": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -7314,6 +7413,7 @@
       }
     },
     "翻译": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -7325,6 +7425,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "翻訳"
+          }
+        }
+      }
+    },
+    "翻译所选内容": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Translate selection"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選択範囲を翻訳"
           }
         }
       }
@@ -7394,6 +7510,7 @@
       }
     },
     "解释": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -7858,6 +7975,22 @@
         }
       }
     },
+    "请把我选中的内容翻译成中文。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Please translate the text I selected into English."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選択した内容を日本語に翻訳してください。"
+          }
+        }
+      }
+    },
     "请求被拒绝：%@": {
       "localizations": {
         "en": {
@@ -7922,6 +8055,22 @@
         }
       }
     },
+    "请润色我选中的文字：修正语法、错别字和不通顺的地方，保持原来的语言、意思和语气，不添加新内容。只输出润色后的文字。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Polish the text I selected: fix grammar, typos and awkward phrasing while keeping its original language, meaning and tone, without adding anything new. Output only the polished text."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選択したテキストを推敲してください。文法・誤字・不自然な表現を直し、元の言語・意味・トーンは保ったまま、新しい内容は加えないでください。推敲後のテキストだけを出力してください。"
+          }
+        }
+      }
+    },
     "请解释我选中的内容。": {
       "localizations": {
         "en": {
@@ -7955,6 +8104,7 @@
       }
     },
     "读取其他应用里选中的文字需要「辅助功能」权限。Amai 只在你按下快捷键时读取一次，不监听键盘。": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -8323,6 +8473,7 @@
       }
     },
     "这个应用不支持替换。结果已复制到剪贴板。": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -8339,6 +8490,7 @@
       }
     },
     "这个应用不支持直接替换，已改为粘贴到原处。": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -8547,6 +8699,7 @@
       }
     },
     "选中的文字超过 %lld 个字符，请缩小选区。": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -8563,6 +8716,7 @@
       }
     },
     "选区已经变化，没有替换。结果已复制到剪贴板。": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -8802,6 +8956,22 @@
         }
       }
     },
+    "重新生成": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regenerate"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "再生成"
+          }
+        }
+      }
+    },
     "长期记忆": {
       "localizations": {
         "en": {
@@ -8819,6 +8989,7 @@
       }
     },
     "问 Amai": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {

@@ -31,14 +31,22 @@ final class FakeRecognizer: TextRecognizer, @unchecked Sendable {
 final class FakeFocus: FocusReading, @unchecked Sendable {
     var isTrusted = true
     var title: String? = "Draft.md"
-    var selected: TextSelection? = TextSelection(text: "hello world", isEditable: true, pid: 1)
-    var outcome: ReplaceOutcome = .replaced
-    private(set) var replaced: [String] = []
+    var selected: TextSelection? = TextSelection(text: "hello world", pid: 1)
+    /// 设置后代替 `selected` 作为读取结果（模拟读不到选区的各种原因）。
+    var read: SelectionRead?
     func windowTitle(pid: pid_t) -> String? { title }
-    func selection(pid: pid_t, bundleId: String?) -> TextSelection? { selected }
-    func replace(_ selection: TextSelection, with text: String) -> ReplaceOutcome {
-        replaced.append(text)
-        return outcome
+    func readSelection(pid: pid_t, bundleId: String?) -> SelectionRead {
+        if let read { return read }
+        return selected.map(SelectionRead.text) ?? .none(.unavailable)
+    }
+}
+
+final class FakeCopier: SelectionCopying, @unchecked Sendable {
+    var text: String? = "copied from the editor"
+    private(set) var calls: [pid_t] = []
+    func copySelection(from pid: pid_t) async -> String? {
+        calls.append(pid)
+        return text
     }
 }
 
@@ -52,6 +60,7 @@ struct LiveContextTests {
         let secure = FakeSecureInput()
         let ocr: FakeRecognizer
         let focus = FakeFocus()
+        let copier = FakeCopier()
         let clock = FakeClock()
 
         init(ocr: FakeRecognizer = FakeRecognizer(), excluded: Set<String> = ["com.1password.1password"]) {
@@ -59,7 +68,7 @@ struct LiveContextTests {
             screens = FakeScreenSource(image: SyntheticImage.make(seed: 1))
             reader = LiveContextReader(dependencies: .init(
                 screens: screens, windows: windows, target: frontmost, secureInput: secure,
-                policy: ExclusionListPolicy(excludedBundleIds: excluded), ocr: ocr, focus: focus, clock: clock,
+                policy: ExclusionListPolicy(excludedBundleIds: excluded), ocr: ocr, focus: focus, copier: copier, clock: clock,
                 alwaysExcludedBundleIds: ["com.amai.app"]
             ))
         }
@@ -167,23 +176,46 @@ struct LiveContextTests {
         #expect(h.screens.calls == 1)
     }
 
-    @Test("focus reports app, window title and selection; replacement only applies to the selection that was read")
-    func focusAndReplace() async {
+    @Test("focus reports app, window title and selection; without Accessibility only the app")
+    func focusReads() async {
         let h = Harness()
         let snapshot = await h.reader.focus()
         #expect(snapshot.appName == "Xcode" && snapshot.windowTitle == "Draft.md")
-        #expect(snapshot.selectedText == "hello world" && snapshot.selectionIsEditable)
-
-        #expect(await h.reader.replaceSelection(expecting: "something else", with: "x") == .selectionChanged)
-        #expect(h.focus.replaced.isEmpty)
-        #expect(await h.reader.replaceSelection(expecting: "hello world", with: "你好，世界") == .replaced)
-        #expect(h.focus.replaced == ["你好，世界"])
-        // 同一个选区只替换一次。
-        #expect(await h.reader.replaceSelection(expecting: "hello world", with: "again") == .selectionChanged)
+        #expect(snapshot.selectedText == "hello world" && !snapshot.selectionIsCopied)
 
         h.focus.isTrusted = false
         let untrusted = await h.reader.focus()
         #expect(untrusted.appName == "Xcode" && untrusted.windowTitle == nil && !untrusted.accessibilityGranted)
+    }
+
+    @Test("copy fallback: only when the chat opens, only when Accessibility cannot read the selection")
+    func copyFallbackOnlyWhenOpeningChat() async {
+        let h = Harness()
+        for read in [SelectionRead.unknown, .emptyField] {
+            h.focus.read = read
+            // 面板打开后的读取（含定期刷新）从不复制。
+            let passive = await h.reader.focus()
+            #expect(passive.selectedText == nil)
+            let opened = await h.reader.focusForChatOpening()
+            #expect(opened.selectedText == "copied from the editor" && opened.selectionIsCopied)
+        }
+        #expect(h.copier.calls == [1, 1])
+
+        // 辅助功能已经说明了原因（密码框、无响应、不可用）就不复制。
+        for miss in [SelectionMiss.secureField, .unresponsive, .unavailable] {
+            h.focus.read = .none(miss)
+            #expect(await h.reader.focusForChatOpening().selectedText == nil)
+        }
+        // 安全输入时不复制。
+        h.focus.read = .unknown
+        h.secure.active = true
+        _ = await h.reader.focusForChatOpening()
+        // 读到的选区就不再复制。
+        h.secure.active = false
+        h.focus.read = nil
+        let read = await h.reader.focusForChatOpening()
+        #expect(read.selectedText == "hello world" && !read.selectionIsCopied)
+        #expect(h.copier.calls.count == 2)
     }
 
     @Test("recent states: OCR runs only when asked, once per state, and secrets are redacted")
