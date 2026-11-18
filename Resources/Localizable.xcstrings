@@ -330,6 +330,22 @@
     "Amai": {
       "shouldTranslate": false
     },
+    "Amai 会先退出，用 Homebrew 安装新版本后自动重新打开，通常一分钟内完成。这段时间不会记录屏幕，记忆与设置保持不变。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Amai will quit, install the new version with Homebrew, and reopen automatically, usually within a minute. The screen isn't recorded in the meantime; your memory and settings stay as they are."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Amai はいったん終了し、Homebrew で新しいバージョンをインストールしたあと自動で再び開きます。通常は 1 分以内に終わります。そのあいだ画面は記録されません。記憶と設定はそのまま残ります。"
+          }
+        }
+      }
+    },
     "Amai 会在整理每日记录后自动写入。你也可以自己创建 %@ 并在里面书写。": {
       "localizations": {
         "en": {
@@ -1185,6 +1201,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "記録しないもの"
+          }
+        }
+      }
+    },
+    "不再显示": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dismiss"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "閉じる"
           }
         }
       }
@@ -3333,6 +3365,22 @@
         }
       }
     },
+    "打开下载页面": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Download Page"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ダウンロードページを開く"
+          }
+        }
+      }
+    },
     "打开屏幕录制设置…": {
       "localizations": {
         "en": {
@@ -4053,6 +4101,22 @@
         }
       }
     },
+    "更新": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Update"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アップデート"
+          }
+        }
+      }
+    },
     "更新于 %@": {
       "localizations": {
         "en": {
@@ -4065,6 +4129,76 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@に更新"
+          }
+        }
+      }
+    },
+    "更新到 Amai v%@？": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Update to Amai v%@?"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Amai v%@ にアップデートしますか？"
+          }
+        }
+      }
+    },
+    "更新到 v%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Update to v%@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "v%@ にアップデート"
+          }
+        }
+      }
+    },
+    "更新到 v%@ 失败": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't update to v%@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "v%@ へのアップデートに失敗しました"
+          }
+        }
+      }
+    },
+    "更新到 v%@ 失败：%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't update to v%1$@: %2$@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "v%1$@ へのアップデートに失敗しました：%2$@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "new",
+            "value": "更新到 v%1$@ 失败：%2$@"
           }
         }
       }

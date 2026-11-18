@@ -199,6 +199,28 @@ enum MemoryPreviewTour {
         return jpeg
     }
 
+    /// 菜单栏图标（`--memory-preview <目录> --menubar-tour <输出目录> [--preview-update <版本>]`）。
+    /// 由本应用调用 screencapture，只截图标所在的状态栏窗口的矩形，不截屏幕上的其他内容。
+    static func runMenuBar(output: URL) async {
+        try? FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
+        try? await Task.sleep(for: .seconds(2))
+        if let window = NSApp.windows.first(where: { String(describing: type(of: $0)).contains("StatusBarWindow") }) {
+            // 状态栏窗口不能按窗口编号截取，改为截图标两侧的一窄条菜单栏（-R 使用左上角为原点的全局坐标）。
+            let top = NSScreen.screens.map(\.frame.maxY).max() ?? window.frame.maxY
+            let f = window.frame
+            let screenTop = window.screen?.frame.maxY ?? f.maxY
+            let rect = "\(Int(f.minX - 60)),\(Int(top - screenTop)),\(Int(f.width + 120)),24"
+            let p = Process()
+            p.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+            p.arguments = ["-x", "-R", rect, output.appendingPathComponent("menubar-icon.png").path]
+            try? p.run()
+            p.waitUntilExit()
+        } else {
+            try? "找不到菜单栏图标".write(to: output.appendingPathComponent("tour.log"), atomically: true, encoding: .utf8)
+        }
+        NSApp.terminate(nil)
+    }
+
     /// 首次使用引导的每一步（`--memory-preview <目录> --onboarding-tour <输出目录>`）。预览模式中授权、下载与完成都不生效。
     static func runOnboarding(model: AppModel, output: URL) async {
         try? FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)

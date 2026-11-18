@@ -55,6 +55,8 @@ final class AppModel {
     private var downloadTasks: [String: Task<Void, Never>] = [:]
     /// 递增时主窗口打开设置窗口（供开发预览的截图流程使用）。
     var settingsRequests = 0
+    /// 新版本提示与 Homebrew 升级。
+    let updates = UpdateController()
     let memoryRoot: URL
 
     private let paths: AmaiPaths?
@@ -247,6 +249,12 @@ final class AppModel {
             }
         }
         startPolling()
+        // 预览模式不联网检查更新；`--preview-update <版本>` 只用来在预览中查看"有新版本"时的菜单栏与菜单。
+        if preview == nil {
+            updates.start()
+        } else if let i = CommandLine.arguments.firstIndex(of: "--preview-update"), i + 1 < CommandLine.arguments.count {
+            updates.showAvailableForPreview(CommandLine.arguments[i + 1])
+        }
 
         // 开发用启动参数：open .build/Amai.app --args --consolidate-today [--update-general]
         let args = CommandLine.arguments
@@ -263,6 +271,10 @@ final class AppModel {
         if isMemoryPreview, let i = args.firstIndex(of: "--memory-preview-tour"), i + 1 < args.count {
             let output = URL(fileURLWithPath: args[i + 1], isDirectory: true)
             Task { await MemoryPreviewTour.run(model: self, output: output) }
+        }
+        if isMemoryPreview, let i = args.firstIndex(of: "--menubar-tour"), i + 1 < args.count {
+            let output = URL(fileURLWithPath: args[i + 1], isDirectory: true)
+            Task { await MemoryPreviewTour.runMenuBar(output: output) }
         }
         if isMemoryPreview, let i = args.firstIndex(of: "--onboarding-tour"), i + 1 < args.count {
             let output = URL(fileURLWithPath: args[i + 1], isDirectory: true)
@@ -331,10 +343,48 @@ final class AppModel {
     /// 退出前先停止采集，让写入中的视频分段正常收尾。
     func quit() {
         Task {
-            await consolidator?.stop()
-            await memorySync?.stop()
-            await pipeline?.stop()
-            await coordinator?.stop()
+            await stopServices()
+            NSApplication.shared.terminate(nil)
+        }
+    }
+
+    /// 退出、重新启动与升级前共用的收尾：停止整理、同步、抽取与采集。
+    private func stopServices() async {
+        await consolidator?.stop()
+        await memorySync?.stop()
+        await pipeline?.stop()
+        await coordinator?.stop()
+    }
+
+    /// 菜单中的"更新到 vX"。Homebrew 安装的副本：确认后收尾退出，由独立的 shell 升级并重新打开；
+    /// 其他副本（开发构建、手动下载）无法原地升级，打开下载页面。
+    func installUpdate() {
+        guard let target = updates.availableVersion, !isMemoryPreview else { return }
+        guard let brew = updates.brewForThisInstall else {
+            updates.openReleasesPage()
+            return
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        let alert = NSAlert()
+        alert.messageText = String(localized: "更新到 Amai v\(target)？")
+        alert.informativeText = String(localized: "Amai 会先退出，用 Homebrew 安装新版本后自动重新打开，通常一分钟内完成。这段时间不会记录屏幕，记忆与设置保持不变。")
+        alert.addButton(withTitle: String(localized: "更新"))
+        alert.addButton(withTitle: String(localized: "取消"))
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+
+        let bundlePath = Bundle.main.bundlePath
+        Task {
+            await stopServices()
+            do {
+                try updates.launchUpgrade(brew: brew, target: target)
+            } catch {
+                // 升级没能启动（极少见）：照常重新打开，升级记录会让菜单显示"更新失败"。
+                AmaiLog.logger("update").error("could not start upgrade: \(String(describing: error), privacy: .public)")
+                let process = Process()
+                process.executableURL = URL(fileURLWithPath: "/bin/sh")
+                process.arguments = ["-c", "sleep 1; /usr/bin/open \"$0\"", bundlePath]
+                try? process.run()
+            }
             NSApplication.shared.terminate(nil)
         }
     }
@@ -344,10 +394,7 @@ final class AppModel {
     func relaunch() {
         let bundlePath = Bundle.main.bundlePath
         Task {
-            await consolidator?.stop()
-            await memorySync?.stop()
-            await pipeline?.stop()
-            await coordinator?.stop()
+            await stopServices()
             let process = Process()
             process.executableURL = URL(fileURLWithPath: "/bin/sh")
             process.arguments = ["-c", "sleep 1; /usr/bin/open \"$0\"", bundlePath]

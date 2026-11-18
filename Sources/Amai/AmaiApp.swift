@@ -18,7 +18,7 @@ struct AmaiApp: App {
         MenuBarExtra {
             MenuContent(model: model)
         } label: {
-            Image(systemName: Self.symbol(for: model))
+            MenuBarIcon(symbol: Self.symbol(for: model), highlighted: model.updates.availableVersion != nil)
         }
 
         Window("Amai", id: "main") {
@@ -63,6 +63,29 @@ struct AmaiApp: App {
     }
 }
 
+/// 菜单栏图标。有新版本时换成固定的蓝色：菜单栏中的模板图片会忽略着色，
+/// 所以改用非模板的调色板符号（与 Eira 相同的做法）。
+private struct MenuBarIcon: View {
+    let symbol: String
+    let highlighted: Bool
+
+    var body: some View {
+        if highlighted, let image = Self.blue(symbol) {
+            Image(nsImage: image)
+        } else {
+            Image(systemName: symbol)
+        }
+    }
+
+    private static func blue(_ symbol: String) -> NSImage? {
+        guard let image = NSImage(systemSymbolName: symbol, accessibilityDescription: "Amai")?
+            .withSymbolConfiguration(NSImage.SymbolConfiguration(paletteColors: [.systemBlue]))
+        else { return nil }
+        image.isTemplate = false
+        return image
+    }
+}
+
 /// 开发预览的截图流程需要打开设置窗口，而 SwiftUI 只允许从视图里调用 `openSettings`。
 private struct SettingsRequestListener: View {
     let model: AppModel
@@ -80,6 +103,7 @@ private struct MenuContent: View {
 
     var body: some View {
         if model.isMemoryPreview {
+            updateRows
             Text("Amai 记忆预览（只读示例数据）")
             Divider()
             Button("打开 Amai") { showMain() }
@@ -98,8 +122,32 @@ private struct MenuContent: View {
         }
     }
 
+    /// 新版本与上一次升级失败的提示，放在菜单最上方。
+    @ViewBuilder
+    private var updateRows: some View {
+        let updates = model.updates
+        if let failure = updates.failure {
+            Text("⚠︎ \(failure)")
+            Button("打开下载页面") { updates.openReleasesPage() }
+            Button("不再显示") { updates.dismissFailure() }
+        }
+        if let version = updates.availableVersion {
+            // 升级失败后同一个按钮就是"重试"。
+            Button {
+                model.installUpdate()
+            } label: {
+                Label("更新到 v\(version)", systemImage: "arrow.down.circle.fill")
+            }
+            .disabled(model.isMemoryPreview)
+        }
+        if updates.failure != nil || updates.availableVersion != nil {
+            Divider()
+        }
+    }
+
     @ViewBuilder
     private var fullMenu: some View {
+        updateRows
         Text(statusTitle)
         if let updated = model.lastMemoryUpdate {
             Text("记忆更新于 \(updated.formatted(.relative(presentation: .named)))")

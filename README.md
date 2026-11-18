@@ -101,7 +101,7 @@ For organizing long-term memory, you choose the source during onboarding: the lo
 ### More
 
 - **First-run onboarding** covers languages, what gets recorded, Screen Recording permission and model choice. Nothing is recorded until you finish it.
-- **Menu bar app**: pause or resume recording at any time; the icon always shows the current state.
+- **Menu bar app**: pause or resume recording at any time; the icon always shows the current state, and turns blue when a new version is available. For a Homebrew install, **Update to vX** in the menu upgrades and reopens Amai.
 - **Multiple displays** are captured, with the focused display weighted most.
 - **Three languages** (简体中文, English, 日本語) for the interface, set separately from the language memory is written in.
 
@@ -125,7 +125,7 @@ More detail: [architecture](docs/architecture.md) · [memory system](docs/memory
 
 Amai sees your screen, so privacy is built into the design rather than added as a setting.
 
-- **Screenshots stay on your Mac.** The vision model runs locally, and model downloads only contact Hugging Face.
+- **Screenshots stay on your Mac.** The vision model runs locally. The only other connections Amai makes on its own are model downloads from Hugging Face and a check for new versions on GitHub every 6 hours, which sends no personal data.
 - **Raw screenshots are temporary.** They are kept for at most 72 hours or 2 GB, whichever comes first, then deleted.
 - **Sensitive moments are skipped.** Nothing is captured while you type into a password field, or while a password manager (1Password, Bitwarden, KeePassXC, Keychain Access) is in front. If an exclusion can't be confirmed, the frame is dropped.
 - **Keystrokes are never recorded.** Amai notes only app switches and how long you have been idle.
