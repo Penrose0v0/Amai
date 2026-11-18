@@ -675,8 +675,11 @@ final class AppModel {
     /// 启动时（创建 AppModel 之前）调用：让文字查找跟随所选界面语言，之后切换语言不必重启。
     @MainActor
     static func applyInterfaceLanguageAtLaunch() {
+        // 用本次进程实际生效的语言：它已经综合了保存的界面语言、系统语言与启动参数
+        //（开发截图用 `-AppleLanguages '(ja)'` 指定语言，不能被保存的设置盖掉）。
+        let launch = Bundle.main.preferredLocalizations.first ?? activeLocalization(for: storedInterfaceLanguage())
         InterfaceLanguageBundle.install()
-        InterfaceLanguageState.shared.apply(activeLocalization(for: storedInterfaceLanguage()))
+        InterfaceLanguageState.shared.apply(launch)
     }
 
     var interfaceLanguage: InterfaceLanguage {
