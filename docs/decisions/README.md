@@ -24,9 +24,11 @@
 | [0001](0001-markdown-memory.md) | 以 Markdown 文件作为长期记忆的主要存储 | Accepted |
 | [0002](0002-tech-stack.md) | macOS MVP 技术栈 | Accepted |
 | [0003](0003-memory-consolidation.md) | 记忆整理（M4）：日终摘要、work 专题与 summary | Accepted（文件布局由 0006 取代） |
-| [0004](0004-cloud-model-provider.md) | 记忆整理可切换到云端 API 大模型（Anthropic / OpenAI） | Accepted |
+| [0004](0004-cloud-model-provider.md) | 记忆整理可切换到云端 API 大模型（Anthropic / OpenAI） | Accepted（云端的使用范围由 0010 扩大到助手） |
 | [0005](0005-subscription-accounts.md) | 用 ChatGPT / Claude 订阅额度做记忆整理 | Accepted |
 | [0006](0006-memory-schema-v1.md) | Memory Schema v1：单文件分区、依据类型与无损迁移 | Accepted（部分取代 0003 的文件布局；依据类型由 0009 取代） |
 | [0007](0007-local-model-selection.md) | 本地模型可在设置中选择，按本机内存推荐 | Accepted |
 | [0008](0008-read-only-mcp-server.md) | 统一的只读 Memory API 与 MCP Server | Accepted |
 | [0009](0009-remove-memory-kind.md) | 移除记忆条目的依据类型（kind） | Accepted |
+| [0010](0010-assistant-integration.md) | 内置助手（Eira 集成）：统一感知、独立的模型运行时与 Agent | Accepted（扩大了 0004 的云端边界；Agent 循环与记忆工具由 0011 取代） |
+| [0011](0011-assistant-qa-pipeline.md) | 问答管线：后端检索记忆、混合检索、面板唤出时预填充 | Accepted |

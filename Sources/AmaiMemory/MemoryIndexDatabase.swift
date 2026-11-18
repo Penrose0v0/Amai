@@ -57,6 +57,36 @@ public final class MemoryIndexDatabase: Sendable {
                 t.column("size", .integer).notNull()
             }
         }
+        // 混合检索（ADR-0011）：比 section 更细的块、预先分好词的全文索引、按内容哈希存放的向量。
+        migrator.registerMigration("v2-chunks") { db in
+            try db.create(table: "chunk") { t in
+                t.autoIncrementedPrimaryKey("id")
+                t.column("file", .text).notNull().indexed()
+                t.column("heading", .text).notNull()
+                t.column("position", .integer).notNull()
+                t.column("content", .text).notNull()
+                t.column("day", .datetime)
+                /// 空格分隔的检索词（MemoryTerms.indexTerms），全文索引建在它上面。
+                t.column("terms", .text).notNull()
+                /// 向量文本（标题 + 正文）的哈希，对应 embedding.hash。
+                t.column("hash", .text).notNull().indexed()
+            }
+            // 词已经分好（汉字 bigram），这里只需要按空格切。
+            try db.create(virtualTable: "chunk_fts", using: FTS5()) { t in
+                t.synchronize(withTable: "chunk")
+                t.tokenizer = .unicode61()
+                t.column("terms")
+            }
+            // 向量按（模型，内容哈希）存放：文件重建索引时内容没变的块不必重算。
+            try db.create(table: "embedding") { t in
+                t.column("model", .text).notNull()
+                t.column("hash", .text).notNull()
+                t.column("vector", .blob).notNull()
+                t.primaryKey(["model", "hash"])
+            }
+            // 已有的索引里没有块：清掉文件记录，让下一次 refresh 把所有文件重新索引一遍。
+            try db.execute(sql: "DELETE FROM file_meta")
+        }
         return migrator
     }
 }

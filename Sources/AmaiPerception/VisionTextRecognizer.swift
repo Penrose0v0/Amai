@@ -1,35 +1,6 @@
+import AmaiCore
 import Foundation
 import Vision
-
-public struct OCRLine: Codable, Sendable, Equatable {
-    public let text: String
-    public let confidence: Float
-
-    public init(text: String, confidence: Float) {
-        self.text = text
-        self.confidence = confidence
-    }
-}
-
-public struct OCRResult: Sendable, Equatable {
-    /// 从上到下、从左到右排列。
-    public let lines: [OCRLine]
-
-    public init(lines: [OCRLine]) {
-        self.lines = lines
-    }
-
-    public var text: String { lines.map(\.text).joined(separator: "\n") }
-
-    public var meanConfidence: Double {
-        guard !lines.isEmpty else { return 0 }
-        return lines.map { Double($0.confidence) }.reduce(0, +) / Double(lines.count)
-    }
-}
-
-public protocol TextRecognizer: Sendable {
-    func recognize(jpeg: Data) async throws -> OCRResult
-}
 
 /// Apple Vision 本地 OCR。`.accurate` 级别才支持中文。
 public struct VisionTextRecognizer: TextRecognizer {

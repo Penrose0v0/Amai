@@ -4,6 +4,22 @@
     "": {
       "shouldTranslate": false
     },
+    " · 已选中文字": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " · text selected"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " · テキスト選択中"
+          }
+        }
+      }
+    },
     " · 未授予套餐用量": {
       "localizations": {
         "en": {
@@ -323,6 +339,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "API の URL"
+          }
+        }
+      }
+    },
+    "Agent 模型": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent model"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "エージェントのモデル"
           }
         }
       }
@@ -886,6 +918,38 @@
     "Manage usage": {
       "shouldTranslate": false
     },
+    "OpenAI 兼容接口（API Key）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenAI-compatible API (API key)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenAI 互換 API（API キー）"
+          }
+        }
+      }
+    },
+    "Qwen3 Embedding 0.6B · 下载约 %lld MB": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Qwen3 Embedding 0.6B · about %lld MB to download"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Qwen3 Embedding 0.6B · ダウンロード約 %lld MB"
+          }
+        }
+      }
+    },
     "Using ChatGPT plan": {
       "shouldTranslate": false
     },
@@ -1013,6 +1077,22 @@
         }
       }
     },
+    "「%@」此操作无法撤销。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@” — this cannot be undone."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「%@」この操作は取り消せません。"
+          }
+        }
+      }
+    },
     "上一个窗口耗时": {
       "localizations": {
         "en": {
@@ -1025,6 +1105,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "直前のウィンドウの所要時間"
+          }
+        }
+      }
+    },
+    "上一条消息还在生成中。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The previous message is still being answered."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "前のメッセージの回答を生成中です。"
           }
         }
       }
@@ -1253,6 +1349,38 @@
         }
       }
     },
+    "与屏幕理解是同一个模型，共用一份权重，不额外占用内存。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Same model as screen understanding: the weights are shared, so it uses no extra memory."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "画面理解と同じモデルです。重みを共有するため、追加のメモリは使いません。"
+          }
+        }
+      }
+    },
+    "两个快捷键不能相同。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The two shortcuts must be different."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2 つのショートカットを同じにすることはできません。"
+          }
+        }
+      }
+    },
     "为了让刚才的设置生效，Amai 会重新启动一次。": {
       "localizations": {
         "en": {
@@ -1297,6 +1425,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "クラウド"
+          }
+        }
+      }
+    },
+    "云端模型：对话内容、屏幕上下文和检索到的记忆会发送给该服务。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cloud model: the conversation, screen context and retrieved memory are sent to this service."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "クラウドモデル：会話、画面のコンテキスト、検索された記憶がこのサービスに送信されます。"
+          }
+        }
+      }
+    },
+    "云端模型：选中的文字会发送给 %@。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cloud model: the selected text is sent to %@."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "クラウドモデル：選択したテキストが %@ に送信されます。"
           }
         }
       }
@@ -1393,6 +1553,54 @@
           "stringUnit": {
             "state": "translated",
             "value": "ブラウザで認証をキャンセルしました"
+          }
+        }
+      }
+    },
+    "使用「模型」页里已设置的账户。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uses the account set up in the Model tab."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「モデル」タブで設定したアカウントを使います。"
+          }
+        }
+      }
+    },
+    "使用云端模型？": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use a cloud model?"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "クラウドモデルを使いますか？"
+          }
+        }
+      }
+    },
+    "使用助手时，以下内容会发送给 %@：你的提问与对话、选中的文字、当前窗口的应用名与屏幕文字、你要求查看屏幕时的截图，以及助手从这些分区检索到的记忆：%@。\n\n只在你使用助手时发送；后台的截图与屏幕理解仍然只在本机进行。之后每次使用不再询问，可以随时在这里改回本地模型。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "When you use the assistant, the following is sent to %@: your questions and the conversation, selected text, the app name and on-screen text of the current window, screenshots when you ask it to look at the screen, and memory it retrieves from these categories: %@.\n\nThis is sent only while you use the assistant; background screenshots and screen understanding stay on this Mac. You will not be asked again on each use, and you can switch back to a local model here at any time."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アシスタントを使うとき、次の内容が %@ に送信されます：質問と会話、選択したテキスト、現在のウインドウのアプリ名と画面上の文字、画面を見るよう頼んだときのスクリーンショット、そして次のカテゴリからアシスタントが検索した記憶：%@。\n\n送信されるのはアシスタントを使っているときだけです。バックグラウンドのスクリーンショットと画面理解は引き続きこの Mac 上だけで行われます。今後は使うたびに確認しません。いつでもここでローカルモデルに戻せます。"
           }
         }
       }
@@ -1557,6 +1765,22 @@
         }
       }
     },
+    "停止": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stop"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "停止"
+          }
+        }
+      }
+    },
     "健康": {
       "localizations": {
         "en": {
@@ -1569,6 +1793,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "健康"
+          }
+        }
+      }
+    },
+    "先为助手选择一个模型": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose a model for the assistant first"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "まずアシスタントのモデルを選んでください"
           }
         }
       }
@@ -1621,6 +1861,22 @@
         }
       }
     },
+    "全部删除…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete All…"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "すべて削除…"
+          }
+        }
+      }
+    },
     "关键帧（%lld）": {
       "localizations": {
         "en": {
@@ -1649,6 +1905,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "閉じる"
+          }
+        }
+      }
+    },
+    "关闭 (esc)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Close (esc)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "閉じる (esc)"
           }
         }
       }
@@ -1713,6 +1985,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "準備ができました"
+          }
+        }
+      }
+    },
+    "出错了，请重试。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Something went wrong. Please try again."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "エラーが発生しました。もう一度お試しください。"
           }
         }
       }
@@ -1797,6 +2085,22 @@
         }
       }
     },
+    "删除全部对话记录？": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete all conversations?"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "すべての会話履歴を削除しますか？"
+          }
+        }
+      }
+    },
     "删除原始视频分段 %lld 个": {
       "localizations": {
         "en": {
@@ -1861,6 +2165,22 @@
         }
       }
     },
+    "删除这个对话？": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete this conversation?"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この会話を削除しますか？"
+          }
+        }
+      }
+    },
     "删除这个活动片段及其观察？": {
       "localizations": {
         "en": {
@@ -1905,6 +2225,70 @@
           "stringUnit": {
             "state": "translated",
             "value": "前の日"
+          }
+        }
+      }
+    },
+    "助手": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Assistant"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アシスタント"
+          }
+        }
+      }
+    },
+    "助手可以回答关于你过去活动的问题，也可以对任意应用里选中的文字做翻译、润色和解释。选一个模型并决定它能读哪些记忆，点「保存并应用」。不想现在决定可以直接下一步，之后在设置的「助手」里选择。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The assistant can answer questions about your past activity, and translate, polish or explain text you select in any app. Choose a model, decide which memory it may read, then click “Save and Apply”. To decide later, just continue; you can choose in Settings → Assistant."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アシスタントは過去の活動についての質問に答えたり、任意のアプリで選択したテキストを翻訳・推敲・解説したりできます。モデルを選び、どの記憶を参照できるかを決めて「保存して適用」をクリックしてください。あとで決める場合はそのまま次へ進み、設定の「アシスタント」で選べます。"
+          }
+        }
+      }
+    },
+    "助手可读取的记忆": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Memory the assistant may read"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アシスタントが参照できる記憶"
+          }
+        }
+      }
+    },
+    "助手在回答前会先检索你的记忆。有了这个模型，问法与记录的措辞不同、或语言不同时也能找到；没有它时只按关键词检索。模型只在本机运行。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The assistant searches your memory before it answers. With this model it also finds entries that are worded differently from your question, or written in another language; without it, the search matches keywords only. The model runs only on this Mac."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アシスタントは回答の前にあなたの記憶を検索します。このモデルがあると、質問と記録の言い回しや言語が違っていても見つけられます。ない場合はキーワードのみで検索します。モデルはこの Mac 上でのみ動作します。"
           }
         }
       }
@@ -1969,6 +2353,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "元データのバッファ"
+          }
+        }
+      }
+    },
+    "原应用没有声明选区可编辑，将尝试粘贴到原处 (⌘↩)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The app does not report the selection as editable; Amai will try pasting in place (⌘↩)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "元のアプリは選択範囲を編集可能と報告していません。その場へのペーストを試みます (⌘↩)"
+          }
+        }
+      }
+    },
+    "发送 (⌘↩)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send (⌘↩)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "送信 (⌘↩)"
           }
         }
       }
@@ -2261,6 +2677,38 @@
         }
       }
     },
+    "复制": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "コピー"
+          }
+        }
+      }
+    },
+    "失去焦点时自动关闭。点击固定（保持打开直到按 ESC 或关闭）。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Closes automatically when it loses focus. Click to pin (stays open until you press ESC or close it)."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "フォーカスを失うと自動的に閉じます。クリックで固定（ESC を押すか閉じるまで表示）。"
+          }
+        }
+      }
+    },
     "失败": {
       "localizations": {
         "en": {
@@ -2341,6 +2789,102 @@
         }
       }
     },
+    "对话、记忆问答和选中文字的快速操作都用这个模型。本地模型不联网；云端模型更强，但内容会发给该服务。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conversations, memory questions and quick actions on selected text all use this model. Local models stay offline; cloud models are more capable, but content is sent to that service."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "会話、記憶についての質問、選択テキストのクイック操作はすべてこのモデルを使います。ローカルモデルはオフラインで動作し、クラウドモデルはより高性能ですが、内容がそのサービスに送信されます。"
+          }
+        }
+      }
+    },
+    "对话历史": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conversation History"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "会話履歴"
+          }
+        }
+      }
+    },
+    "对话记录": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conversations"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "会話履歴"
+          }
+        }
+      }
+    },
+    "对话记录只保存在这台 Mac 上，包含你的提问、助手的回答和引用的记忆来源，不保存截图和屏幕文字。它不是记忆的一部分。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conversations are stored only on this Mac: your questions, the assistant’s answers and the memory sources they cite. Screenshots and screen text are not stored. They are not part of your memory."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "会話履歴はこの Mac にのみ保存されます。質問、アシスタントの回答、引用した記憶の出典が含まれ、スクリーンショットや画面の文字は保存されません。記憶の一部ではありません。"
+          }
+        }
+      }
+    },
+    "对选中文字快速操作": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quick actions on selected text"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選択テキストのクイック操作"
+          }
+        }
+      }
+    },
+    "对选中文字快速操作（%@）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quick Actions on Selected Text (%@)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選択テキストのクイック操作（%@）"
+          }
+        }
+      }
+    },
     "尚无": {
       "localizations": {
         "en": {
@@ -2417,6 +2961,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "ChatGPT にログインしていません"
+          }
+        }
+      }
+    },
+    "尚未选择 Agent 模型": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No agent model chosen yet"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "エージェントのモデルが未選択です"
           }
         }
       }
@@ -2581,6 +3141,54 @@
         }
       }
     },
+    "已启用 · 云端 · %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On · Cloud · %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有効 · クラウド · %@"
+          }
+        }
+      }
+    },
+    "已启用 · 本地 · %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On · Local · %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有効 · ローカル · %@"
+          }
+        }
+      }
+    },
+    "已固定：窗口保持打开。点击取消固定，失去焦点时自动关闭。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pinned: the window stays open. Click to unpin and close automatically when it loses focus."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "固定中：ウインドウは開いたままです。クリックで固定を解除すると、フォーカスを失ったときに自動的に閉じます。"
+          }
+        }
+      }
+    },
     "已在浏览器中打开 OpenAI 授权页面，请完成登录并允许 Amai 使用你的 ChatGPT 套餐。": {
       "localizations": {
         "en": {
@@ -2625,6 +3233,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@ まで処理済み"
+          }
+        }
+      }
+    },
+    "已复制": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copied"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "コピーしました"
           }
         }
       }
@@ -2705,6 +3329,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "一時停止中"
+          }
+        }
+      }
+    },
+    "已替换": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Replaced"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "置き換えました"
           }
         }
       }
@@ -2833,6 +3473,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@ を選択しました。再起動後に有効になります"
+          }
+        }
+      }
+    },
+    "带着这段文字打开对话": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open a conversation with this text"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このテキストを持って会話を開く"
           }
         }
       }
@@ -3029,6 +3685,22 @@
         }
       }
     },
+    "当前应用在隐私排除范围内，未读取屏幕": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This app is excluded for privacy; the screen was not read"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このアプリはプライバシー除外の対象のため、画面を読み取っていません"
+          }
+        }
+      }
+    },
     "当前生效": {
       "localizations": {
         "en": {
@@ -3125,6 +3797,54 @@
         }
       }
     },
+    "快捷键": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shortcuts"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ショートカット"
+          }
+        }
+      }
+    },
+    "快速操作": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quick Actions"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "クイック操作"
+          }
+        }
+      }
+    },
+    "快速操作：在任意应用里选中文字后按快捷键，可以翻译、润色、解释，或带着这段文字提问。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quick actions: select text in any app and press the shortcut to translate, polish or explain it, or to ask a question about it."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "クイック操作：任意のアプリでテキストを選択してショートカットを押すと、翻訳・推敲・解説したり、そのテキストについて質問したりできます。"
+          }
+        }
+      }
+    },
     "感知": {
       "localizations": {
         "en": {
@@ -3137,6 +3857,70 @@
           "stringUnit": {
             "state": "translated",
             "value": "キャプチャ"
+          }
+        }
+      }
+    },
+    "我今天做了什么": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What did I do today"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今日は何をした？"
+          }
+        }
+      }
+    },
+    "我今天都做了什么？": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What did I do today?"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今日は何をしましたか？"
+          }
+        }
+      }
+    },
+    "我最近在忙哪些项目": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Which projects have I been busy with"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最近取り組んでいるプロジェクト"
+          }
+        }
+      }
+    },
+    "我最近在忙哪些项目？": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Which projects have I been busy with lately?"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最近はどのプロジェクトに取り組んでいますか？"
           }
         }
       }
@@ -3237,6 +4021,22 @@
         }
       }
     },
+    "所选模型在云端运行。请先在设置的「助手」中确认发送范围。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The chosen model runs in the cloud. Confirm what is sent in Settings → Assistant first."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選んだモデルはクラウドで動作します。先に設定の「アシスタント」で送信範囲を確認してください。"
+          }
+        }
+      }
+    },
     "手动维护": {
       "localizations": {
         "en": {
@@ -3297,6 +4097,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "ダウンロードページを開く"
+          }
+        }
+      }
+    },
+    "打开对话": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open conversation"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "会話を開く"
           }
         }
       }
@@ -3413,6 +4229,22 @@
         }
       }
     },
+    "按 %@ 打开对话；选中文字后按 %@ 做翻译、润色或解释。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Press %@ to open a conversation; select text and press %@ to translate, polish or explain it."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ で会話を開きます。テキストを選択して %@ を押すと、翻訳・推敲・解説ができます。"
+          }
+        }
+      }
+    },
     "授权": {
       "localizations": {
         "en": {
@@ -3425,6 +4257,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "許可する…"
+          }
+        }
+      }
+    },
+    "授权…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grant…"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "許可…"
           }
         }
       }
@@ -3493,6 +4341,22 @@
         }
       }
     },
+    "授权辅助功能…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grant Accessibility…"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アクセシビリティを許可…"
+          }
+        }
+      }
+    },
     "授权返回了不同的 client ID，已拒绝": {
       "localizations": {
         "en": {
@@ -3521,6 +4385,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "除外するアプリは設定ファイルで編集し、再起動後に有効になります。"
+          }
+        }
+      }
+    },
+    "接口地址": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Base URL"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ベース URL"
           }
         }
       }
@@ -3761,6 +4641,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "ファイルの最終更新"
+          }
+        }
+      }
+    },
+    "新建对话 (⌘N)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New conversation (⌘N)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新しい会話 (⌘N)"
+          }
+        }
+      }
+    },
+    "无法注册 %@：可能已被其他应用占用，请换一个组合。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not register %@: another app may be using it. Choose a different combination."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ を登録できません。ほかのアプリが使用している可能性があります。別の組み合わせを選んでください。"
           }
         }
       }
@@ -4171,6 +5083,22 @@
         }
       }
     },
+    "替换原文": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Replace"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "置き換え"
+          }
+        }
+      }
+    },
     "最多 %lld 小时 · %@": {
       "localizations": {
         "en": {
@@ -4183,6 +5111,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "最大 %1$lld 時間 · %2$@"
+          }
+        }
+      }
+    },
+    "有什么想问的？": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What would you like to ask?"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "何を聞きたいですか？"
+          }
+        }
+      }
+    },
+    "有未保存的修改": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unsaved changes"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未保存の変更があります"
           }
         }
       }
@@ -4215,6 +5175,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "サブスクリプションでログインしていません"
+          }
+        }
+      }
+    },
+    "未勾选的分区助手读不到，也不会出现在检索结果里。本地模型与云端模型使用同一份授权。助手只读记忆，不会修改。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The assistant cannot read unchecked categories, and they never appear in search results. Local and cloud models use the same permissions. The assistant only reads memory and never changes it."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "チェックを外したカテゴリはアシスタントから参照できず、検索結果にも現れません。ローカルモデルとクラウドモデルで同じ許可を使います。アシスタントは記憶を参照するだけで、変更しません。"
           }
         }
       }
@@ -4411,6 +5387,22 @@
         }
       }
     },
+    "未选择": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not chosen"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未選択"
+          }
+        }
+      }
+    },
     "未选择模型": {
       "localizations": {
         "en": {
@@ -4423,6 +5415,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "モデルが選択されていません"
+          }
+        }
+      }
+    },
+    "未选择（助手不可用）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not chosen (assistant unavailable)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未選択（アシスタントは使用不可）"
           }
         }
       }
@@ -4491,6 +5499,54 @@
         }
       }
     },
+    "本地模型加载失败。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The local model failed to load."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ローカルモデルを読み込めませんでした。"
+          }
+        }
+      }
+    },
+    "本地模型尚未下载，请在设置中下载或改选其他模型。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The local model is not downloaded yet. Download it in Settings or choose another model."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ローカルモデルがまだダウンロードされていません。設定でダウンロードするか、別のモデルを選んでください。"
+          }
+        }
+      }
+    },
+    "本地模型尚未下载：%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Local model not downloaded yet: %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ローカルモデルが未ダウンロードです：%@"
+          }
+        }
+      }
+    },
     "本地模型未安装，无法整理屏幕活动": {
       "localizations": {
         "en": {
@@ -4523,6 +5579,22 @@
         }
       }
     },
+    "本地模型生成失败，请重试。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The local model failed to generate. Please try again."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ローカルモデルで生成できませんでした。もう一度お試しください。"
+          }
+        }
+      }
+    },
     "本地模型（不联网）": {
       "localizations": {
         "en": {
@@ -4535,6 +5607,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "ローカルモデル（オフライン）"
+          }
+        }
+      }
+    },
+    "本地模型：内容不离开这台 Mac。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Local model: nothing leaves this Mac."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ローカルモデル：内容はこの Mac の外に出ません。"
           }
         }
       }
@@ -4683,6 +5771,22 @@
         }
       }
     },
+    "查看历史对话": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show past conversations"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "過去の会話を表示"
+          }
+        }
+      }
+    },
     "查看当天时间线": {
       "localizations": {
         "en": {
@@ -4743,6 +5847,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "安全な入力（パスワード欄など）を検出している間はスクリーンショットを撮りません。"
+          }
+        }
+      }
+    },
+    "概括屏幕上的内容": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Summarize what’s on screen"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "画面の内容を要約"
+          }
+        }
+      }
+    },
+    "概括所选内容": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Summarize the selection"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選択した内容を要約"
           }
         }
       }
@@ -4907,6 +6043,22 @@
         }
       }
     },
+    "正在整理回答…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Writing the answer…"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "回答をまとめています…"
+          }
+        }
+      }
+    },
     "正在检测…": {
       "localizations": {
         "en": {
@@ -4919,6 +6071,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "確認中…"
+          }
+        }
+      }
+    },
+    "正在检索记忆…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Searching memory…"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "記憶を検索中…"
           }
         }
       }
@@ -4939,6 +6107,38 @@
         }
       }
     },
+    "正在看 %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Looking at %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ を表示中"
+          }
+        }
+      }
+    },
+    "正在看 %@ · %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Looking at %@ · %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · %@ を表示中"
+          }
+        }
+      }
+    },
     "正在记录": {
       "localizations": {
         "en": {
@@ -4951,6 +6151,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "記録中"
+          }
+        }
+      }
+    },
+    "此操作无法撤销。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This cannot be undone."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この操作は取り消せません。"
           }
         }
       }
@@ -5073,6 +6289,22 @@
         }
       }
     },
+    "每日记录（时间线与每日总结）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Daily records (timeline and daily summary)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "日々の記録（タイムラインと 1 日のまとめ）"
+          }
+        }
+      }
+    },
     "沟通": {
       "localizations": {
         "en": {
@@ -5085,6 +6317,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "連絡"
+          }
+        }
+      }
+    },
+    "没有可处理的文字。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "There is no text to work on."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "処理できるテキストがありません。"
           }
         }
       }
@@ -5121,6 +6369,38 @@
         }
       }
     },
+    "没有读到选中的文字。先在任意应用里选中一段文字，再按快捷键。有些应用不提供选区，可以改用「问 Amai」。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No selected text was found. Select some text in any app, then press the shortcut. Some apps do not expose their selection; use “Ask Amai” instead."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選択されたテキストが見つかりませんでした。任意のアプリでテキストを選択してからショートカットを押してください。選択範囲を公開しないアプリでは「Amai に聞く」を使ってください。"
+          }
+        }
+      }
+    },
+    "没有辅助功能权限，无法替换。结果已复制到剪贴板。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accessibility permission is missing, so the text was not replaced. The result was copied to the clipboard."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アクセシビリティの許可がないため置き換えできません。結果をクリップボードにコピーしました。"
+          }
+        }
+      }
+    },
     "测试连接": {
       "localizations": {
         "en": {
@@ -5133,6 +6413,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "接続をテスト"
+          }
+        }
+      }
+    },
+    "润色": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Polish"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "推敲"
           }
         }
       }
@@ -5213,6 +6509,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "1 日のまとめ、各分野の記憶、総合プロフィールの整理に使います。画面の理解は常にこの Mac で行います。"
+          }
+        }
+      }
+    },
+    "用于读取其他应用的窗口标题和选中的文字，以及在你点击「替换」时写回选区。只在你唤起助手时读取，不监听键盘。没有这项权限时对话仍可使用，但读不到选区。屏幕截图沿用已有的屏幕录制权限和「感知」里的排除名单。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Used to read window titles and selected text in other apps, and to write the result back when you click “Replace”. Amai reads only when you invoke the assistant and does not monitor the keyboard. Without it, conversations still work but selections cannot be read. Screenshots use the existing Screen Recording permission and the exclusion list in Perception."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ほかのアプリのウインドウタイトルと選択テキストの取得、および「置き換え」をクリックしたときの書き戻しに使います。アシスタントを呼び出したときだけ取得し、キーボードは監視しません。この許可がなくても会話は使えますが、選択範囲は取得できません。スクリーンショットは既存の画面収録の許可と「キャプチャ」の除外リストに従います。"
+          }
+        }
+      }
+    },
+    "用结果替换原来选中的文字 (⌘↩)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Replace the originally selected text with the result (⌘↩)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "元の選択テキストを結果で置き換える (⌘↩)"
           }
         }
       }
@@ -5469,6 +6797,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "調査"
+          }
+        }
+      }
+    },
+    "确认并应用": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirm and Apply"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "確認して適用"
           }
         }
       }
@@ -5969,6 +7313,22 @@
         }
       }
     },
+    "翻译": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Translate"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "翻訳"
+          }
+        }
+      }
+    },
     "自动跳过": {
       "localizations": {
         "en": {
@@ -6029,6 +7389,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "観察（%lld）"
+          }
+        }
+      }
+    },
+    "解释": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Explain"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "解説"
+          }
+        }
+      }
+    },
+    "解释所选内容": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Explain the selection"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選択した内容を解説"
           }
         }
       }
@@ -6177,6 +7569,38 @@
         }
       }
     },
+    "记忆来源": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Memory sources"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "記憶の出典"
+          }
+        }
+      }
+    },
+    "记忆检索": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Memory search"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "記憶の検索"
+          }
+        }
+      }
+    },
     "记忆目录不能为空": {
       "localizations": {
         "en": {
@@ -6290,6 +7714,22 @@
         }
       }
     },
+    "设置助手（可选）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set up the assistant (optional)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アシスタントの設定（任意）"
+          }
+        }
+      }
+    },
     "诊断": {
       "localizations": {
         "en": {
@@ -6302,6 +7742,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "診断"
+          }
+        }
+      }
+    },
+    "语义检索模型": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Semantic search model"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "セマンティック検索モデル"
           }
         }
       }
@@ -6370,6 +7826,38 @@
         }
       }
     },
+    "请帮我概括屏幕上正在显示的内容。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Please summarize what is currently on my screen."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "いま画面に表示されている内容を要約してください。"
+          }
+        }
+      }
+    },
+    "请帮我概括我选中的内容。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Please summarize the text I selected."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選択した内容を要約してください。"
+          }
+        }
+      }
+    },
     "请求被拒绝：%@": {
       "localizations": {
         "en": {
@@ -6434,6 +7922,22 @@
         }
       }
     },
+    "请解释我选中的内容。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Please explain the text I selected."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選択した内容を解説してください。"
+          }
+        }
+      }
+    },
     "请选择": {
       "localizations": {
         "en": {
@@ -6446,6 +7950,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "選択してください"
+          }
+        }
+      }
+    },
+    "读取其他应用里选中的文字需要「辅助功能」权限。Amai 只在你按下快捷键时读取一次，不监听键盘。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reading selected text in other apps requires the Accessibility permission. Amai reads once when you press the shortcut and does not monitor the keyboard."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ほかのアプリで選択したテキストを取得するには「アクセシビリティ」の許可が必要です。Amai はショートカットを押したときに一度だけ取得し、キーボードは監視しません。"
           }
         }
       }
@@ -6546,6 +8066,22 @@
         }
       }
     },
+    "辅助功能": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accessibility"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アクセシビリティ"
+          }
+        }
+      }
+    },
     "输入密码时、密码管理器等被排除的应用、暂停期间。": {
       "localizations": {
         "en": {
@@ -6642,6 +8178,70 @@
         }
       }
     },
+    "还没有下载本地模型。可以在「模型」页的屏幕理解里下载。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No local model is downloaded yet. You can download one under Screen understanding in the Model tab."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ローカルモデルがまだダウンロードされていません。「モデル」タブの画面理解でダウンロードできます。"
+          }
+        }
+      }
+    },
+    "还没有对话": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No conversations yet"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "会話はまだありません"
+          }
+        }
+      }
+    },
+    "还没有设置账户：请先在「模型」页的记忆整理里填写 API Key 或登录。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No account is set up yet: enter an API key or sign in under Memory organizing in the Model tab first."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アカウントが未設定です。先に「モデル」タブの記憶の整理で API キーを入力するか、サインインしてください。"
+          }
+        }
+      }
+    },
+    "还没有选择 Agent 模型。请在设置的「助手」中选择。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No agent model chosen yet. Choose one in Settings → Assistant."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "エージェントのモデルが未選択です。設定の「アシスタント」で選んでください。"
+          }
+        }
+      }
+    },
     "这一天没有活动记录": {
       "localizations": {
         "en": {
@@ -6722,6 +8322,38 @@
         }
       }
     },
+    "这个应用不支持替换。结果已复制到剪贴板。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This app does not support replacing text. The result was copied to the clipboard."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このアプリは置き換えに対応していません。結果をクリップボードにコピーしました。"
+          }
+        }
+      }
+    },
+    "这个应用不支持直接替换，已改为粘贴到原处。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This app does not support direct replacement, so the result was pasted in place instead."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このアプリは直接の置き換えに対応していないため、その場にペーストしました。"
+          }
+        }
+      }
+    },
     "这个文件里还没有内容。": {
       "localizations": {
         "en": {
@@ -6738,6 +8370,22 @@
         }
       }
     },
+    "这个模型来源不支持对话": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This model source does not support conversations"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このモデルの提供元は会話に対応していません"
+          }
+        }
+      }
+    },
     "这些操作平时会自动进行，通常不需要手动执行。": {
       "localizations": {
         "en": {
@@ -6750,6 +8398,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "これらは通常自動で行われるため、手動で実行する必要はほとんどありません。"
+          }
+        }
+      }
+    },
+    "这条消息会带上当前窗口的截图。点击取消。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This message will include a screenshot of the current window. Click to cancel."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このメッセージには現在のウインドウのスクリーンショットが添付されます。クリックで取り消し。"
           }
         }
       }
@@ -6866,6 +8530,54 @@
         }
       }
     },
+    "选一个开始，或直接打字提问。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pick one to start, or just type a question."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ひとつ選んで始めるか、そのまま質問を入力してください。"
+          }
+        }
+      }
+    },
+    "选中的文字超过 %lld 个字符，请缩小选区。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The selected text is longer than %lld characters. Select less text."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選択したテキストが %lld 文字を超えています。選択範囲を狭めてください。"
+          }
+        }
+      }
+    },
+    "选区已经变化，没有替换。结果已复制到剪贴板。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The selection has changed, so nothing was replaced. The result was copied to the clipboard."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選択範囲が変わったため置き換えませんでした。結果をクリップボードにコピーしました。"
+          }
+        }
+      }
+    },
     "选择屏幕理解模型": {
       "localizations": {
         "en": {
@@ -6926,6 +8638,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "一般"
+          }
+        }
+      }
+    },
+    "通过本机已登录的 Claude Code 调用，使用订阅额度。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Runs through the Claude Code signed in on this Mac and uses your subscription."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この Mac でログイン済みの Claude Code を通じて呼び出し、サブスクリプションの利用枠を使います。"
           }
         }
       }
@@ -7090,6 +8818,54 @@
         }
       }
     },
+    "问 Amai": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ask Amai"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Amai に聞く"
+          }
+        }
+      }
+    },
+    "问 Amai（%@）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ask Amai (%@)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Amai に聞く（%@）"
+          }
+        }
+      }
+    },
+    "问点什么…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ask anything…"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "質問を入力…"
+          }
+        }
+      }
+    },
     "阅读": {
       "localizations": {
         "en": {
@@ -7102,6 +8878,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "読書"
+          }
+        }
+      }
+    },
+    "随这条消息带上当前窗口的截图": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Include a screenshot of the current window with this message"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このメッセージに現在のウインドウのスクリーンショットを添付"
           }
         }
       }
@@ -7186,6 +8978,22 @@
         }
       }
     },
+    "预览模式下助手不可用。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The assistant is not available in preview mode."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プレビューモードではアシスタントを使えません。"
+          }
+        }
+      }
+    },
     "预览模式不能修改设置": {
       "localizations": {
         "en": {
@@ -7198,6 +9006,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "プレビューモードでは設定を変更できません"
+          }
+        }
+      }
+    },
+    "预览模式中不显示助手设置。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Assistant settings are not shown in preview mode."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プレビューモードではアシスタントの設定を表示しません。"
           }
         }
       }
@@ -7330,6 +9154,22 @@
         }
       }
     },
+    "（无）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "(none)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "（なし）"
+          }
+        }
+      }
+    },
     "（未安装）": {
       "localizations": {
         "en": {
@@ -7342,6 +9182,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "（未インストール）"
+          }
+        }
+      }
+    },
+    "（模型没有给出回答）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "(The model gave no answer)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "（モデルから回答がありませんでした）"
           }
         }
       }

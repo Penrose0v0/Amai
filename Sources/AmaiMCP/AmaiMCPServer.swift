@@ -72,11 +72,11 @@ public actor AmaiMCPServer {
         Tool(
             name: "search_memory",
             title: "Search memory",
-            description: "Full-text search across the user's enabled Amai memory (long-term categories and, if enabled, daily records). Returns matching entries with category, section, content, date and source dates.",
+            description: "Search the user's enabled Amai memory (long-term categories and, if enabled, daily records). Returns the best-matching entries, most relevant first, with category, section, content, date, source dates and a relevance score.",
             inputSchema: .object([
                 "type": "object",
                 "properties": .object([
-                    "query": .object(["type": "string", "description": "Words or a phrase to search for. Matches substrings, including Chinese and Japanese text."]),
+                    "query": .object(["type": "string", "description": "Keywords or a short question. Entries matching more of the words rank higher; Chinese and Japanese text is supported."]),
                     "limit": .object(["type": "integer", "minimum": 1, "maximum": .int(MemoryAPI.maxSearchLimit), "default": 10]),
                 ]),
                 "required": .array(["query"]),

@@ -20,8 +20,8 @@ public struct MemoryHit: Sendable, Equatable {
 /// - `rebuild()` 清空后从 Markdown 全量重建，结果与增量一致。
 public actor MemoryIndex {
     private let root: URL
-    private let db: MemoryIndexDatabase
-    private let timeZone: TimeZone
+    let db: MemoryIndexDatabase
+    let timeZone: TimeZone
     private let log = AmaiLog.logger("memory.index")
 
     public init(root: URL, database: MemoryIndexDatabase, timeZone: TimeZone = .current) {
@@ -67,6 +67,7 @@ public actor MemoryIndex {
             try db.writer.write { db in
                 for file in gone {
                     try db.execute(sql: "DELETE FROM section WHERE file = ?", arguments: [file])
+                    try db.execute(sql: "DELETE FROM chunk WHERE file = ?", arguments: [file])
                     try db.execute(sql: "DELETE FROM file_meta WHERE file = ?", arguments: [file])
                 }
             }
@@ -82,6 +83,7 @@ public actor MemoryIndex {
     public func rebuild() throws -> RefreshResult {
         try db.writer.write { db in
             try db.execute(sql: "DELETE FROM section")
+            try db.execute(sql: "DELETE FROM chunk")
             try db.execute(sql: "DELETE FROM file_meta")
         }
         return try refresh()
@@ -166,6 +168,22 @@ public actor MemoryIndex {
                     sql: "INSERT INTO section (file, heading, position, content, day) VALUES (?, ?, ?, ?, ?)",
                     arguments: [file, s.heading, s.position, s.content, day]
                 )
+            }
+            // 混合检索用的小块。向量不在这里算：它按内容哈希另存，由 embedPending 在后台补齐。
+            try db.execute(sql: "DELETE FROM chunk WHERE file = ?", arguments: [file])
+            var position = 0
+            for s in sections {
+                for chunk in MemoryChunker.chunks(heading: s.heading, content: s.content, startingAt: position) {
+                    let text = MemoryChunker.embeddingText(heading: chunk.heading, content: chunk.content)
+                    try db.execute(
+                        sql: "INSERT INTO chunk (file, heading, position, content, day, terms, hash) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        arguments: [
+                            file, chunk.heading, chunk.position, chunk.content, day,
+                            MemoryTerms.indexTerms(text).joined(separator: " "), MemoryChunker.hash(text),
+                        ]
+                    )
+                    position = chunk.position + 1
+                }
             }
             try db.execute(
                 sql: "INSERT OR REPLACE INTO file_meta (file, mtime, size) VALUES (?, ?, ?)",

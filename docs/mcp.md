@@ -6,7 +6,7 @@ Amai 带有一个只读的 MCP Server `amai-mcp`（ADR-0008）。Claude Desktop�
 
 | Tool | 参数 | 返回 | 需要的分区 |
 |---|---|---|---|
-| `search_memory` | `query`，`limit`（1–50，默认 10） | 匹配的条目：分区、小节、内容、日期、来源日期 | 只搜索已开放的分区 |
+| `search_memory` | `query`（关键词或一个简短的问题），`limit`（1–50，默认 10） | 最相关的条目，按相关度排序：分区、小节、内容、日期、来源日期、相关度 | 只搜索已开放的分区。MCP 进程里只做关键词检索，不加载向量模型 |
 | `get_timeline` | `date`（`YYYY-MM-DD`、`today`、`yesterday`） | 当天的活动片段（起止时间、标题、摘要、置信度、低置信标记）、日终摘要、手写笔记 | `daily` |
 | `get_memory` | `category`（general / work / health / finance / goals），`topic`（可选，小节名或项目名） | 按小节分组的条目（来源日期、结构化字段）、你手写的内容、可选的专题列表 | 对应分区 |
 

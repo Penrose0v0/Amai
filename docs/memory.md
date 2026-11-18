@@ -125,7 +125,7 @@ daily 时间线使用行尾 `seg:` / `conf:` / `src:` 注释（见 3.3），条�
 
 `MemoryLibrary` 是统一的只读接口：`document(category)` 返回原文、用户手写部分（去掉系统区块）、系统条目（小节 / 来源日期 / 结构化字段）与修改时间；`daily(on:)` 读某天 daily；`search(query, in: categories)` 按分区全文检索。Memory Browser 直接使用它。
 
-`MemoryAPI`（ADR-0008，已实现）建立在 `MemoryLibrary` 与 `MemoryIndex` 之上，是给 Agent 用的统一只读接口：`search(query, limit)`（长期记忆命中展开为带来源日期的条目）、`timeline(on:)`（解析 daily 的时间线区块与日终摘要）、`memory(category, topic?)`（按小节返回条目与手写内容），每个调用先经过 `MemoryAccess` 的分区授权。只读 MCP Server `amai-mcp` 把它暴露给外部 Agent（`docs/mcp.md`）；今后内置的 Eira Assistant 直接调用 `MemoryAPI`，不经过 MCP。
+`MemoryAPI`（ADR-0008，已实现）建立在 `MemoryLibrary` 与 `MemoryIndex` 之上，是给 Agent 用的统一只读接口：`search(query, limit)`（混合检索，见 §6.2；结果是条目粒度，长期记忆的命中带来源日期，每条带相关度）、`timeline(on:)`（解析 daily 的时间线区块与日终摘要）、`memory(category, topic?)`（按小节返回条目与手写内容），每个调用先经过 `MemoryAccess` 的分区授权。只读 MCP Server `amai-mcp` 把它暴露给外部 Agent（`docs/mcp.md`）；内置助手直接调用 `MemoryAPI`，不经过 MCP。
 
 **主窗口中的长期记忆（Memory Browser，已实现）**：菜单"打开 Amai"进入，与"日常回顾"（时间线、每日总结）在同一窗口。长期记忆分为综合 / 工作 / 健康 / 财务 / 目标五个分区，右侧渲染对应文件：用户手写部分用 Foundation 原生 Markdown 解析渲染（标题、列表、引用、链接；HTML 注释不显示），系统区块按小节列出条目，每条显示来源日期，点开日期可看当天日终摘要、跳到当天时间线或打开当天记录；变更记录默认折叠。搜索覆盖五个分区与每日记录（先增量刷新索引），每日记录的结果跳到当天时间线或每日总结。工具栏可用默认编辑器打开原文件、在访达中显示记忆文件夹。窗口打开期间每 2 秒检查文件修改时间，外部编辑后自动刷新。只读，不修改记忆。界面为简体中文，Markdown 原文不翻译。
 
@@ -251,23 +251,36 @@ open .build/Amai.app --args --memory-eval <scenarios.json> --eval-output <目录
 
 ## 6. 检索（Retrieval）
 
-### 6.1 接口
+索引是派生数据：存放在应用内部目录，**不在记忆目录内**，可随时删除并从 Markdown 重建。按文件修改时间与大小增量刷新（60 秒轮询，加上每次检索之前）。
+
+### 6.1 两种检索
+
+| 接口 | 用途 | 粒度 | 机制 |
+|---|---|---|---|
+| `MemoryIndex.retrieve` | 记忆浏览窗口里的查找 | `##` section | FTS5 trigram，把查询当成一个短语；不足 3 个字符改用子串匹配 |
+| `MemoryIndex.search` → `MemoryAPI.search` | 助手问答、MCP 的 `search_memory` | 条目 | 关键词（BM25）+ 语义向量的混合检索（ADR-0011） |
+
+### 6.2 混合检索（2026-11-18 已实现）
 
 ```text
-retrieve(query: String, categories: [general | work | health | finance | goals | daily]?, timeRange?: , limit: Int)
-  → [ { file, section, excerpt, score, timestamp, sourceRefs } ]
+search(query, embedder?, options: maxResults / minScore / categories / dayRange / …)
+  → [ { file, category, heading, content, day, score, vectorScore?, keywordScore? } ]
 ```
 
-### 6.2 实现策略（分阶段）
+- **切块**：一个条目一块（长期记忆的一条；时间线的一个片段连同它的摘要行）。section 内的小节标题（`### 项目名`）成为块的标题。没有列表的段落按约 240 token 切。注释（来源标记、片段 ID）不进入检索内容。
+- **关键词**：索引前先分词——拉丁字母与数字按词并转小写，汉字相邻两字一组（bigram），片假名整段——再交给 FTS5。查询去掉疑问词与助词，各词之间是"或"，BM25 排序，再按"问题里的词命中了多少"加成。所以自然语言的问句可以直接检索。
+- **向量**：可选的本地模型（Qwen3-Embedding-0.6B 4bit，用户在「助手」设置里下载）。向量按（模型，内容哈希）存在索引数据库里：内容没变的块不重算，文件删掉或换了模型时清除。查询时逐个算点积（几千块的量级是毫秒级）。
+- **融合**：向量 0.7、关键词 0.3 加权求和；最低 0.30 分；最多 6 条。daily 的内容按日期做时间衰减（半衰期 30 天，下限 0.6，只影响先后）；长期记忆不衰减。最后用 MMR 去掉内容重复的结果。
+- **回退**：没有向量模型、问题的向量 2 秒内没算出来、或索引里还没有向量时，只用关键词。
+- 参数的来源、与 OpenClaw 的差异、评测结果见 ADR-0011。
 
-| 阶段 | 机制 | 说明 |
-|---|---|---|
-| MVP（已实现） | SQLite FTS5 trigram 分词，按 `##` section 建索引 + 分区（由文件路径决定）与日期过滤；不足 3 个字符的查询改用子串匹配 | 中文无空格，trigram 才能检索句中词；按文件修改时间与大小增量刷新，可全量重建；MVP 用 60 秒轮询纳入用户的外部编辑，未用文件事件 |
-| 后续 | 加入本地 embedding 的语义检索，与全文检索混合排序 | 仅在全文检索明显不够时引入；embedding 模型本地运行 |
-| 后续 | 检索结果按"稳定度"加权：general > 分区文件 > daily | 让回答优先使用整理过的信息 |
+### 6.3 尚未做
 
-- 索引存放在应用内部目录，**不在记忆目录内**，可随时删除重建。
-- 监听记忆目录文件变化（用户编辑）触发增量重索引。
+| 项目 | 说明 |
+|---|---|
+| 按"稳定度"加权：general > 分区文件 > daily | 目前只有 daily 的时间衰减 |
+| 文件事件触发重索引 | 目前是轮询与检索前刷新 |
+| 在真实记忆上的检索评测 | 现有评测是合成数据（`RetrievalEvalTests`） |
 
 ## 7. 删除与修改
 

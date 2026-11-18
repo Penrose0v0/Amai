@@ -4,6 +4,7 @@ import PackageDescription
 // 依赖方向在包层面强制：
 //   AmaiCore ← AmaiPerception / AmaiExtraction / AmaiMemory ← Amai（App）
 // 三个层 target 互不依赖，只依赖 AmaiCore 的数据契约。见 docs/architecture.md §8。
+// 模型运行时 AmaiInference 只依赖 AmaiCore，被抽取层与 App 使用。
 let package = Package(
     name: "Amai",
     platforms: [.macOS(.v15)],
@@ -41,19 +42,27 @@ let package = Package(
             dependencies: ["AmaiCore"]
         ),
 
-        // 抽取层：OCR、模型 Provider、时间窗口聚合、活动识别。
+        // 模型运行时：本地 MLX 模型的加载、共享与调度（交互式优先于后台），单次调用与对话两种入口。
+        // 抽取、记忆整理、Agent 都经由它使用本地模型；同一个模型标签在进程内只加载一份权重。
         .target(
-            name: "AmaiExtraction",
+            name: "AmaiInference",
             dependencies: [
                 "AmaiCore",
                 .product(name: "MLX", package: "mlx-swift"),
                 .product(name: "MLXLLM", package: "mlx-swift-lm"),
                 .product(name: "MLXVLM", package: "mlx-swift-lm"),
                 .product(name: "MLXLMCommon", package: "mlx-swift-lm"),
+                .product(name: "MLXEmbedders", package: "mlx-swift-lm"),
                 .product(name: "MLXHuggingFace", package: "mlx-swift-lm"),
                 .product(name: "HuggingFace", package: "swift-huggingface"),
                 .product(name: "Tokenizers", package: "swift-transformers"),
             ]
+        ),
+
+        // 抽取层：时间窗口聚合、观察抽取、活动识别。模型经 AmaiInference 的 ModelProvider 调用。
+        .target(
+            name: "AmaiExtraction",
+            dependencies: ["AmaiCore", "AmaiInference"]
         ),
 
         // 记忆层：Markdown 存储、写入规则、派生索引、检索。
@@ -79,13 +88,24 @@ let package = Package(
         ),
 
         // 云端文本模型客户端（Anthropic / OpenAI）与钥匙串。只用于记忆整理（ADR-0004）。
-        // 不依赖任何层，由 App 适配到记忆层的 MemoryLanguageModel。
-        .target(name: "AmaiCloud"),
+        // 只依赖 AmaiCore 的对话契约（ChatModel），不依赖任何层；由 App 适配到记忆层的 MemoryLanguageModel。
+        .target(name: "AmaiCloud", dependencies: ["AmaiCore"]),
+
+        // 内置助手的逻辑（不含界面）：Agent 循环、每轮上下文的组装、记忆与屏幕工具、会话存储、快速文本操作。
+        // 只面向 AmaiCore 的契约（ChatModel、LiveContextReading）与记忆层的只读 MemoryAPI；
+        // 不依赖感知层、抽取层和具体的模型实现，这些由 App 装配。
+        .target(
+            name: "AmaiAssistant",
+            dependencies: ["AmaiCore", "AmaiMemory", .product(name: "GRDB", package: "GRDB.swift")]
+        ),
 
         // 菜单栏应用。只通过各层公开接口工作，不含业务逻辑。
         .executableTarget(
             name: "Amai",
-            dependencies: ["AmaiCore", "AmaiPerception", "AmaiExtraction", "AmaiMemory", "AmaiMemoryEval", "AmaiMemoryUI", "AmaiCloud"]
+            dependencies: [
+                "AmaiCore", "AmaiPerception", "AmaiInference", "AmaiExtraction", "AmaiMemory", "AmaiMemoryEval",
+                "AmaiMemoryUI", "AmaiCloud", "AmaiAssistant",
+            ]
         ),
 
         // 开发用记忆检索命令行：swift run amai-memory search <查询>；eval 子命令用 Claude Code 或本地模型跑记忆整理评测。
@@ -117,6 +137,8 @@ let package = Package(
         .testTarget(name: "AmaiCoreTests", dependencies: ["AmaiCore"]),
         .testTarget(name: "AmaiPerceptionTests", dependencies: ["AmaiPerception"]),
         .testTarget(name: "AmaiExtractionTests", dependencies: ["AmaiExtraction"]),
+        .testTarget(name: "AmaiInferenceTests", dependencies: ["AmaiMemory", "AmaiInference"]),
+        .testTarget(name: "AmaiAssistantTests", dependencies: ["AmaiAssistant", "AmaiMemory"]),
         .testTarget(name: "AmaiMemoryTests", dependencies: ["AmaiMemory", "AmaiMemoryEval", "AmaiMemoryUI"]),
         .testTarget(name: "AmaiCloudTests", dependencies: ["AmaiCloud"]),
         .testTarget(name: "AmaiMCPTests", dependencies: ["AmaiMCP", "AmaiMemory", .product(name: "MCP", package: "swift-sdk")]),

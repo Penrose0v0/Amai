@@ -46,6 +46,9 @@ public struct PerceptionStatus: Sendable, Equatable {
 /// App Shell 只与它交互，不直接触碰采集器内部。
 public actor PerceptionCoordinator {
     public nonisolated let spool: RawSpool
+    /// 交互式屏幕读取（Agent、快速操作）。与后台采集共用截图源、OCR、辅助功能读取与隐私策略。
+    public nonisolated let live: LiveContextReader
+    private let targetApp: TargetAppTracker
     private let capturer: ScreenCapturer
     private let interaction: InteractionMonitor
     private let power: PowerMonitor
@@ -75,26 +78,52 @@ public actor PerceptionCoordinator {
             spool: spool,
             excludedBundleIds: configuration.exclusions.policy.excludedBundleIds
         )
-        self.capturer = ScreenCapturer(
-            configuration: configuration.screen,
-            dependencies: ScreenCapturer.Dependencies(
-                source: ScreenCaptureKitSource(),
-                idle: SystemIdleTimeSource(),
+        // Amai 自己的窗口不进入任何截图：聊天面板浮在别的应用上面，录进去既是噪声也会把对话内容写进记忆。
+        let ownBundleIds: Set<String> = Bundle.main.bundleIdentifier.map { [$0] } ?? []
+        let targetApp = TargetAppTracker()
+        self.targetApp = targetApp
+        let live = LiveContextReader(
+            dependencies: LiveContextReader.Dependencies(
+                screens: ScreenCaptureKitSource(),
+                windows: ScreenCaptureKitSource(),
+                target: targetApp,
                 secureInput: SystemSecureInputDetector(),
-                frontmost: SystemFrontmostAppSource(),
                 policy: configuration.exclusions.policy,
-                blocker: systemState,
-                power: power,
-                spool: spool,
-                frames: frames
-            )
+                ocr: VisionTextRecognizer(),
+                focus: AccessibilityReader(),
+                alwaysExcludedBundleIds: ownBundleIds
+            ),
+            targetHeight: configuration.screen.targetHeight
         )
+        self.live = live
+        var dependencies = ScreenCapturer.Dependencies(
+            source: ScreenCaptureKitSource(),
+            idle: SystemIdleTimeSource(),
+            secureInput: SystemSecureInputDetector(),
+            frontmost: SystemFrontmostAppSource(),
+            policy: configuration.exclusions.policy,
+            blocker: systemState,
+            power: power,
+            spool: spool,
+            frames: frames
+        )
+        dependencies.observer = live
+        dependencies.alwaysExcludedBundleIds = ownBundleIds
+        self.capturer = ScreenCapturer(configuration: configuration.screen, dependencies: dependencies)
     }
 
     /// 抽取层据此决定是否推迟重计算（电池 / 过热时）。
     public nonisolated var currentPowerProfile: PowerProfile { power.currentProfile }
 
     // MARK: - Control
+
+    /// 开始跟踪"用户正在用的应用"。与采集是否开启无关：交互式读取在采集暂停时也可用。App 启动时调用一次。
+    public func startInteractiveTracking() async {
+        let live = self.live
+        await targetApp.start { app in
+            Task { await live.appDidActivate(app) }
+        }
+    }
 
     /// 恢复上次异常退出留下的视频分段。App 启动时、开始采集之前调用。
     @discardableResult
@@ -111,6 +140,7 @@ public actor PerceptionCoordinator {
         await systemState.start()
         await interaction.start()
         await capturer.start()
+        await live.setBackgroundActive(true)
         purgeTask = Task { [spool] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(3600))
@@ -126,6 +156,7 @@ public actor PerceptionCoordinator {
         purgeTask?.cancel()
         purgeTask = nil
         await capturer.stop()
+        await live.setBackgroundActive(false)
         await interaction.stop()
         await systemState.stop()
         power.stop()
@@ -135,12 +166,14 @@ public actor PerceptionCoordinator {
     public func pause() async {
         userPaused = true
         await capturer.setUserPaused(true)
+        await live.setBackgroundActive(false)
         log.info("perception paused by user")
     }
 
     public func resume() async {
         userPaused = false
         await capturer.setUserPaused(false)
+        await live.setBackgroundActive(started)
         log.info("perception resumed by user")
     }
 
@@ -149,6 +182,8 @@ public actor PerceptionCoordinator {
         self.configuration = configuration
         try await capturer.updateConfiguration(configuration.screen)
         await capturer.updatePolicy(configuration.exclusions.policy)
+        await live.updatePolicy(configuration.exclusions.policy)
+        await live.updateTargetHeight(configuration.screen.targetHeight)
         interaction.updateExcludedBundleIds(configuration.exclusions.policy.excludedBundleIds)
         try await spool.updateLimits(configuration.spool)
     }
@@ -157,6 +192,8 @@ public actor PerceptionCoordinator {
     @discardableResult
     public func erase(from start: Date, to end: Date) async throws -> Int {
         await capturer.closeSegment()
+        // 内存里的最近画面可能属于被删除的时间段，一并丢掉。
+        await live.forget()
         return try await spool.erase(from: start, to: end)
     }
 

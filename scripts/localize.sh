@@ -27,7 +27,7 @@ swift build --scratch-path .build/loc \
 # 只收集本项目的界面模块（依赖包与开发工具的字符串不进入 String Catalog）。
 FILES=()
 while IFS= read -r f; do FILES+=("$f"); done < <(
-    grep -l -E '"source" *: *"[^"]*/Sources/(Amai|AmaiMemoryUI|AmaiMemory|AmaiCloud|AmaiExtraction|AmaiPerception)/' "${OUT}"/*.stringsdata \
+    grep -l -E '"source" *: *"[^"]*/Sources/(Amai|AmaiMemoryUI|AmaiMemory|AmaiCloud|AmaiExtraction|AmaiInference|AmaiPerception)/' "${OUT}"/*.stringsdata \
         | grep -v -E 'MemoryEvalCommand|MemoryPreviewTour|PreviewTimeline'
 )
 

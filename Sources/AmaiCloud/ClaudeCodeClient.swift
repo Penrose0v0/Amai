@@ -87,6 +87,111 @@ private final class OutputCollector: @unchecked Sendable {
     }
 }
 
+// MARK: - Streaming process output
+
+/// 子进程的一行标准输出，或它的结束状态（总是最后一个元素）。
+public enum ProcessOutput: Sendable, Equatable {
+    case line(String)
+    case exit(status: Int32, stderr: String, timedOut: Bool)
+}
+
+/// 逐行读取子进程输出的抽象，测试中替换为假实现。停止读取（取消）时子进程被终止。
+public protocol ProcessStreaming: Sendable {
+    func lines(
+        executable: URL, arguments: [String], environment: [String: String],
+        workingDirectory: URL, stdin: Data, timeout: TimeInterval
+    ) -> AsyncThrowingStream<ProcessOutput, Error>
+}
+
+public struct SystemProcessStreamer: ProcessStreaming {
+    public init() {}
+
+    public func lines(
+        executable: URL, arguments: [String], environment: [String: String],
+        workingDirectory: URL, stdin: Data, timeout: TimeInterval
+    ) -> AsyncThrowingStream<ProcessOutput, Error> {
+        let (stream, continuation) = AsyncThrowingStream<ProcessOutput, Error>.makeStream()
+        let process = Process()
+        process.executableURL = executable
+        process.arguments = arguments
+        process.environment = environment
+        process.currentDirectoryURL = workingDirectory
+        let inPipe = Pipe(), outPipe = Pipe(), errPipe = Pipe()
+        process.standardInput = inPipe
+        process.standardOutput = outPipe
+        process.standardError = errPipe
+
+        let splitter = LineSplitter()
+        let collector = OutputCollector()
+        outPipe.fileHandleForReading.readabilityHandler = { handle in
+            for line in splitter.append(handle.availableData) { continuation.yield(.line(line)) }
+        }
+        errPipe.fileHandleForReading.readabilityHandler = { collector.appendErr($0.availableData) }
+
+        let timer = DispatchSource.makeTimerSource(queue: .global())
+        timer.schedule(deadline: .now() + timeout)
+        timer.setEventHandler {
+            collector.markTimedOut()
+            process.terminate()
+        }
+
+        process.terminationHandler = { p in
+            timer.cancel()
+            outPipe.fileHandleForReading.readabilityHandler = nil
+            errPipe.fileHandleForReading.readabilityHandler = nil
+            for line in splitter.append(outPipe.fileHandleForReading.readDataToEndOfFile(), flush: true) {
+                continuation.yield(.line(line))
+            }
+            collector.appendErr(errPipe.fileHandleForReading.readDataToEndOfFile())
+            let result = collector.result(status: p.terminationStatus)
+            continuation.yield(.exit(
+                status: result.status, stderr: String(decoding: result.stderr, as: UTF8.self), timedOut: result.timedOut
+            ))
+            continuation.finish()
+        }
+        continuation.onTermination = { _ in
+            if process.isRunning { process.terminate() }
+        }
+
+        do {
+            try process.run()
+        } catch {
+            timer.cancel()
+            continuation.finish(throwing: CloudError.toolNotFound(executable.path))
+            return stream
+        }
+        timer.resume()
+        // 截图的 base64 可能有几百 KB，超过管道缓冲；放到后台写，不阻塞调用方。
+        DispatchQueue.global().async {
+            try? inPipe.fileHandleForWriting.write(contentsOf: stdin)
+            try? inPipe.fileHandleForWriting.close()
+        }
+        return stream
+    }
+}
+
+/// 把陆续到达的字节切成行。
+private final class LineSplitter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var buffer = Data()
+
+    func append(_ data: Data, flush: Bool = false) -> [String] {
+        lock.withLock {
+            buffer.append(data)
+            var lines: [String] = []
+            while let index = buffer.firstIndex(of: 0x0A) {
+                lines.append(String(decoding: buffer[buffer.startIndex..<index], as: UTF8.self))
+                buffer.removeSubrange(buffer.startIndex...index)
+            }
+            if flush, !buffer.isEmpty {
+                lines.append(String(decoding: buffer, as: UTF8.self))
+                buffer = Data()
+            }
+            return lines
+        }
+    }
+}
+
 // MARK: - Locating the CLI
 
 public enum ClaudeCodeLocator {
@@ -143,6 +248,7 @@ public struct ClaudeCodeClient: CloudTextClient {
     public let model: String
     public let workingDirectory: URL
     public let runner: any ProcessRunning
+    public let streamer: any ProcessStreaming
     public let timeout: TimeInterval
 
     public var identifier: String { "claude-code:\(model)" }
@@ -152,12 +258,14 @@ public struct ClaudeCodeClient: CloudTextClient {
         model: String = ClaudeCodeClient.defaultModel,
         workingDirectory: URL,
         runner: any ProcessRunning = SystemProcessRunner(),
+        streamer: any ProcessStreaming = SystemProcessStreamer(),
         timeout: TimeInterval = 300
     ) {
         self.executable = executable
         self.model = model
         self.workingDirectory = workingDirectory
         self.runner = runner
+        self.streamer = streamer
         self.timeout = timeout
     }
 

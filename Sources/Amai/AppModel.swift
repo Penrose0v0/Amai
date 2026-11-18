@@ -7,6 +7,7 @@ import struct AmaiCore.Evidence
 import enum AmaiCore.FrameAvailability
 import protocol AmaiCore.PerceptionReading
 import struct AmaiCore.TimeRange
+import AmaiAssistant
 import AmaiCloud
 import AmaiExtraction
 import AmaiMemory
@@ -53,8 +54,14 @@ final class AppModel {
     /// 已安装状态的版本号：下载完成后递增，让设置页重新检查磁盘。
     private(set) var installedModelsVersion = 0
     private var downloadTasks: [String: Task<Void, Never>] = [:]
-    /// 递增时主窗口打开设置窗口（供开发预览的截图流程使用）。
+    /// 递增时打开设置窗口（开发预览的截图流程、助手面板里的"打开设置"）。
     var settingsRequests = 0
+    /// 递增时打开主窗口（助手回答里的记忆来源被点击）。
+    var mainWindowRequests = 0
+    /// 内置助手（对话面板、快速操作、全局快捷键）。预览模式与初始化失败时为 nil。
+    private(set) var assistant: AssistantController?
+    /// 当前的助手配置。修改通过 `applyAssistant` 进行。
+    var assistantConfiguration: AssistantConfiguration { configuration.assistant }
     /// 新版本提示与 Homebrew 升级。
     let updates = UpdateController()
     let memoryRoot: URL
@@ -68,6 +75,8 @@ final class AppModel {
     private let memoryStore: MemoryStore?
     private let consolidator: Consolidator?
     let memoryIndex: MemoryIndex?
+    /// 记忆语义检索用的本地向量模型（可选，用户在「助手」设置里下载后生效）。
+    let memoryEmbedder = MLXTextEmbedder()
     private var pollTask: Task<Void, Never>?
 
     /// 开发用的隔离预览模式（`--memory-preview <目录>`）：只打开记忆窗口浏览该目录下的 memory/，
@@ -142,10 +151,12 @@ final class AppModel {
             let model = MLXModelProvider(modelTag: config.extraction.modelTag)
             localModel = model
             // 电池低于 40%、低电量模式或过热时推迟推理，插电后追赶。
+            // 用户正在用助手（对话或快速操作）时后台任务也整批推迟：交互式推理优先，不与它争 GPU 和内存。
             let heavyWorkAllowed: @Sendable () -> Bool = { [perception] in
+                if InferenceGate.shared.interactiveRecentlyActive() { return false }
                 switch perception.currentPowerProfile {
-                case .performance, .balanced: true
-                case .saver, .paused: false
+                case .performance, .balanced: return true
+                case .saver, .paused: return false
                 }
             }
             var extractionOptions = ExtractionPipeline.Options()
@@ -248,6 +259,30 @@ final class AppModel {
                 self.restoreCaptureState()
             }
         }
+        if preview == nil, startupError == nil, let paths {
+            let assistant = AssistantController(
+                configuration: config.assistant,
+                environment: AssistantController.Environment(
+                    live: coordinator?.live,
+                    memoryRoot: config.memory.rootURL,
+                    memoryIndex: memoryIndex,
+                    embedder: memoryEmbedder,
+                    keychain: keychain,
+                    chatGPT: chatGPT,
+                    claudeWorkdir: claudeWorkdir,
+                    storeURL: paths.index.appendingPathComponent("assistant.sqlite"),
+                    language: { [weak self] in self?.memoryLanguage ?? .default },
+                    openSource: { [weak self] source in self?.openMemorySource(source) },
+                    openSettings: { [weak self] in self?.requestSettings(tab: .assistant) }
+                )
+            )
+            self.assistant = assistant
+            // 引导完成之前不注册快捷键。
+            if !showsOnboarding { assistant.registerHotKeys() }
+            if let coordinator {
+                Task { await coordinator.startInteractiveTracking() }
+            }
+        }
         startPolling()
         // 预览模式不联网检查更新；`--preview-update <版本>` 只用来在预览中查看"有新版本"时的菜单栏与菜单。
         if preview == nil {
@@ -285,6 +320,12 @@ final class AppModel {
             let tag = args.firstIndex(of: "--inference-model").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil }
             let download = args.contains("--inference-download")
             Task { await MemoryPreviewTour.runInferenceCheck(output: output, modelTag: tag, download: download) }
+        }
+        // 开发用：助手的端到端检查（合成记忆 + 本地模型），见 AssistantCheck。
+        if isMemoryPreview, let i = args.firstIndex(of: "--assistant-check"), i + 1 < args.count {
+            let output = URL(fileURLWithPath: args[i + 1], isDirectory: true)
+            let tag = args.firstIndex(of: "--assistant-model").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil }
+            Task { await AssistantCheck.run(model: self, output: output, modelTag: tag) }
         }
         // 开发用：用合成场景评测记忆整理，只在临时目录中运行，不读写真实记忆。
         // open .build/Amai.app --args --memory-eval <scenarios.json> --eval-output <目录> [--eval-local]
@@ -449,6 +490,7 @@ final class AppModel {
         showsOnboarding = false
         guard !isMemoryPreview else { return }
         UserDefaults.standard.set(true, forKey: Self.onboardingCompletedKey)
+        assistant?.registerHotKeys()
         if onboardingNeedsRelaunch {
             if captureIntent == nil { captureIntent = .running }
             relaunch()
@@ -568,6 +610,40 @@ final class AppModel {
         return nil
     }
 
+    // MARK: - Assistant
+
+    /// 保存助手配置并立即生效。返回错误说明（成功为 nil）。
+    func applyAssistant(_ new: AssistantConfiguration) -> String? {
+        guard let paths, !isMemoryPreview else { return String(localized: "预览模式不能修改设置") }
+        var updated = configuration
+        updated.assistant = new
+        do {
+            try ConfigStore.save(updated, to: paths.config)
+        } catch {
+            return String(localized: "保存配置失败：\(String(describing: error))")
+        }
+        configuration = updated
+        assistant?.apply(new)
+        return nil
+    }
+
+    /// 助手回答里的记忆来源被点击：在主窗口打开对应的分区或那一天的时间线。
+    func openMemorySource(_ source: MemorySource) {
+        if source.category == .daily, let date = source.date {
+            memoryBrowser.show(.timeline, dayName: date)
+        } else {
+            memoryBrowser.clearSearch()
+            memoryBrowser.presentedSource = nil
+            memoryBrowser.selection = .category(source.category)
+        }
+        mainWindowRequests += 1
+    }
+
+    func requestSettings(tab: SettingsTab) {
+        UserDefaults.standard.set(tab.rawValue, forKey: SettingsTab.storageKey)
+        settingsRequests += 1
+    }
+
     // MARK: - Local model
 
     /// 保存选定的本地模型。模型实例由抽取与本地整理共用，启动时创建，所以重启后生效。返回错误说明（成功为 nil）。
@@ -674,6 +750,7 @@ final class AppModel {
             self.modelDownloads[tag] = nil
             self.downloadTasks[tag] = nil
             self.installedModelsVersion += 1
+            self.assistant?.refresh()
             if tag == self.modelTag { self.modelInstalled = LocalInferenceBackend.isInstalled(tag: tag) }
         }
     }

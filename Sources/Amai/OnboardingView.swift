@@ -3,7 +3,7 @@ import enum AmaiPerception.ScreenRecordingPermission
 import Observation
 import SwiftUI
 
-/// 首次启动引导（参考 Eira 的引导）：语言 → 会记录什么 → 屏幕录制权限 → 屏幕理解模型 → 记忆整理模型 → 开始记录。
+/// 首次启动引导（参考 Eira 的引导）：语言 → 会记录什么 → 屏幕录制权限 → 屏幕理解模型 → 记忆整理模型 → 助手 → 开始记录。
 ///
 /// - 引导完成前不采集任何内容；最后一页点"开始记录"才开始。
 /// - 界面语言在引导内立即切换（通过环境中的 locale），其他窗口在重启后跟随。
@@ -12,7 +12,7 @@ import SwiftUI
 @Observable
 final class OnboardingState {
     enum Step: Int, CaseIterable {
-        case welcome, privacy, permission, screenModel, memoryModel, done
+        case welcome, privacy, permission, screenModel, memoryModel, assistant, done
     }
 
     var step: Step = .welcome
@@ -55,6 +55,7 @@ struct OnboardingView: View {
                 case .permission: PermissionPage(model: model)
                 case .screenModel: ScreenModelPage(model: model)
                 case .memoryModel: MemoryModelPage(model: model)
+                case .assistant: AssistantPage(model: model)
                 case .done: DonePage(model: model)
                 }
             }
@@ -103,10 +104,10 @@ struct OnboardingView: View {
                     .buttonStyle(.borderedProminent)
                     .keyboardShortcut(.defaultAction)
             } else {
-                // 记忆整理页里回车留给「保存并应用」。
+                // 记忆整理页与助手页里回车留给「保存并应用」。
                 Button("下一步") { state.next() }
                     .buttonStyle(.borderedProminent)
-                    .keyboardShortcut(state.step == .memoryModel ? nil : .defaultAction)
+                    .keyboardShortcut(state.step == .memoryModel || state.step == .assistant ? nil : .defaultAction)
                     .disabled(!state.canAdvance)
             }
         }
@@ -292,6 +293,25 @@ private struct MemoryModelPage: View {
     }
 }
 
+/// 助手：选择 Agent 模型与可读取的记忆分区。可以不选直接下一步，助手保持不可用，之后在设置里再选。
+private struct AssistantPage: View {
+    let model: AppModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            PageHeader(title: "设置助手（可选）", subtitle: "助手可以回答关于你过去活动的问题，也可以对任意应用里选中的文字做翻译、润色和解释。选一个模型并决定它能读哪些记忆，点「保存并应用」。不想现在决定可以直接下一步，之后在设置的「助手」里选择。")
+            Form {
+                if model.isMemoryPreview || model.assistant == nil {
+                    Section { Text("预览模式中不显示助手设置。").foregroundStyle(.secondary) }
+                } else {
+                    AssistantModelSections(model: model)
+                }
+            }
+            .formStyle(.grouped)
+        }
+    }
+}
+
 private struct DonePage: View {
     let model: AppModel
 
@@ -302,6 +322,9 @@ private struct DonePage: View {
                 row("menubar.rectangle", "菜单栏", "点 Amai 图标可以暂停或继续记录、打开 Amai、进入设置。")
                 row("clock", "时间线与每日总结", "打开 Amai 查看每天做了什么。活动整理会在记录开始几分钟后出现。")
                 row("brain", "长期记忆", "每天凌晨 4 点后，Amai 会把前一天的记录整理进综合、工作、健康、财务、目标五个分区。")
+                if let assistant = model.assistant, assistant.isReady {
+                    row("sparkles", "助手", "按 \(assistant.configuration.chatHotKey.title) 打开对话；选中文字后按 \(assistant.configuration.quickActionHotKey.title) 做翻译、润色或解释。")
+                }
             }
             if model.onboardingNeedsRelaunch {
                 Label("为了让刚才的设置生效，Amai 会重新启动一次。", systemImage: "arrow.clockwise")

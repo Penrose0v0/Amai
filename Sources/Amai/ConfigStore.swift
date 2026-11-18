@@ -13,6 +13,8 @@ struct AppConfiguration: Codable, Equatable {
     var consolidationModel: ConsolidationModelConfiguration
     /// 只读 MCP Server 的开关与可读分区（ADR-0008）。App 不使用，只负责原样保留；amai-mcp 每次调用时读取。
     var mcp: MCPConfiguration = .default
+    /// 内置助手：Agent 模型、可读的记忆分区与快捷键。
+    var assistant: AssistantConfiguration = .default
 
     static let `default` = AppConfiguration(
         perception: .default, extraction: .default, memory: .default, consolidationModel: .default
@@ -31,7 +33,7 @@ struct AppConfiguration: Codable, Equatable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case screen, exclusions, spool, extraction, memory, consolidationModel, mcp
+        case screen, exclusions, spool, extraction, memory, consolidationModel, mcp, assistant
     }
 
     init(from decoder: any Decoder) throws {
@@ -41,6 +43,7 @@ struct AppConfiguration: Codable, Equatable {
         memory = try c.decodeIfPresent(MemoryConfiguration.self, forKey: .memory) ?? .default
         consolidationModel = try c.decodeIfPresent(ConsolidationModelConfiguration.self, forKey: .consolidationModel) ?? .default
         mcp = try c.decodeIfPresent(MCPConfiguration.self, forKey: .mcp) ?? .default
+        assistant = try c.decodeIfPresent(AssistantConfiguration.self, forKey: .assistant) ?? .default
     }
 
     func encode(to encoder: any Encoder) throws {
@@ -52,6 +55,7 @@ struct AppConfiguration: Codable, Equatable {
         try c.encode(memory, forKey: .memory)
         try c.encode(consolidationModel, forKey: .consolidationModel)
         try c.encode(mcp, forKey: .mcp)
+        try c.encode(assistant, forKey: .assistant)
     }
 
     func validate() throws {

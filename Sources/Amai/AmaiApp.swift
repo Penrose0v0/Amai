@@ -19,6 +19,7 @@ struct AmaiApp: App {
             MenuContent(model: model)
         } label: {
             MenuBarIcon(symbol: Self.symbol(for: model), highlighted: model.updates.availableVersion != nil)
+                .modifier(WindowRequestListener(model: model))
         }
 
         Window("Amai", id: "main") {
@@ -60,6 +61,26 @@ struct AmaiApp: App {
         case .permissionMissing, .error: return "exclamationmark.triangle"
         case .stopped, nil: return "circle.dotted"
         }
+    }
+}
+
+/// 助手面板等不在 SwiftUI 场景里的界面需要打开主窗口或设置窗口，而这两个操作只能从视图里发起。
+/// 菜单栏图标的视图始终存在，所以监听放在这里。
+private struct WindowRequestListener: ViewModifier {
+    let model: AppModel
+    @Environment(\.openWindow) private var openWindow
+    @Environment(\.openSettings) private var openSettings
+
+    func body(content: Content) -> some View {
+        content
+            .onChange(of: model.mainWindowRequests) {
+                openWindow(id: "main")
+                NSApp.activate(ignoringOtherApps: true)
+            }
+            .onChange(of: model.settingsRequests) {
+                openSettings()
+                NSApp.activate(ignoringOtherApps: true)
+            }
     }
 }
 
@@ -169,6 +190,10 @@ private struct MenuContent: View {
 
         Divider()
         Button("打开 Amai") { showMain() }
+        if let assistant = model.assistant {
+            Button("问 Amai（\(assistant.configuration.chatHotKey.title)）") { assistant.toggleChat() }
+            Button("对选中文字快速操作（\(assistant.configuration.quickActionHotKey.title)）") { assistant.showQuickActions() }
+        }
         Button("立即同步") { model.syncNow() }
 
         Divider()

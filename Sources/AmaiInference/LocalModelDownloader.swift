@@ -20,7 +20,7 @@ public enum LocalModelDownloader {
     /// 取消：终止对返回流的迭代即可，已下载的文件留在缓存中，下次从断点继续。
     public static func download(tag: String) -> AsyncThrowingStream<Event, Error> {
         let (stream, continuation) = AsyncThrowingStream<Event, Error>.makeStream()
-        let log = AmaiLog.logger("extraction.download")
+        let log = AmaiLog.logger("inference.download")
         let total = TotalBytes()
         // 进度按磁盘字节数计算：HubClient 的 fractionCompleted 不反映实际写入（Eira 实测）。
         // 断点续传时，已在缓存中的部分也计入已下载。

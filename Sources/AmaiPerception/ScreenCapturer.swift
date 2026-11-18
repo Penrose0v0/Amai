@@ -53,6 +53,11 @@ public actor ScreenCapturer {
         public var spool: RawSpool
         public var frames: FrameStore
         public var clock: any AmaiClock
+        /// 每次 tick 的结果通知对象（交互式屏幕读取据此复用最新画面）。
+        public var observer: (any ScreenCaptureObserver)?
+        /// 始终从画面中抠掉的应用（不参与"前台是被排除应用则跳过"的判定）。用于 Amai 自己的窗口：
+        /// 聊天面板浮在别的应用上面时，不应被录进原始缓冲。
+        public var alwaysExcludedBundleIds: Set<String> = []
 
         public init(
             source: any ScreenFrameSource,
@@ -164,11 +169,13 @@ public actor ScreenCapturer {
             // 睡眠 / 锁屏期间关掉分段，文件立即可读，也不让写入器跨越睡眠。
             await deps.frames.finishSegment()
             lastFrames.removeAll()
+            await deps.observer?.didNotCapture()
             return .blocked(.systemState)
         }
         let profile = deps.power.currentProfile
         guard profile.capturesScreen else {
             await deps.frames.finishSegment()
+            await deps.observer?.didNotCapture()
             return .blocked(.powerProfile)
         }
         let now = deps.clock.now()
@@ -199,13 +206,14 @@ public actor ScreenCapturer {
             try? await deps.spool.append(event, payload: nil)
             stats.skipped += 1
             lastFrames.removeAll()
+            await deps.observer?.didNotCapture()
             return .skipped(reason)
         }
 
         let capture: ScreenCapture
         do {
             capture = try await deps.source.captureAll(
-                excludingBundleIds: deps.policy.excludedBundleIds,
+                excludingBundleIds: deps.policy.excludedBundleIds.union(deps.alwaysExcludedBundleIds),
                 targetHeight: config.targetHeight,
                 frontmostPid: frontmost?.pid
             )
@@ -226,8 +234,10 @@ public actor ScreenCapturer {
         let focus = present.count > 1 ? capture.focusDisplayId : nil
         let monoTime = deps.clock.monotonicNanoseconds()
         var ids: [UUID] = []
+        var hashes: [UInt32: UInt64] = [:]
         for frame in capture.frames {
             let hash = ImageHashing.dHash(frame.image)
+            hashes[frame.displayId] = hash
             var metadata = PerceptionMetadata(
                 app: frontmost?.name,
                 bundleId: frontmost?.bundleId,
@@ -284,6 +294,7 @@ public actor ScreenCapturer {
         stats.lastError = nil
         stats.permissionDenied = false
         backoffUntil = nil
+        await deps.observer?.didCapture(capture, hashes: hashes, frontmost: frontmost, at: now)
         return .captured(ids)
     }
 

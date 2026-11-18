@@ -66,6 +66,25 @@ cat <输出目录>/inference.json
 - 预览模式不读写真实记忆、配置与原始数据，不启动采集，不影响正在运行的 Amai。
 - 加 `--inference-download` 时，未安装的模型先用设置中的同一个下载器下载。
 
+### 助手检查（2026-11-18）
+
+与推理检查同一类：隔离预览模式下用合成记忆和本地模型走一遍助手的真实装配路径，不影响正在运行的 Amai。
+
+```bash
+DIR=$(mktemp -d); mkdir -p "$DIR/memory" "$DIR/support/extracted"
+cp -R samples/memory-preview/. "$DIR/memory/"
+.build/dist/Amai.app/Contents/MacOS/Amai --memory-preview "$DIR" \
+    --assistant-check <输出目录> [--assistant-model <模型标签>]
+cat <输出目录>/assistant.json
+```
+
+- 依次检查：交互式屏幕读取（焦点、显示器与前台窗口截图、OCR；只记录尺寸与耗时）、记忆的向量索引、记忆问答（后端检索并带来源，全程没有工具调用）、追问（"那天"的指代、KV cache 复用）、措辞不同的问题能否靠语义检索答对、翻译与润色、快速操作之后对话缓存是否仍在。`ok` 为 true 表示全部通过。
+- 同一个问题问两次并记录各阶段耗时：`coldSubmit` 是不做任何准备直接提交；`conversation[0]` 是先按面板唤出时的流程准备（`prepare`）再提交。`preparedIsFaster`、`prefillHit`、`preparedContextUsed` 三项确认预填充确实被用上。
+- 语义检索模型没有下载时 `semanticRecall` 会失败（`memory.embedderInstalled` 为 false）；它是可选的，这种情况下只说明走的是关键词检索。
+- 同时截下聊天面板（`chat.png`）与快速操作面板（`quick.png`），只截本应用自己的窗口。
+- 屏幕读取需要屏幕录制权限；窗口标题需要辅助功能权限，没有时相应字段为 false，不算失败。
+- 本地模型的集成测试：把 `mlx.metallib` 复制到 xctest 可执行文件旁，运行 `AMAI_MLX_INTEGRATION=1 swift test --filter "MLXIntegrationTests|EmbedderIntegration|RetrievalEval"`。分别验证对话的缓存复用与预填充、向量模型、以及合成记忆库上的检索质量（关键词与混合检索的对比）。
+
 ## 应用内更新（2026-11-18）
 
 参考 Eira：`UpdateController`（App）与 `AppUpdate`（AmaiCore，纯逻辑与测试）。

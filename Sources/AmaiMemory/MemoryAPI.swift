@@ -66,6 +66,8 @@ public struct MemorySearchResult: Codable, Sendable, Equatable {
     /// 内容对应的日期（YYYY-MM-DD）：daily 为当天，长期记忆为最近的来源日期；未知时为 nil。
     public let date: String?
     public let sources: [String]
+    /// 相关度（0…1，混合检索融合后的得分）。
+    public let score: Double
 }
 
 public struct MemoryEntryView: Codable, Sendable, Equatable {
@@ -124,48 +126,67 @@ public struct MemoryAPI: Sendable {
     public let library: MemoryLibrary
     public let access: MemoryAccess
     private let index: MemoryIndex?
+    private let embedder: (any TextEmbedder)?
     private let timeZone: TimeZone
 
     public static let maxSearchLimit = 50
 
-    public init(root: URL, index: MemoryIndex?, access: MemoryAccess, timeZone: TimeZone = .current) {
+    public init(
+        root: URL, index: MemoryIndex?, access: MemoryAccess, embedder: (any TextEmbedder)? = nil,
+        timeZone: TimeZone = .current
+    ) {
         self.library = MemoryLibrary(root: root, index: index, timeZone: timeZone)
         self.index = index
+        self.embedder = embedder
         self.access = access
         self.timeZone = timeZone
     }
 
-    /// 在已授权的分区中检索。长期记忆的命中展开为具体条目（带来源日期与依据），其余返回 section 摘录。
-    public func search(_ query: String, limit: Int = 10) async throws -> [MemorySearchResult] {
+    /// 在已授权的分区中检索：关键词（BM25）加语义向量的混合检索（`MemoryIndex.search`），没有向量模型时只用关键词。
+    /// 结果是条目粒度的；长期记忆的命中补上来源日期。只读，不触发向量的补算。
+    public func search(_ query: String, limit: Int = 10, now: Date = Date()) async throws -> [MemorySearchResult] {
         let limit = min(max(limit, 1), Self.maxSearchLimit)
         guard let index, !access.categories.isEmpty else { return [] }
         try await index.refresh()
-        let hits = try await index.retrieve(query, categories: access.categories, limit: limit)
-        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        var options = MemorySearchOptions()
+        options.maxResults = limit
+        options.categories = access.categories
+        options.now = now
+        let hits = try await index.search(query, embedder: embedder, options: options)
         var documents: [MemoryCategory: MemoryDocument] = [:]
         var results: [MemorySearchResult] = []
         for hit in hits {
             guard let category = hit.category, access.allows(category) else { continue }
-            let day = hit.day.map { MemoryDirectory.dayName(for: $0, timeZone: timeZone) }
-            if category != .daily {
-                if documents[category] == nil { documents[category] = library.document(category) }
-                let items = documents[category]?.systemItems.filter { $0.text.range(of: q, options: .caseInsensitive) != nil } ?? []
-                if !items.isEmpty {
-                    for item in items where !results.contains(where: { $0.file == hit.file && $0.content == item.text }) {
-                        results.append(MemorySearchResult(
-                            category: category, file: hit.file, section: item.section ?? hit.heading,
-                            content: item.text, date: item.sources.max(), sources: item.sources
-                        ))
-                    }
-                    continue
-                }
+            let content = Self.entryText(hit.content)
+            if category == .daily {
+                let day = hit.day.map { MemoryDirectory.dayName(for: $0, timeZone: timeZone) }
+                results.append(MemorySearchResult(
+                    category: category, file: hit.file, section: hit.heading, content: content,
+                    date: day, sources: day.map { [$0] } ?? [], score: hit.score
+                ))
+                continue
             }
+            // 索引里的文字去掉了注释，来源日期要回到文档里按条目找。
+            if documents[category] == nil { documents[category] = library.document(category) }
+            let item = documents[category]?.systemItems.first { !$0.text.isEmpty && hit.content.contains($0.text) }
             results.append(MemorySearchResult(
-                category: category, file: hit.file, section: hit.heading, content: hit.excerpt,
-                date: day, sources: day.map { [$0] } ?? []
+                category: category, file: hit.file, section: item?.section ?? hit.heading, content: content,
+                date: item?.sources.max(), sources: item?.sources ?? [], score: hit.score
             ))
         }
-        return Array(results.prefix(limit))
+        return results
+    }
+
+    /// 为接下来的检索做好准备：把索引更新到最新，并让向量模型加载好（如果有）。只读，不写记忆。
+    public func prepareSearch() async {
+        guard let index, !access.categories.isEmpty else { return }
+        _ = try? await index.refresh()
+        if let embedder, embedder.isAvailable { _ = try? await embedder.embed(["warm up"], kind: .query) }
+    }
+
+    /// 去掉条目开头的列表符号。
+    private static func entryText(_ content: String) -> String {
+        content.hasPrefix("- ") || content.hasPrefix("* ") ? String(content.dropFirst(2)) : content
     }
 
     /// 读取一个长期记忆分区；给出 `topic` 时只返回对应小节（任一语言的推荐小节名都可以，也接受部分匹配，如项目名）。

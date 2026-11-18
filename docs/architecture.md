@@ -30,6 +30,19 @@
 
 数据单向流动：**感知 → 抽取 → 记忆**。上层不反向调用下层内部实现；App Shell 通过各层的公开接口控制与读取。
 
+内置助手（ADR-0010，2026-11-18）在这条后台流水线旁边，是只读的使用方：
+
+```text
+用户（快捷键） → 助手面板 / 快速操作面板（App）
+                    │
+            AmaiAssistant：Agent 循环 · 上下文组装 · 工具 · 快速操作
+              │ ChatModel            │ LiveContextReading        │ MemoryAPI（只读）
+   AmaiInference（本地 MLX）   AmaiPerception（交互式读取）      AmaiMemory
+   AmaiCloud（云端来源）       与后台采集共用截图 / OCR / AX / 隐私策略
+```
+
+助手不写记忆、不操作其他应用（唯一的例外是用户点击「替换」时写回选区）。详见 §2.6。
+
 ## 2. 模块职责
 
 ### 2.1 Perception（感知层）
@@ -91,7 +104,7 @@
 | `delete(timeRange | entryId)` | 删除指定时间段或条目的派生记忆 |
 | `reindex()` | 从 Markdown 重建派生索引 |
 
-M3 实现（`AmaiMemory`）：`MemoryStore` 写 daily 时间线区块；`MemoryIndex` 负责 trigram 全文索引与 `retrieve`；`MemorySync` 每 60 秒以片段 `updatedAt` 为水位线同步有更新的日期并刷新索引。记忆层通过 `SegmentSource` 协议读取片段，由 App 用抽取层的存储实现，记忆层不依赖抽取层。开发用命令行：`swift run amai-memory search <查询>`。
+M3 实现（`AmaiMemory`）：`MemoryStore` 写 daily 时间线区块；`MemoryIndex` 负责 trigram 全文索引与 `retrieve`（浏览窗口的查找），以及条目粒度的混合检索 `search`（关键词 + 语义向量，ADR-0011，见 `memory.md` §6）；`MemorySync` 每 60 秒以片段 `updatedAt` 为水位线同步有更新的日期并刷新索引。记忆层通过 `SegmentSource` 协议读取片段，由 App 用抽取层的存储实现，记忆层不依赖抽取层。开发用命令行：`swift run amai-memory search <查询>`。
 
 Memory Schema v1（ADR-0006）：每个分区一个 Markdown 文件；`MemoryLibrary` 是统一只读接口（按分区读文档与系统条目、读 daily、按分区检索），Browser 与今后的外部 Agent 接入都复用它；`SchemaMigration` 在启动时把旧布局无损迁移到 v1，归档在记忆目录的 `.archive/`。
 
@@ -104,13 +117,14 @@ Memory Schema v1（ADR-0006）：每个分区一个 Markdown 文件；`MemoryLib
 ### 2.4 App Shell
 
 - **菜单栏**（面向普通用户，2026-10-22 简化）：运行状态与上次记忆更新时间；暂停 / 继续记录；打开 Amai（主窗口）；立即同步（处理积压活动并同步记忆）；设置；退出。正常运行时只显示一行状态，出现异常（缺权限、截图连续失败、模型不可用、记忆写入或整理出错、配置无效）时才列出问题与建议操作，图标同时变为警示。有新版本时图标变蓝，菜单最上方出现「更新到 vX」（见 [release.md](release.md)「应用内更新」）。
-- **设置窗口**（原生 ⌘,，2026-11-04 重构）：顶部五个标签，均为 grouped Form，设置行统一为左侧名称、右侧值或操作。
+- **设置窗口**（原生 ⌘,，2026-11-04 重构；2026-11-18 增加「助手」）：顶部六个标签，均为 grouped Form，设置行统一为左侧名称、右侧值或操作。
   - 通用：记录状态与暂停 / 继续、界面语言与记忆语言（见 memory.md §3.7）、记忆存储位置。
   - 感知：截图间隔、显示器、原始截图保留，屏幕录制权限，隐私（密码输入跳过、排除的应用）。采集参数与排除名单仍在配置文件中修改，这里只读展示。
   - 模型：屏幕理解（本地模型选择、下载、资源需求）与记忆整理（来源选择，只显示当前来源的配置）。
+  - 助手：Agent 模型（无默认值）、可读取的记忆分区、快捷键、辅助功能权限、对话记录删除。选用云端模型时确认一次发送范围。
   - 运行状态：采集、屏幕理解、记忆同步、记忆整理的详细指标。
   - 高级：手动维护（处理积压活动、同步记忆、整理今日记忆、更新综合档案）、文件、诊断（重新启动、重新显示首次使用引导）。
-- **首次使用引导**（2026-11-06）：新用户首次启动时打开，六步——语言（界面语言、记忆语言）→ 会记录什么（截图间隔与原始截图保留、不记录的情形、Markdown 记忆、云端边界）→ 屏幕录制授权（静默轮询授权状态）→ 屏幕理解模型（复用设置中的选择与下载）→ 记忆整理模型（复用设置中的来源配置；不预选来源，用户选定并"保存并应用"成功后才能继续）→ 开始记录。
+- **首次使用引导**（2026-11-06）：新用户首次启动时打开，六步——语言（界面语言、记忆语言）→ 会记录什么（截图间隔与原始截图保留、不记录的情形、Markdown 记忆、云端边界）→ 屏幕录制授权（静默轮询授权状态）→ 屏幕理解模型（复用设置中的选择与下载）→ 记忆整理模型（复用设置中的来源配置；不预选来源，用户选定并"保存并应用"成功后才能继续）→ 助手（2026-11-18；选 Agent 模型与可读分区，可跳过，跳过则助手不可用）→ 开始记录。
   - 完成前不采集：菜单只有"继续设置…"与"退出"；点"开始记录"才写入采集意图并开始。新授予的屏幕录制权限、界面语言或改选的模型需要重启才生效时，完成时自动重启一次，重启后按采集意图开始记录。
   - 判断新用户：`amai.onboardingCompleted` 未设置且从未记录过采集状态（`amai.captureIntent`）。引导出现之前就用过 Amai 的用户直接视为已完成。
   - 隔离预览可截图检查每一步：`--memory-preview <目录> --onboarding-tour <输出目录>`（预览中授权、下载、改界面语言与完成都不生效）。
@@ -121,6 +135,61 @@ Memory Schema v1（ADR-0006）：每个分区一个 Markdown 文件；`MemoryLib
   - 记忆视图在 `AmaiMemoryUI`，只通过 `MemoryLibrary` 与回调工作，只读。原独立的活动检查器已移除。
 - **运行状态**：采集、抽取、记忆、整理的详细指标在"设置 → 运行状态"；菜单中出现异常时的"查看运行状态…"直接打开该页。
 - 不包含业务逻辑；通过各层公开接口工作。
+
+### 2.6 模型运行时与内置助手（ADR-0010、ADR-0011，2026-11-18）
+
+**模型运行时（`AmaiInference`）**
+
+| 模块 | 职责 |
+|---|---|
+| `LocalModelRuntime` / `LocalModelHost` | 每个本地模型标签在进程内只有一个持有者；抽取、整理、Agent 选了同一个模型时共用一份权重。按需加载、空闲 5 分钟卸载、内存压力卸载（用户刚对话过时暂缓） |
+| `InferenceGate` | 本机推理的串行闸门，交互式请求先于后台请求出队。后台任务在开始一批工作前检查最近是否有交互式请求，有则推迟 |
+| `MLXModelProvider` | 单次调用（抽取、整理），每次新建会话 |
+| `MLXChatModel` | 对话：流式、跨轮复用 KV cache；`prepare` 可以在用户提交之前把已确定的前缀算进缓存。一次性请求（快速操作）不读写对话的缓存 |
+| 前缀缓存（`LocalModelHost`） | 纯文字、不带工具的对话请求：自己持有 KV cache 与 token 账本，按 token 比较只处理新增部分。预填充做在上一轮缓存的副本上，作废时不需要回退（Gemma 的滑动窗口层超过窗口后不能回退）。带图片或工具的请求交给 mlx-swift-lm 的 `ChatSession` |
+| `MLXTextEmbedder` | 记忆语义检索用的向量模型（Qwen3-Embedding-0.6B 4bit，可选下载）。经过同一个闸门：问题的向量按交互式优先级，批量补算按后台优先级 |
+
+`ChatModel`（AmaiCore）是对话的统一接口，本地实现在 `AmaiInference`，云端实现在 `AmaiCloud`（Anthropic、OpenAI 兼容接口、ChatGPT 订阅、Claude Code）。请求无状态、消息只追加，云端因此命中前缀缓存，本地因此接着用 KV cache。
+
+**感知层的交互式读取（`AmaiPerception`）**
+
+| 模块 | 职责 |
+|---|---|
+| `LiveContextReader` | `LiveContextReading` 的实现：焦点（应用、窗口标题、选区）、即时截图（完整显示器 / 前台窗口）、屏幕文字（OCR）、最近状态。经过与后台采集相同的隐私策略 |
+| 最新帧缓存 | 采集器每次截图后把画面留在内存；交互式读取在 2 秒内且前台应用没变时复用，否则现截。不依赖正在写入的视频分段 |
+| `RecentContextBuffer` | 最近约 5 分钟、最多 5 个状态；应用切换或画面明显变化时新增。只存压缩画面，OCR 在被读取时才做并缓存 |
+| `AccessibilityReader` | 窗口标题、选中文字，以及用户要求时写回选区。只在交互时查询，不监听键盘 |
+| `TargetAppTracker` | 记住最近一个不是 Amai 自己的前台应用 |
+| `VisionTextRecognizer` | Apple Vision OCR。契约 `TextRecognizer` 在 AmaiCore，后台抽取与交互式读取用同一个实现 |
+| OCR 结果复用 | 画面哈希与上一次识别时基本相同、且在 90 秒内，直接返回上次的文字。OCR 只在助手面板唤出时进行，不在后台持续做 |
+
+Amai 自己的窗口从所有截图里抠掉（含后台采集）。用户暂停后台采集时交互式读取仍可用，但最近状态清空并停止积累。
+
+**助手（`AmaiAssistant`，不含界面）**
+
+问答是一条固定的流水线，由后端完成检索与组装，模型只做最后一步，不依赖工具调用（ADR-0011）：
+
+```text
+读屏幕上下文 ─┐
+              ├→ 组装提示词 → ChatModel 流式生成
+检索记忆 ─────┘
+
+system（固定） → 历史（只追加） → <context> 屏幕上下文 → <memory> 检索到的记忆 → 问题
+```
+
+| 模块 | 职责 |
+|---|---|
+| `AssistantSession` | 一段对话：每轮调用模型一次，消息只追加，出错或取消时撤回这一轮。`prepare()` 在面板唤出时并行地预热模型、准备记忆索引、读屏幕并 OCR，然后把屏幕上下文预填充进模型的缓存；提交时确认屏幕没变就沿用 |
+| `MemoryRecall` | 调用模型之前检索记忆：问题里的日期直接取那几天的时间线，其余做一次混合检索；限定日期时结果只保留那几天的；给过的内容不重复给。只经过 `MemoryAPI` |
+| `DateMentions` | 用规则认出问题里的日期（中英日；单独的某天与一段时间） |
+| `ContextBuilder` | 固定的 system；`<context>` 块（时间、应用 / 窗口、选区、屏幕文字、最近状态）；整条 user 消息的排列。屏幕文字没变不重复，最近状态只带新的 |
+| `ScreenLook` | 用户打开"带上屏幕"时取截图，随消息直接发给模型（现有来源都能看图） |
+| `QuickActions` | 翻译、润色、解释：一次性请求，不带历史与记忆 |
+| `ChatSessionStore` | 对话记录（SQLite）：提问、回答、来源；不含截图与屏幕文字 |
+
+今后要加 Agent 能力时，`ChatModel` 的工具调用契约与各来源的实现都在，在这条流水线之上加循环即可；普通问答不需要它。
+
+App 中的 `AssistantController` 负责装配：按 `config.json` 的 `assistant` 段创建模型与会话，持有聊天面板、快速操作面板与全局快捷键（默认 ⌘⇧Space 打开对话、⌥⇧Space 快速操作）；面板唤出时触发 `prepare()` 并在后台给新增的记忆补算向量。聊天界面移植自 Eira。
 
 ### 2.5 横切模块
 
@@ -215,7 +284,8 @@ MemoryItem（系统区块中的一条记忆，见 memory.md §3.2）
 - [ ] 感知层没有引入 OCR / 模型 / Markdown 相关依赖。
 - [ ] 抽取层没有直接读写记忆目录，也不依赖感知层（只通过 AmaiCore 的 `PerceptionReading` 读取）。
 - [ ] 记忆层不依赖任何采集或模型实现。
-- [ ] 任何外部网络调用与外部程序调用（`claude -p`）都只发生在 `AmaiCloud`，只用于记忆整理，且仅在用户在设置中确认开启云端来源后发生（ADR-0004 / ADR-0005）；抽取层没有网络调用。
+- [ ] 任何外部网络调用与外部程序调用（`claude -p`）都只发生在 `AmaiCloud`，只用于记忆整理与内置助手，且仅在用户在设置中确认开启云端来源后发生（ADR-0004 / ADR-0005 / ADR-0010）；抽取层没有网络调用。
+- [ ] 交互式屏幕读取经过与后台采集相同的隐私策略；助手只读记忆，可读分区由 `assistant.memoryCategories` 决定。
 - [ ] 不读取、不保存其他程序的凭据（Claude Code、Codex 等）；ChatGPT 令牌只经官方 SIWC 获得并存钥匙串。
 - [ ] 日志中不存在内容字段。
 - [ ] 所有队列 / 缓冲有上限。
@@ -223,6 +293,7 @@ MemoryItem（系统区块中的一条记忆，见 memory.md §3.2）
 ## 8. 实现层约定（ADR-0002 确认后）
 
 - 单个 Swift Package：`AmaiCore` ← `AmaiPerception` / `AmaiExtraction` / `AmaiMemory` ← `Amai`（App）。三个层 target 互不依赖，只依赖 `AmaiCore`。
+- 模型运行时 `AmaiInference` 只依赖 `AmaiCore`，被抽取层与 App 使用；`AmaiCloud` 只依赖 `AmaiCore`；`AmaiAssistant` 依赖 `AmaiCore` 与 `AmaiMemory`（只读 `MemoryAPI`），不依赖感知层、抽取层和具体的模型实现（ADR-0010）。
 - `swift build` 编译；`scripts/bundle.sh` 组装 `.app`（含 MLX metallib、`amai-mcp`、Swift 运行库、签名）；`swift test` 运行不依赖 MLX 权重的测试。
 - 分发：`scripts/release.sh` 以 Release 配置组装到 `.build/dist/Amai.app`、用 `scripts/verify-bundle.sh` 检查后打包，经 GitHub Releases 与 Homebrew Cask（`Penrose0v0/tap/amai`）分发；版本号唯一来源是 `Resources/Info.plist`。见 `docs/release.md`。
 - 日志统一用 `os.Logger`，subsystem `com.amai.app`，category 为模块名；内容字段一律不记录。
