@@ -21,9 +21,9 @@ Amai は Mac での作業をバックグラウンドで記録し、日々のタ�
 
 [English](README.md) · [简体中文](README.zh-CN.md) · **日本語**
 
-<img src="screenshots/ja/12-timeline.png" alt="Amai のタイムライン：1 日の活動が、タイトル・一行の要約・カテゴリ・所要時間とともに並んでいる" width="860">
+https://github.com/user-attachments/assets/6b4b4963-ad0b-47c0-adbd-72dc3221a6a4
 
-<sub>スクリーンショットは <a href="samples/">samples/</a> の合成サンプルデータで、実在の人物の活動ではありません。</sub>
+<sub>動画とスクリーンショットは <a href="samples/">samples/</a> の合成サンプルデータで、実在の人物の活動ではありません。</sub>
 
 </div>
 
@@ -56,6 +56,8 @@ brew install --cask Penrose0v0/tap/amai
 ### タイムラインと 1 日のまとめ
 
 約 15 分ごとの画面の活動が、タイトル・要約・カテゴリ・所要時間を持つタイムラインの項目になります。夜のあいだに、Amai が前日の短いまとめを書きます。どちらも `daily/YYYY-MM-DD.md` に保存されます。
+
+<p align="center"><img src="screenshots/ja/12-timeline.png" alt="Amai のタイムライン：1 日の活動が、タイトル・一行の要約・カテゴリ・所要時間とともに並んでいる" width="860"></p>
 
 <table>
   <tr>

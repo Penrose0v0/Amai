@@ -21,9 +21,9 @@ plain Markdown, on your device, ready for your AI agents.
 
 **English** · [简体中文](README.zh-CN.md) · [日本語](README.ja.md)
 
-<img src="screenshots/en/12-timeline.png" alt="Amai timeline: a day of activities, each with a title, a one-line summary, a category and a duration" width="860">
+https://github.com/user-attachments/assets/6b4b4963-ad0b-47c0-adbd-72dc3221a6a4
 
-<sub>Screenshots show synthetic sample data from <a href="samples/">samples/</a>, not a real person's activity.</sub>
+<sub>Screenshots and the video show synthetic sample data from <a href="samples/">samples/</a>, not a real person's activity.</sub>
 
 </div>
 
@@ -56,6 +56,8 @@ These are the features in **v0.1.0**.
 ### Timeline and daily summary
 
 Every ~15 minutes of screen activity becomes one or more timeline entries with a title, a summary, a category and a duration. Overnight, Amai writes a short summary of the previous day. Both go into `daily/YYYY-MM-DD.md`.
+
+<p align="center"><img src="screenshots/en/12-timeline.png" alt="Amai timeline: a day of activities, each with a title, a one-line summary, a category and a duration" width="860"></p>
 
 <table>
   <tr>

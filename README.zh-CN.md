@@ -21,9 +21,9 @@ Amai 在后台记下你在 Mac 上做的事，整理成每日时间线和长期�
 
 [English](README.md) · **简体中文** · [日本語](README.ja.md)
 
-<img src="screenshots/12-timeline.png" alt="Amai 时间线：一天中的各项活动，每项有标题、一句话摘要、类别和时长" width="860">
+https://github.com/user-attachments/assets/164470fe-3a40-4335-a11f-2f1934a27b8f
 
-<sub>截图使用 <a href="samples/">samples/</a> 中的合成示例数据，并非真实用户的活动。</sub>
+<sub>视频和截图使用 <a href="samples/">samples/</a> 中的合成示例数据，并非真实用户的活动。</sub>
 
 </div>
 
@@ -56,6 +56,8 @@ brew install --cask Penrose0v0/tap/amai
 ### 时间线与每日总结
 
 每段约 15 分钟的屏幕活动会变成一条或几条时间线记录，带标题、摘要、类别和时长。每天凌晨，Amai 为前一天写一段简短总结。两者都写进 `daily/YYYY-MM-DD.md`。
+
+<p align="center"><img src="screenshots/12-timeline.png" alt="Amai 时间线：一天中的各项活动，每项有标题、一句话摘要、类别和时长" width="860"></p>
 
 <table>
   <tr>
