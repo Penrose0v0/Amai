@@ -21,7 +21,7 @@ Amai はパソコンでの作業をバックグラウンドで記録し、日々
 
 [English](README.md) · [简体中文](README.zh-CN.md) · **日本語**
 
-https://github.com/user-attachments/assets/6b4b4963-ad0b-47c0-adbd-72dc3221a6a4
+https://github.com/user-attachments/assets/e37c3621-7a5b-4beb-a040-862892749546
 
 <sub>動画とスクリーンショットは <a href="samples/">samples/</a> の合成サンプルデータで、実在の人物の活動ではありません。</sub>
 

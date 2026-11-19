@@ -21,7 +21,7 @@ Amai 在后台记下你在电脑上做的事，整理成每日时间线和长期
 
 [English](README.md) · **简体中文** · [日本語](README.ja.md)
 
-https://github.com/user-attachments/assets/164470fe-3a40-4335-a11f-2f1934a27b8f
+https://github.com/user-attachments/assets/42379ed5-3f69-4cca-ab0e-18166f47e6ea
 
 <sub>视频和截图使用 <a href="samples/">samples/</a> 中的合成示例数据，并非真实用户的活动。</sub>
 
