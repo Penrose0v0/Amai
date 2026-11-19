@@ -312,6 +312,7 @@ final class ChatWindowController {
         isShowing = false
         contextRefreshTask?.cancel()
         contextRefreshTask = nil
+        viewModel.panelDidClose()
 
         // Fade out by animating a static snapshot, not the real window:
         // NSGlassEffectView repaints opaque the moment its window is fading /

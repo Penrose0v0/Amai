@@ -193,16 +193,19 @@ final class AssistantController {
     /// 才交给聊天框保留（面板打开后的定期刷新只用辅助功能，会读不到它）。
     func toggleChat() {
         let controller = chatController()
-        guard !controller.isVisible, let live = environment.live else {
+        guard !controller.isVisible else {
             controller.toggle()
             return
         }
         Task {
-            let focus = await live.focusForChatOpening()
-            if focus.selectionIsCopied, !(focus.selectedText ?? "").isEmpty {
-                chat.handOver(focus: focus)
-            } else {
-                chat.discardHandOver()
+            await chat.startNewSessionIfIdle()
+            if let live = environment.live {
+                let focus = await live.focusForChatOpening()
+                if focus.selectionIsCopied, !(focus.selectedText ?? "").isEmpty {
+                    chat.handOver(focus: focus)
+                } else {
+                    chat.discardHandOver()
+                }
             }
             controller.toggle()
         }

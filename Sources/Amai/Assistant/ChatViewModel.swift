@@ -117,6 +117,15 @@ final class ChatViewModel {
     // MARK: - Sessions
 
     func newSession() {
+        clearForNewSession()
+        // 先清掉旧对话的状态，再为新对话做准备（顺序反了的话，刚准备好的上下文会被清掉）。
+        Task { [weak self] in
+            await self?.assistant.session?.reset()
+            self?.onPopoverOpened()
+        }
+    }
+
+    private func clearForNewSession() {
         cancelStreaming()
         messages.removeAll()
         currentSessionId = UUID()
@@ -127,11 +136,27 @@ final class ChatViewModel {
         handedOverFocus = nil
         lastTurnFocus = nil
         lastTurnIncludesMemory = true
-        // 先清掉旧对话的状态，再为新对话做准备（顺序反了的话，刚准备好的上下文会被清掉）。
-        Task { [weak self] in
-            await self?.assistant.session?.reset()
-            self?.onPopoverOpened()
-        }
+    }
+
+    /// 面板关上超过这么久，再打开时换成新对话：隔了很久再问，多半是新的话题。
+    /// 旧对话仍在历史记录里，可以随时切回去。
+    static let idleNewSessionInterval: TimeInterval = 3 * 60
+    private var panelClosedAt: Date?
+
+    func panelDidClose() {
+        panelClosedAt = Date()
+    }
+
+    /// 打开面板之前调用（要早于 `handOver`，否则交接的选区和为它准备的上下文会被一起清掉）。
+    /// 回答还在生成时不切换，免得把它停掉。
+    func startNewSessionIfIdle(now: Date = Date()) async {
+        guard let closedAt = panelClosedAt else { return }
+        panelClosedAt = nil
+        guard now.timeIntervalSince(closedAt) >= Self.idleNewSessionInterval,
+              !isStreaming, !messages.isEmpty
+        else { return }
+        clearForNewSession()
+        await assistant.session?.reset()
     }
 
     func loadSession(id: UUID) {
