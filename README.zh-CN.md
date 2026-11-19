@@ -7,9 +7,9 @@
   </picture>
 </h1>
 
-**macOS 上的 Ambient Personal AI**
+**Ambient Personal AI**
 
-Amai 在后台记下你在 Mac 上做的事，整理成每日时间线和长期记忆：<br>
+Amai 在后台记下你在电脑上做的事，整理成每日时间线和长期记忆：<br>
 纯 Markdown，保存在本机，你的 AI Agent 也能读取。
 
 [![Release](https://img.shields.io/github/v/release/Penrose0v0/Amai?label=release&color=2f6feb)](https://github.com/Penrose0v0/Amai/releases/latest)
@@ -44,7 +44,7 @@ brew install --cask Penrose0v0/tap/amai
 | | |
 |---|---|
 | 🌙 **环境式** | 不用写日记，也不用回答提问。Amai 看着屏幕，自己写时间线。 |
-| 🔒 **本地优先** | 截图由运行在你 Mac 上的视觉模型理解，不会离开这台电脑。 |
+| 🔒 **本地优先** | 截图由运行在你本机的视觉模型理解，不会离开这台电脑。 |
 | 📝 **纯 Markdown** | 记忆以文件形式存放在 `~/.amai/memory`，可以用任何工具打开、编辑和备份。 |
 | 🔍 **可追溯** | 每条记忆都记录来源日期，可以回到当天看看你在做什么。 |
 | 🤖 **面向 Agent** | 只读的 MCP Server 让 Claude Desktop、Claude Code 等 Agent 在你允许的范围内检索记忆。 |
@@ -98,7 +98,7 @@ Amai 根据每天的记录更新五个记忆分区：**综合**、**工作**、*
 |---|---|---|---|
 | Gemma 4 E4B | 约 5 GB | 约 8 GB | 默认 · 已验证 · 24 GB 内存起推荐 |
 | Gemma 4 26B | 约 16 GB | 约 18 GB | 已验证 · 64 GB 内存起推荐 |
-| Gemma 4 E2B | 约 2 GB | 约 3 GB | 未验证 · 内存较小的 Mac 上建议使用 |
+| Gemma 4 E2B | 约 2 GB | 约 3 GB | 未验证 · 内存较小的电脑上建议使用 |
 | Gemma 3 12B | 约 8 GB | 约 10 GB | 未验证 |
 
 <p align="center"><img src="screenshots/14-local-models.png" alt="设置：选择屏幕理解模型" width="520"></p>
@@ -132,7 +132,7 @@ flowchart LR
 
 Amai 能看到你的屏幕，因此隐私是设计的一部分，而不是事后加上的一个开关。
 
-- **截图不离开你的 Mac**：视觉模型在本机运行。除此之外，Amai 自己发起的联网只有两处：从 Hugging Face 下载模型，以及每 6 小时到 GitHub 检查一次新版本（不发送任何个人数据）。
+- **截图不离开你的电脑**：视觉模型在本机运行。除此之外，Amai 自己发起的联网只有两处：从 Hugging Face 下载模型，以及每 6 小时到 GitHub 检查一次新版本（不发送任何个人数据）。
 - **原始截图只短期保留**：最多保留 72 小时或 2 GB，先到者为准，之后删除。
 - **敏感时刻自动跳过**：在密码框中输入时，或密码管理器（1Password、Bitwarden、KeePassXC、钥匙串访问）在前台时，不截图。无法确认排除规则已生效时，直接丢弃这一帧。
 - **从不记录按键内容**：只记录应用切换和空闲时长。
@@ -198,7 +198,7 @@ Amai 已签名但**尚未公证**。Homebrew cask 会自动去掉隔离属性；
 ### 系统要求
 
 - Apple Silicon Mac，macOS 15 Sequoia 或更新版本
-- 默认模型（Gemma 4 E4B）建议 24 GB 以上内存；内存较小的 Mac 可以使用 Gemma 4 E2B
+- 默认模型（Gemma 4 E4B）建议 24 GB 以上内存；内存较小时可以使用 Gemma 4 E2B
 - 磁盘空间：模型约 5 GB（Gemma 4 E4B，首次使用时下载），另需最多 2 GB 的短期截图缓冲
 
 ### 首次使用

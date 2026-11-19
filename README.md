@@ -7,9 +7,9 @@
   </picture>
 </h1>
 
-**Ambient Personal AI for macOS**
+**Ambient Personal AI**
 
-Amai quietly notes what you do on your Mac and turns it into a daily timeline and long-term memory:<br>
+Amai quietly notes what you do on your computer and turns it into a daily timeline and long-term memory:<br>
 plain Markdown, on your device, ready for your AI agents.
 
 [![Release](https://img.shields.io/github/v/release/Penrose0v0/Amai?label=release&color=2f6feb)](https://github.com/Penrose0v0/Amai/releases/latest)
@@ -44,7 +44,7 @@ Most AI assistants know only what you type into them. Amai builds that context f
 | | |
 |---|---|
 | 🌙 **Ambient** | No journaling, no prompts. Amai watches the screen and writes the timeline itself. |
-| 🔒 **Local first** | Screenshots are understood by a vision model running on your Mac. They never leave it. |
+| 🔒 **Local first** | Screenshots are understood by a vision model running on your own device. They never leave it. |
 | 📝 **Plain Markdown** | Memory lives in `~/.amai/memory` as files you can open, edit and back up with any tool. |
 | 🔍 **Traceable** | Every remembered item records the days it came from, so you can go back to what you were doing then. |
 | 🤖 **Agent ready** | A read-only MCP server lets Claude Desktop, Claude Code and other agents search your memory with your permission. |
@@ -92,13 +92,13 @@ From each day's record, Amai updates five memory areas: **General**, **Work**, *
 
 ### On-device models
 
-Screen understanding always runs locally with Gemma vision models on [MLX](https://github.com/ml-explore/mlx-swift). Pick and download a model in Settings. Because Amai runs all day, it recommends the largest verified model that needs no more than a third of your Mac's memory.
+Screen understanding always runs locally with Gemma vision models on [MLX](https://github.com/ml-explore/mlx-swift). Pick and download a model in Settings. Because Amai runs all day, it recommends the largest verified model that needs no more than a third of your computer's memory.
 
 | Model | Download | Memory | Status |
 |---|---|---|---|
 | Gemma 4 E4B | ~5 GB | ~8 GB | Default · verified · recommended from 24 GB |
 | Gemma 4 26B | ~16 GB | ~18 GB | Verified · recommended from 64 GB |
-| Gemma 4 E2B | ~2 GB | ~3 GB | Not yet verified · suggested on smaller Macs |
+| Gemma 4 E2B | ~2 GB | ~3 GB | Not yet verified · suggested for machines with less memory |
 | Gemma 3 12B | ~8 GB | ~10 GB | Not yet verified |
 
 <p align="center"><img src="screenshots/en/14-local-models.png" alt="Settings: choosing the screen understanding model" width="520"></p>
@@ -132,7 +132,7 @@ More detail: [architecture](docs/architecture.md) · [memory system](docs/memory
 
 Amai sees your screen, so privacy is built into the design rather than added as a setting.
 
-- **Screenshots stay on your Mac.** The vision model runs locally. The only other connections Amai makes on its own are model downloads from Hugging Face and a check for new versions on GitHub every 6 hours, which sends no personal data.
+- **Screenshots stay on your device.** The vision model runs locally. The only other connections Amai makes on its own are model downloads from Hugging Face and a check for new versions on GitHub every 6 hours, which sends no personal data.
 - **Raw screenshots are temporary.** They are kept for at most 72 hours or 2 GB, whichever comes first, then deleted.
 - **Sensitive moments are skipped.** Nothing is captured while you type into a password field, or while a password manager (1Password, Bitwarden, KeePassXC, Keychain Access) is in front. If an exclusion can't be confirmed, the frame is dropped.
 - **Keystrokes are never recorded.** Amai notes only app switches and how long you have been idle.
@@ -198,7 +198,7 @@ Amai is signed but **not yet notarized**. The Homebrew cask removes the quaranti
 ### Requirements
 
 - Apple Silicon Mac, macOS 15 Sequoia or later
-- 24 GB of memory or more for the default model (Gemma 4 E4B); smaller Macs can use Gemma 4 E2B
+- 24 GB of memory or more for the default model (Gemma 4 E4B); with less memory, use Gemma 4 E2B
 - Disk space for the model (~5 GB for Gemma 4 E4B, downloaded on first run) plus up to 2 GB of short-term screenshot buffer
 
 ### First run
