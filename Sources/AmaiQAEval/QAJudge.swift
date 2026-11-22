@@ -149,6 +149,33 @@ public struct QAJudge: Sendable {
         )
     }
 
+    /// 按对话顺序判定数据集中已作答的题：追问看得到同一段对话之前的问答与累计给过的记忆。
+    /// 跳过 `done` 中的题与作答出错的题。返回本次判定的题数。
+    @discardableResult
+    public func judgeAll(
+        dataset: QADataset, answers: [String: QAAnswer], skipping done: Set<String> = [],
+        record: (QAJudgment) throws -> Void
+    ) async rethrows -> Int {
+        var count = 0
+        for conversation in dataset.conversations {
+            var previous: [(question: String, answer: String)] = []
+            var shown = ""
+            for item in conversation {
+                guard let answer = answers[item.id] else { continue }
+                shown += (shown.isEmpty ? "" : "\n") + answer.memoryShown
+                defer { previous.append((item.question, answer.answer)) }
+                guard !done.contains(item.id), answer.error == nil else { continue }
+                let judgment = await judge(
+                    item: item, evidence: dataset.evidence(item.evidence), context: dataset.evidence(item.context),
+                    previous: previous, memoryShown: shown, answer: answer.answer
+                )
+                try record(judgment)
+                count += 1
+            }
+        }
+        return count
+    }
+
     static func parse(_ raw: String, item: String, judge: String) -> QAJudgment? {
         guard let object = QAJSON.object(in: raw),
               let verdict = (object["verdict"] as? String).flatMap({ QAJudgment.Verdict(rawValue: $0.lowercased().trimmingCharacters(in: .whitespaces)) })

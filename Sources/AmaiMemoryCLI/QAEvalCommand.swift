@@ -238,24 +238,11 @@ enum QAEvalCommand {
         let model = MLXTextChatModel(modelTag: tag)
         guard model.isInstalled else { throw Failure("Judge 模型未下载：\(tag)") }
         let done = Set(try loadLines(QAJudgment.self, workspace.judgments).map(\.item))
-        let judge = QAJudge(model: model)
         var count = 0
-        for conversation in dataset.conversations {
-            var previous: [(question: String, answer: String)] = []
-            var shown = ""
-            for item in conversation {
-                guard let answer = answers[item.id] else { continue }
-                shown += (shown.isEmpty ? "" : "\n") + answer.memoryShown
-                defer { previous.append((item.question, answer.answer)) }
-                guard !done.contains(item.id), answer.error == nil else { continue }
-                let judgment = await judge.judge(
-                    item: item, evidence: dataset.evidence(item.evidence), context: dataset.evidence(item.context),
-                    previous: previous, memoryShown: shown, answer: answer.answer
-                )
-                try append(judgment, to: workspace.judgments)
-                count += 1
-                if count % 10 == 0 { print("已判定 \(count) 道") }
-            }
+        try await QAJudge(model: model).judgeAll(dataset: dataset, answers: answers, skipping: done) { judgment in
+            try append(judgment, to: workspace.judgments)
+            count += 1
+            if count % 10 == 0 { print("已判定 \(count) 道") }
         }
         await model.unload()
         try encoder().encode(["judge": model.identifier, "rubric": QARubric.id]).write(to: workspace.root.appendingPathComponent("judge-info.json"))

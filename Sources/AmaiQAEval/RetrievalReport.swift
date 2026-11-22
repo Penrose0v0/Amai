@@ -191,8 +191,11 @@ public enum QARetrievalReport {
     /// 指标（不含记忆正文）。
     public static func metricsMarkdown(_ s: Summary) -> String {
         var lines: [String] = []
-        let source = s.groundTruth == .human ? "人工标注" + (s.annotator.map { "（\($0)）" } ?? "")
-            : "**临时 GT：出题时的种子证据，未经人工确认；追问题不计入**"
+        let source = switch s.groundTruth {
+        case .human: "人工标注" + (s.annotator.map { "（\($0)）" } ?? "")
+        case .synthetic: "合成数据（所需记录按构造已知）"
+        case .provisionalSeed: "**临时 GT：出题时的种子证据，未经人工确认；追问题不计入**"
+        }
         lines.append("- 标准证据：\(source)；参与评分 \(s.scoredQuestions) 道，排除 \(s.excluded.values.reduce(0, +)) 道\(s.excluded.isEmpty ? "" : "（" + s.excluded.keys.sorted().map { "\($0) \(s.excluded[$0]!)" }.joined(separator: "，") + "）")，未标注 \(s.unannotated) 道；每题信息点 平均 \(num(s.requirementsPerQuestion.mean))")
         if let agreement = s.deepTopAgreesWithProduction {
             lines.append("- 向量模型：`\(s.embedder)`。（优化前的结果）hybrid / keyword 的前 6 名是正式条数（6 条）的结果，之后接取 50 条时的其余结果；取 50 条时前 6 名与之一致的比例：\(pct(agreement))")

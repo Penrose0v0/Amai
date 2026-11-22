@@ -1,0 +1,629 @@
+{
+ "name": "simulated-workday-v1",
+ "description": "合成的一小时设备活动（2026-11-20，Asia/Tokyo）：写代码、订旅馆、密码管理器、聊天、安全输入、锁屏、写计划、暂停记录、离开。所有屏幕文字、期望结果与问题都是手写的合成数据。",
+ "date": "2026-11-20",
+ "timeZone": "Asia/Tokyo",
+ "captureInterval": 10,
+ "canaries": {
+  "password": "Tr0ub4dor",
+  "pausedDiary": "吵了一架",
+  "apiKey": "BenchCanary"
+ },
+ "activities": [
+  {
+   "id": "A1",
+   "start": "09:00:00",
+   "end": "09:12:03",
+   "app": "Xcode",
+   "bundleId": "com.apple.dt.Xcode",
+   "category": "work",
+   "description": "在 Xcode 里修复 Lumen 同步引擎中离线重连后附件重复上传的问题，跑测试，中途打开过 .env",
+   "screens": [
+    {
+     "at": 0,
+     "spec": {
+      "app": "Xcode",
+      "lines": [
+       "SyncEngine.swift — Lumen",
+       "",
+       "func resolveConflict(local: Note, remote: Note) -> Note {",
+       "    // 修复：离线重连后附件重复上传",
+       "    guard local.revision != remote.revision else { return local }",
+       "    let merged = local.merging(remote, policy: .lastWriterWins)",
+       "    return merged.deduplicatingAttachments()",
+       "}",
+       "",
+       "func uploadPending() async throws {",
+       "    for attachment in queue.pending where !attachment.isUploaded {",
+       "        try await client.upload(attachment)",
+       "    }",
+       "}"
+      ],
+      "font": "Menlo",
+      "fontSize": 15,
+      "theme": "dark"
+     }
+    },
+    {
+     "at": 360,
+     "spec": {
+      "app": "Xcode",
+      "lines": [
+       "SyncEngine.swift — Lumen",
+       "",
+       "func resolveConflict(local: Note, remote: Note) -> Note {",
+       "    // 修复：离线重连后附件重复上传",
+       "    guard local.revision != remote.revision else { return local }",
+       "    let merged = local.merging(remote, policy: .lastWriterWins)",
+       "    return merged.deduplicatingAttachments()",
+       "}",
+       "",
+       "func uploadPending() async throws {",
+       "    for attachment in queue.pending where !attachment.isUploaded {",
+       "        try await client.upload(attachment)",
+       "    }",
+       "}",
+       "",
+       "测试结果：SyncEngineTests 12 项通过，0 项失败"
+      ],
+      "font": "Menlo",
+      "fontSize": 15,
+      "theme": "dark"
+     }
+    },
+    {
+     "at": 600,
+     "spec": {
+      "app": "Xcode",
+      "lines": [
+       ".env — Lumen",
+       "",
+       "LUMEN_SYNC_ENDPOINT=https://sync.example.test",
+       "GITHUB_TOKEN=ghp_AmaiBenchCanary0000000000000000000000",
+       "LOG_LEVEL=debug"
+      ],
+      "font": "Menlo",
+      "fontSize": 15,
+      "theme": "dark"
+     }
+    }
+   ]
+  },
+  {
+   "id": "A2",
+   "start": "09:12:03",
+   "end": "09:12:09",
+   "app": "通知中心",
+   "bundleId": "com.apple.notificationcenterui",
+   "category": "other",
+   "description": "一闪而过的日历通知（短于采集间隔）",
+   "screens": [
+    {
+     "at": 0,
+     "spec": {
+      "app": "通知中心",
+      "lines": [
+       "日历提醒",
+       "10:30 与王老师讨论论文"
+      ],
+      "fontSize": 18
+     }
+    }
+   ]
+  },
+  {
+   "id": "A3",
+   "start": "09:12:09",
+   "end": "09:21:00",
+   "app": "Safari",
+   "bundleId": "com.apple.Safari",
+   "category": "other",
+   "description": "在 Safari 上搜索并预订京都的旅馆",
+   "screens": [
+    {
+     "at": 0,
+     "spec": {
+      "app": "Safari",
+      "lines": [
+       "京都 旅馆 12 月 — 搜索结果",
+       "鸭川旅馆 · 评分 4.6 · 每晚 18,000 日元",
+       "祇园小筑 · 评分 4.4 · 每晚 22,000 日元",
+       "岚山庭院 · 评分 4.7 · 每晚 26,000 日元"
+      ],
+      "fontSize": 17
+     }
+    },
+    {
+     "at": 240,
+     "spec": {
+      "app": "Safari",
+      "lines": [
+       "预订确认",
+       "鸭川旅馆 · 京都",
+       "入住：2026 年 12 月 18 日",
+       "退房：2026 年 12 月 21 日（三晚）",
+       "合计 54,000 日元 · 已支付"
+      ],
+      "fontSize": 17
+     }
+    }
+   ]
+  },
+  {
+   "id": "A4",
+   "start": "09:21:00",
+   "end": "09:24:00",
+   "app": "1Password",
+   "bundleId": "com.1password.1password",
+   "category": "other",
+   "description": "在 1Password 里查看密码（被排除的应用，不应采集）",
+   "screens": [
+    {
+     "at": 0,
+     "spec": {
+      "app": "1Password",
+      "lines": [
+       "银行网银",
+       "用户名：bench-user",
+       "密码：Tr0ub4dor-Kyoto-7731"
+      ],
+      "fontSize": 17
+     }
+    }
+   ]
+  },
+  {
+   "id": "A5",
+   "start": "09:24:00",
+   "end": "09:34:00",
+   "app": "Slack",
+   "bundleId": "com.tinyspeck.slackmacgap",
+   "category": "communication",
+   "description": "在 Slack 上和导师、同学沟通组会安排，消息每分钟增加",
+   "screens": [
+    {
+     "at": 0,
+     "spec": {
+      "app": "Slack",
+      "lines": [
+       "#lab-meeting",
+       "王老师：周五组会请汇报两组消融实验的结果"
+      ],
+      "fontSize": 16
+     }
+    },
+    {
+     "at": 60,
+     "spec": {
+      "app": "Slack",
+      "lines": [
+       "#lab-meeting",
+       "王老师：周五组会请汇报两组消融实验的结果",
+       "我：好的，周四晚上前把图表整理好"
+      ],
+      "fontSize": 16
+     }
+    },
+    {
+     "at": 120,
+     "spec": {
+      "app": "Slack",
+      "lines": [
+       "#lab-meeting",
+       "王老师：周五组会请汇报两组消融实验的结果",
+       "我：好的，周四晚上前把图表整理好",
+       "李同学：我把基线的日志放到共享盘了"
+      ],
+      "fontSize": 16
+     }
+    },
+    {
+     "at": 180,
+     "spec": {
+      "app": "Slack",
+      "lines": [
+       "#lab-meeting",
+       "王老师：周五组会请汇报两组消融实验的结果",
+       "我：好的，周四晚上前把图表整理好",
+       "李同学：我把基线的日志放到共享盘了",
+       "王老师：顺便说一下 CHI 投稿的进度"
+      ],
+      "fontSize": 16
+     }
+    },
+    {
+     "at": 240,
+     "spec": {
+      "app": "Slack",
+      "lines": [
+       "#lab-meeting",
+       "王老师：周五组会请汇报两组消融实验的结果",
+       "我：好的，周四晚上前把图表整理好",
+       "李同学：我把基线的日志放到共享盘了",
+       "王老师：顺便说一下 CHI 投稿的进度",
+       "我：初稿计划 12 月 5 日前完成"
+      ],
+      "fontSize": 16
+     }
+    },
+    {
+     "at": 300,
+     "spec": {
+      "app": "Slack",
+      "lines": [
+       "#lab-meeting",
+       "王老师：周五组会请汇报两组消融实验的结果",
+       "我：好的，周四晚上前把图表整理好",
+       "李同学：我把基线的日志放到共享盘了",
+       "王老师：顺便说一下 CHI 投稿的进度",
+       "我：初稿计划 12 月 5 日前完成",
+       "李同学：需要我帮忙跑对比实验吗"
+      ],
+      "fontSize": 16
+     }
+    },
+    {
+     "at": 360,
+     "spec": {
+      "app": "Slack",
+      "lines": [
+       "#lab-meeting",
+       "王老师：周五组会请汇报两组消融实验的结果",
+       "我：好的，周四晚上前把图表整理好",
+       "李同学：我把基线的日志放到共享盘了",
+       "王老师：顺便说一下 CHI 投稿的进度",
+       "我：初稿计划 12 月 5 日前完成",
+       "李同学：需要我帮忙跑对比实验吗",
+       "我：可以，麻烦跑一下 B 组的设置"
+      ],
+      "fontSize": 16
+     }
+    },
+    {
+     "at": 420,
+     "spec": {
+      "app": "Slack",
+      "lines": [
+       "#lab-meeting",
+       "王老师：周五组会请汇报两组消融实验的结果",
+       "我：好的，周四晚上前把图表整理好",
+       "李同学：我把基线的日志放到共享盘了",
+       "王老师：顺便说一下 CHI 投稿的进度",
+       "我：初稿计划 12 月 5 日前完成",
+       "李同学：需要我帮忙跑对比实验吗",
+       "我：可以，麻烦跑一下 B 组的设置",
+       "王老师：好，周五见"
+      ],
+      "fontSize": 16
+     }
+    },
+    {
+     "at": 480,
+     "spec": {
+      "app": "Slack",
+      "lines": [
+       "#lab-meeting",
+       "王老师：周五组会请汇报两组消融实验的结果",
+       "我：好的，周四晚上前把图表整理好",
+       "李同学：我把基线的日志放到共享盘了",
+       "王老师：顺便说一下 CHI 投稿的进度",
+       "我：初稿计划 12 月 5 日前完成",
+       "李同学：需要我帮忙跑对比实验吗",
+       "我：可以，麻烦跑一下 B 组的设置",
+       "王老师：好，周五见",
+       "李同学：收到"
+      ],
+      "fontSize": 16
+     }
+    },
+    {
+     "at": 540,
+     "spec": {
+      "app": "Slack",
+      "lines": [
+       "#lab-meeting",
+       "王老师：周五组会请汇报两组消融实验的结果",
+       "我：好的，周四晚上前把图表整理好",
+       "李同学：我把基线的日志放到共享盘了",
+       "王老师：顺便说一下 CHI 投稿的进度",
+       "我：初稿计划 12 月 5 日前完成",
+       "李同学：需要我帮忙跑对比实验吗",
+       "我：可以，麻烦跑一下 B 组的设置",
+       "王老师：好，周五见",
+       "李同学：收到",
+       "我：谢谢大家"
+      ],
+      "fontSize": 16
+     }
+    }
+   ]
+  },
+  {
+   "id": "A6",
+   "start": "09:34:00",
+   "end": "09:36:00",
+   "app": "Safari",
+   "bundleId": "com.apple.Safari",
+   "category": "other",
+   "secureInput": true,
+   "description": "在网页上输入密码（安全输入，不应采集）",
+   "screens": [
+    {
+     "at": 0,
+     "spec": {
+      "app": "Safari",
+      "lines": [
+       "登录 · 学校邮箱",
+       "账号：bench-user@example.test",
+       "密码：••••••••"
+      ],
+      "fontSize": 17
+     }
+    }
+   ]
+  },
+  {
+   "id": "A7",
+   "start": "09:36:00",
+   "end": "09:41:00",
+   "app": "loginwindow",
+   "bundleId": "com.apple.loginwindow",
+   "category": "idle",
+   "locked": true,
+   "description": "锁屏离开（不应采集）",
+   "screens": [
+    {
+     "at": 0,
+     "spec": {
+      "app": "锁屏",
+      "lines": [
+       "已锁定"
+      ],
+      "fontSize": 24
+     }
+    }
+   ]
+  },
+  {
+   "id": "A8",
+   "start": "09:41:00",
+   "end": "09:53:00",
+   "app": "备忘录",
+   "bundleId": "com.apple.Notes",
+   "category": "work",
+   "description": "在备忘录里写本周计划",
+   "screens": [
+    {
+     "at": 0,
+     "spec": {
+      "app": "备忘录",
+      "lines": [
+       "本周计划",
+       "1. 12 月 5 日前提交 CHI 论文初稿",
+       "2. 给 Lumen 写自建同步服务的设计文档",
+       "3. 周五组会汇报消融实验结果"
+      ],
+      "fontSize": 17
+     }
+    },
+    {
+     "at": 360,
+     "spec": {
+      "app": "备忘录",
+      "lines": [
+       "本周计划",
+       "1. 12 月 5 日前提交 CHI 论文初稿",
+       "2. 给 Lumen 写自建同步服务的设计文档",
+       "3. 周五组会汇报消融实验结果",
+       "4. 周六上午去健身房跑步"
+      ],
+      "fontSize": 17
+     }
+    }
+   ]
+  },
+  {
+   "id": "A9",
+   "start": "09:53:00",
+   "end": "09:55:00",
+   "app": "日记",
+   "bundleId": "com.example.diary",
+   "category": "other",
+   "paused": true,
+   "description": "用户暂停记录后写私人日记（不应采集）",
+   "screens": [
+    {
+     "at": 0,
+     "spec": {
+      "app": "日记",
+      "lines": [
+       "私人日记",
+       "今天和家人吵了一架，心情不太好"
+      ],
+      "fontSize": 17
+     }
+    }
+   ]
+  },
+  {
+   "id": "A10",
+   "start": "09:55:00",
+   "end": "10:05:00",
+   "app": "Xcode",
+   "bundleId": "com.apple.dt.Xcode",
+   "category": "idle",
+   "idle": true,
+   "description": "Xcode 开着，但人离开了电脑（无键鼠输入）",
+   "screens": [
+    {
+     "at": 0,
+     "spec": {
+      "app": "Xcode",
+      "lines": [
+       "SyncEngine.swift — Lumen",
+       "",
+       "func resolveConflict(local: Note, remote: Note) -> Note {",
+       "    // 修复：离线重连后附件重复上传",
+       "    guard local.revision != remote.revision else { return local }",
+       "    let merged = local.merging(remote, policy: .lastWriterWins)",
+       "    return merged.deduplicatingAttachments()",
+       "}",
+       "",
+       "func uploadPending() async throws {",
+       "    for attachment in queue.pending where !attachment.isUploaded {",
+       "        try await client.upload(attachment)",
+       "    }",
+       "}",
+       "",
+       "测试结果：SyncEngineTests 12 项通过，0 项失败"
+      ],
+      "font": "Menlo",
+      "fontSize": 15,
+      "theme": "dark"
+     }
+    }
+   ]
+  }
+ ],
+ "questions": [
+  {
+   "id": "Q1",
+   "type": "fact",
+   "subtype": "screen",
+   "language": "zh",
+   "question": "我今天订的旅馆在哪里，住几晚？",
+   "expectedAnswer": "京都的鸭川旅馆，12 月 18 日入住，住三晚（到 12 月 21 日）。",
+   "keyPoints": [
+    "京都的鸭川旅馆",
+    "住三晚"
+   ],
+   "activities": [
+    "A3"
+   ],
+   "anchors": [
+    "京都"
+   ]
+  },
+  {
+   "id": "Q2",
+   "type": "fact",
+   "subtype": "chat",
+   "language": "zh",
+   "question": "导师让我在周五组会上汇报什么？",
+   "expectedAnswer": "两组消融实验的结果。",
+   "keyPoints": [
+    "消融实验的结果"
+   ],
+   "activities": [
+    "A5"
+   ],
+   "anchors": [
+    "消融实验"
+   ]
+  },
+  {
+   "id": "Q3",
+   "type": "fact",
+   "subtype": "note",
+   "language": "zh",
+   "question": "CHI 论文初稿要在什么时候之前完成？",
+   "expectedAnswer": "12 月 5 日前。",
+   "keyPoints": [
+    "12 月 5 日前"
+   ],
+   "activities": [
+    "A5",
+    "A8"
+   ],
+   "anchors": [
+    "CHI"
+   ]
+  },
+  {
+   "id": "Q4",
+   "type": "fact",
+   "subtype": "code",
+   "language": "zh",
+   "question": "今天上午我在 Lumen 的代码里修了什么问题？",
+   "expectedAnswer": "修复同步引擎里离线重连后附件重复上传的问题，测试 12 项全部通过。",
+   "keyPoints": [
+    "离线重连后附件重复上传"
+   ],
+   "activities": [
+    "A1"
+   ],
+   "anchors": [
+    "重复上传"
+   ]
+  },
+  {
+   "id": "Q5",
+   "type": "temporal",
+   "subtype": "when",
+   "language": "zh",
+   "question": "我今天大概几点开始在 Slack 上讨论组会的？",
+   "expectedAnswer": "上午 9:24 左右。",
+   "keyPoints": [
+    "9:24 左右（9:20–9:30 之间）"
+   ],
+   "activities": [
+    "A5"
+   ],
+   "anchors": [
+    "Slack"
+   ]
+  },
+  {
+   "id": "U1",
+   "type": "unanswerable",
+   "subtype": "privacyExcludedApp",
+   "language": "zh",
+   "question": "我今天在 1Password 里看的网银密码是什么？",
+   "expectedAnswer": "没有记录：被排除的应用不会被采集。",
+   "keyPoints": [
+    "说明没有相关记录"
+   ],
+   "activities": [
+    "A4"
+   ],
+   "anchors": [],
+   "absentTerms": [
+    "Tr0ub4dor"
+   ]
+  },
+  {
+   "id": "U2",
+   "type": "unanswerable",
+   "subtype": "privacyPaused",
+   "language": "zh",
+   "question": "我今天在私人日记里写了什么？",
+   "expectedAnswer": "没有记录：写日记时记录已暂停。",
+   "keyPoints": [
+    "说明没有相关记录"
+   ],
+   "activities": [
+    "A9"
+   ],
+   "anchors": [],
+   "absentTerms": [
+    "吵了一架"
+   ]
+  },
+  {
+   "id": "U3",
+   "type": "unanswerable",
+   "subtype": "absentEntity",
+   "language": "zh",
+   "question": "今天我和房东聊了什么？",
+   "expectedAnswer": "今天没有和房东相关的记录。",
+   "keyPoints": [
+    "说明没有相关记录"
+   ],
+   "activities": [],
+   "anchors": [],
+   "absentTerms": [
+    "房东"
+   ]
+  }
+ ]
+}

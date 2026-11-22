@@ -193,6 +193,8 @@ App 中的 `AssistantController` 负责装配：按 `config.json` 的 `assistant
 
 问答评测 `AmaiQAEval`（开发用，`amai-memory qa-eval`，见 `docs/qa-eval.md`）：在真实记忆的只读副本上出题，让题目经过同一个 `AssistantSession`（不读屏幕、时钟固定），再由独立的本地模型按固定的评分规则判定。只依赖 AmaiCore、AmaiMemory 与 AmaiAssistant；Judge 用的纯文本模型由 `AmaiInference/MLXTextChatModel` 加载，不进入 App 的模型登记。
 
+统一 Quality Benchmark `AmaiBenchmark`（开发用，`amai-bench`，见 `docs/benchmark.md`）：用合成数据与脚本化的设备活动驱动各层的正式代码（采集器、抽取管线、记忆整理、问答管线），复用 `AmaiMemoryEval` 与 `AmaiQAEval` 的评分，每个指标标明 Ground Truth 来源，支持重复运行与版本间对比。依赖所有层，但 App 不链接它。
+
 ### 2.5 横切模块
 
 | 模块 | 职责 |

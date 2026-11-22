@@ -1,0 +1,201 @@
+{
+ "name": "synthetic-life-v1",
+ "description": "合成的个人记忆语料：45 天的时间线（每天 6 条重复的日常，加 24 件只出现一次的事）与五个长期记忆文件。改编自 Tests/AmaiInferenceTests/RetrievalEvalTests.swift 的检索语料（去掉了内容里的评判标记）。不含任何真实个人信息。",
+ "now": "2026-11-18T03:00:00Z",
+ "timeZone": "Asia/Tokyo",
+ "seed": 42,
+ "firstDay": "2026-10-04",
+ "lastDay": "2026-11-17",
+ "routinesPerDay": 6,
+ "routines": [
+  "写 Lumen 的同步模块代码，调试冲突合并逻辑",
+  "在 VS Code 里改 Orbit 标注工具的前端界面",
+  "阅读 arXiv 上关于多模态模型的新论文",
+  "晚上在健身房跑步 5 公里，然后拉伸",
+  "回复邮件和 Slack 消息",
+  "在 B 站看技术分享视频",
+  "整理本周的待办事项和进度",
+  "和同学在微信上讨论课程作业",
+  "浏览 Hacker News 和技术博客",
+  "做午饭，顺便听播客",
+  "用 Figma 调整官网的配色和排版",
+  "跑实验并在表格里记录结果"
+ ],
+ "events": [
+  {
+   "id": "E01",
+   "date": "2026-11-15",
+   "title": "修复 Lumen 离线重连后重复上传附件的问题",
+   "summary": "补了三个单元测试",
+   "category": "work"
+  },
+  {
+   "id": "E02",
+   "date": "2026-11-13",
+   "title": "和导师讨论论文第三章的实验设计",
+   "summary": "决定增加两组消融实验",
+   "category": "research"
+  },
+  {
+   "id": "E03",
+   "date": "2026-11-12",
+   "title": "买了一台 27 寸 4K 显示器",
+   "summary": "花了 3200 元",
+   "category": "other"
+  },
+  {
+   "id": "E04",
+   "date": "2026-11-10",
+   "title": "去牙科诊所洗牙",
+   "summary": "医生建议半年后复查智齿",
+   "category": "other"
+  },
+  {
+   "id": "E05",
+   "date": "2026-11-09",
+   "title": "给 Orbit 标注工具加上批量导入 COCO 格式数据集的功能",
+   "summary": "",
+   "category": "work"
+  },
+  {
+   "id": "E06",
+   "date": "2026-11-07",
+   "title": "订了 12 月去京都的机票和三晚的旅馆",
+   "summary": "",
+   "category": "other"
+  },
+  {
+   "id": "E07",
+   "date": "2026-11-06",
+   "title": "把实验室官网首页改成响应式布局",
+   "summary": "手机上不再横向滚动",
+   "category": "work"
+  },
+  {
+   "id": "E08",
+   "date": "2026-11-04",
+   "title": "读完 Raft 共识算法的论文",
+   "summary": "整理了领导者选举的笔记",
+   "category": "research"
+  },
+  {
+   "id": "E09",
+   "date": "2026-11-03",
+   "title": "续订了 iCloud 2TB 套餐",
+   "summary": "每月 68 元",
+   "category": "other"
+  },
+  {
+   "id": "E10",
+   "date": "2026-11-01",
+   "title": "参加组会，汇报多模态检索基线的结果",
+   "summary": "准确率提升 4 个点",
+   "category": "communication"
+  },
+  {
+   "id": "E11",
+   "date": "2026-10-31",
+   "title": "连续三天只睡了五个小时左右",
+   "summary": "下午明显犯困",
+   "category": "other"
+  },
+  {
+   "id": "E12",
+   "date": "2026-10-29",
+   "title": "把后端从 Python 迁移到 Go",
+   "summary": "接口响应时间降了一半",
+   "category": "work"
+  },
+  {
+   "id": "E13",
+   "date": "2026-10-27",
+   "title": "和房东确认明年房租上涨到每月 5800 元",
+   "summary": "",
+   "category": "communication"
+  },
+  {
+   "id": "E14",
+   "date": "2026-10-26",
+   "title": "给妈妈过生日",
+   "summary": "订了一家粤菜馆的包间",
+   "category": "other"
+  },
+  {
+   "id": "E15",
+   "date": "2026-10-24",
+   "title": "面试了一位申请实习的本科生",
+   "summary": "考了动态规划",
+   "category": "work"
+  },
+  {
+   "id": "E16",
+   "date": "2026-10-22",
+   "title": "体检结果出来，血脂略高",
+   "summary": "医生让少吃油炸食品",
+   "category": "other"
+  },
+  {
+   "id": "E17",
+   "date": "2026-10-21",
+   "title": "在 GitHub 上给 GRDB 提了一个关于 FTS5 分词器的 issue",
+   "summary": "",
+   "category": "work"
+  },
+  {
+   "id": "E18",
+   "date": "2026-10-19",
+   "title": "把毕业论文的开题报告初稿发给了导师",
+   "summary": "",
+   "category": "research"
+  },
+  {
+   "id": "E19",
+   "date": "2026-10-16",
+   "title": "MacBook 电池健康度降到 79%",
+   "summary": "预约了天才吧更换电池",
+   "category": "other"
+  },
+  {
+   "id": "E20",
+   "date": "2026-10-13",
+   "title": "学做了一次红烧牛腩",
+   "summary": "炖了两个小时",
+   "category": "other"
+  },
+  {
+   "id": "E21",
+   "date": "2026-10-11",
+   "title": "决定 Lumen 不用 CloudKit，改为自建同步服务",
+   "summary": "因为要支持 Android",
+   "category": "work"
+  },
+  {
+   "id": "E22",
+   "date": "2026-10-09",
+   "title": "报名了明年三月的东京马拉松",
+   "summary": "",
+   "category": "other"
+  },
+  {
+   "id": "E23",
+   "date": "2026-10-08",
+   "title": "调研了 sqlite-vec 和 FAISS",
+   "summary": "记了一页对比",
+   "category": "research"
+  },
+  {
+   "id": "E24",
+   "date": "2026-10-06",
+   "title": "退订了很少看的视频会员",
+   "summary": "每年省下 258 元",
+   "category": "other"
+  }
+ ],
+ "documents": {
+  "general.md": "# General\n\n## 基本信息\n合成用户，研究生二年级（合成数据）。\n\n## Amai 整理的记忆\n\n<!-- amai:memory:begin · 由 Amai 根据每日记录自动维护 -->\n### 背景\n- 博士二年级，研究方向是多模态检索 <!-- src:2026-10-05 -->\n- 住在东京，习惯晚上工作 <!-- src:2026-10-07 -->\n### 个人偏好\n- 写代码用 VS Code，偏好深色主题 <!-- src:2026-10-10 -->\n- 喜欢粤菜和日料 <!-- src:2026-10-26 -->\n<!-- amai:memory:end -->\n",
+  "work.md": "# Work\n\n## Amai 整理的记忆\n\n<!-- amai:memory:begin · 由 Amai 根据每日记录自动维护 -->\n### Lumen <!-- project:p-100001 -->\n- 跨平台笔记应用，正在开发离线同步 <!-- src:2026-10-05 -->\n- 〔决策〕放弃 CloudKit，改用自建同步服务，因为需要支持 Android <!-- src:2026-10-11 -->\n- 〔待解决〕导出时附件路径如何处理 <!-- src:2026-11-02 -->\n### Orbit <!-- project:p-100002 -->\n- 数据标注工具，前端用 React <!-- src:2026-10-07 -->\n### 实验室官网 <!-- project:p-100003 -->\n- 负责改版首页与成员列表 <!-- src:2026-10-20 -->\n<!-- amai:memory:end -->\n",
+  "health.md": "# Health\n\n## Amai 整理的记忆\n\n<!-- amai:memory:begin · 由 Amai 根据每日记录自动维护 -->\n### 运动与饮食\n- 每周跑步三次，每次约 5 公里 <!-- src:2026-10-12 -->\n### 睡眠\n- 通常凌晨一点睡，早上八点起 <!-- src:2026-10-15 -->\n<!-- amai:memory:end -->\n",
+  "finance.md": "# Finance\n\n## Amai 整理的记忆\n\n<!-- amai:memory:begin · 由 Amai 根据每日记录自动维护 -->\n### 固定支出\n- 房租每月 5500 元 <!-- src:2026-10-05 -->\n- 手机套餐每月 99 元 <!-- src:2026-10-05 -->\n<!-- amai:memory:end -->\n",
+  "goals.md": "# Goals\n\n## Amai 整理的记忆\n\n<!-- amai:memory:begin · 由 Amai 根据每日记录自动维护 -->\n### 长期目标\n- 明年六月前完成博士论文开题 <!-- src:2026-10-19 -->\n- 年内发布 Lumen 的第一个公开版本 <!-- src:2026-10-05 -->\n<!-- amai:memory:end -->\n"
+ }
+}

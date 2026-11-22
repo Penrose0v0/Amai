@@ -1,0 +1,126 @@
+[
+ {
+  "id": "zh-doc-16",
+  "language": "zh",
+  "spec": {
+   "app": "备忘录",
+   "fontSize": 16,
+   "lines": [
+    "项目周报（第 47 周）",
+    "本周完成了离线同步的冲突合并逻辑，修复了时间戳比较错误。",
+    "下周计划：编写自建同步服务的接口设计文档，并与合作者确认协议细节。",
+    "风险：附件导出时的路径处理仍未确定，需要和设计讨论。",
+    "会议：周五下午两点组会，汇报消融实验的结果。"
+   ]
+  }
+ },
+ {
+  "id": "zh-small-12",
+  "language": "zh",
+  "spec": {
+   "app": "微信",
+   "fontSize": 12,
+   "lines": [
+    "李同学：基线的日志已经放到共享盘了",
+    "我：收到，今晚整理成表格",
+    "王老师：投稿截止前一周请把初稿发给我",
+    "我：好的，预计十二月五日前完成",
+    "李同学：需要帮忙跑对比实验可以说"
+   ]
+  }
+ },
+ {
+  "id": "en-doc-15",
+  "language": "en",
+  "spec": {
+   "app": "Safari",
+   "font": "Helvetica",
+   "fontSize": 15,
+   "lines": [
+    "Release notes for version 0.2.1",
+    "Fixed a crash when the memory index was rebuilt during consolidation.",
+    "Improved recall of dated questions such as last Friday or three days ago.",
+    "The assistant now explains when it has no record instead of guessing.",
+    "Known issue: very long timelines may be truncated in the prompt."
+   ]
+  }
+ },
+ {
+  "id": "en-small-11",
+  "language": "en",
+  "spec": {
+   "app": "Mail",
+   "font": "Helvetica",
+   "fontSize": 11,
+   "lines": [
+    "From: conference-office@example.test",
+    "Subject: Camera-ready deadline reminder",
+    "Dear author, the camera-ready version is due on December 12.",
+    "Please make sure the copyright form is signed and uploaded.",
+    "Best regards, the program committee"
+   ]
+  }
+ },
+ {
+  "id": "ja-doc-16",
+  "language": "ja",
+  "spec": {
+   "app": "メモ",
+   "font": "Hiragino Sans",
+   "fontSize": 16,
+   "lines": [
+    "今週の予定",
+    "月曜日：研究室のミーティングで進捗を報告する",
+    "水曜日：京都の旅館を予約して、新幹線の時間を調べる",
+    "金曜日：論文の第三章を書き直して先生に送る"
+   ]
+  }
+ },
+ {
+  "id": "code-dark-14",
+  "language": "code",
+  "spec": {
+   "app": "Xcode",
+   "font": "Menlo",
+   "fontSize": 14,
+   "theme": "dark",
+   "lines": [
+    "func merge(_ local: Note, _ remote: Note) -> Note {",
+    "    guard local.revision < remote.revision else { return local }",
+    "    var result = remote",
+    "    result.attachments = Array(Set(local.attachments + remote.attachments))",
+    "    return result",
+    "}"
+   ]
+  }
+ },
+ {
+  "id": "numbers-15",
+  "language": "mixed",
+  "spec": {
+   "app": "Numbers",
+   "fontSize": 15,
+   "lines": [
+    "2026-11-03  iCloud 2TB  68.00 元/月",
+    "2026-11-12  27 寸 4K 显示器  3,200.00 元",
+    "2026-11-20  京都 鸭川旅馆  54,000 日元",
+    "电池健康度 79%  ·  房租 5,800 元/月"
+   ]
+  }
+ },
+ {
+  "id": "zh-chat-dark-16",
+  "language": "zh",
+  "spec": {
+   "app": "Slack",
+   "fontSize": 16,
+   "theme": "dark",
+   "lines": [
+    "#lab-meeting",
+    "王老师：周五组会请汇报两组消融实验的结果",
+    "我：好的，周四晚上前把图表整理好",
+    "李同学：我把基线的日志放到共享盘了"
+   ]
+  }
+ }
+]

@@ -44,3 +44,6 @@ design/
 
 # iOS PoC 的本地签名设置
 Apps/AmaiIOSPoC/Config/Local.xcconfig
+
+# 统一 Quality Benchmark：运行明细可能很大，只保留 result.json / report.md
+eval/benchmark/runs/*/details/

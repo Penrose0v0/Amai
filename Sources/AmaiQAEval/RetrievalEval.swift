@@ -343,7 +343,11 @@ public struct QAGroundTruth: Codable, Sendable {
         case human
         /// 临时：出题时代码抽样的种子证据，每条一个信息点，没有替代记录；追问题不适用。未经人工确认。
         case provisionalSeed
+        /// 合成数据：语料与题目都是手写的，所需记录按构造已知（Quality Benchmark，docs/benchmark.md）。
+        case synthetic
     }
+
+    public static func unit(for evidence: QAEvidence) -> Unit { unit(evidence) }
 
     public struct Unit: Codable, Sendable, Equatable {
         public var id: String
@@ -357,6 +361,12 @@ public struct QAGroundTruth: Codable, Sendable {
         /// 不参与评测的原因（题目有歧义、记忆里其实没有答案等）。
         public var excluded: String?
         public var note: String?
+
+        public init(requirements: [[Unit]], excluded: String? = nil, note: String? = nil) {
+            self.requirements = requirements
+            self.excluded = excluded
+            self.note = note
+        }
     }
 
     public var version = 1

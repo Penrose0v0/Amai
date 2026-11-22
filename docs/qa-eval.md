@@ -4,6 +4,8 @@
 
 代码：`Sources/AmaiQAEval`（逻辑，有单元测试）、`amai-memory qa-eval`（入口）、`AmaiInference/MLXTextChatModel`（纯文本 Judge 模型的加载）。
 
+合成数据上的同一套问答与检索指标，以及感知、记忆生成与端到端评测，见统一 Quality Benchmark（`docs/benchmark.md`）；`amai-bench run --qa-workdir <工作目录>` 会把这里的汇总导入统一报告。
+
 ## 流程
 
 ```text

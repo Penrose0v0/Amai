@@ -1,0 +1,804 @@
+{
+ "name": "synthetic-qa-v1",
+ "corpus": "synthetic-memory.json",
+ "description": "手写的问答与检索题：答案与所需记录按构造已知。S01–S26 的问题沿用 Tests/AmaiInferenceTests/RetrievalEvalTests.swift；其余为补充的时间、顺序、多证据、追问与无法回答题。offTopic（N01–N08）只用于检索的噪声评测，不参与问答。evidence 是若干必需信息点，每个信息点列出可以提供它的记录片段（任意一条即可）。",
+ "items": [
+  {
+   "id": "S01",
+   "type": "fact",
+   "subtype": "keyword",
+   "language": "zh",
+   "question": "重复上传的问题修好了吗",
+   "expectedAnswer": "修好了：11 月 15 日修复了 Lumen 离线重连后重复上传附件的问题，并补了三个单元测试。",
+   "keyPoints": [
+    "已修复 Lumen 离线重连后重复上传附件的问题"
+   ],
+   "evidence": [
+    [
+     "离线重连后重复上传附件"
+    ]
+   ]
+  },
+  {
+   "id": "S02",
+   "type": "fact",
+   "subtype": "keyword",
+   "language": "zh",
+   "question": "显示器多少钱",
+   "expectedAnswer": "27 寸 4K 显示器花了 3200 元。",
+   "keyPoints": [
+    "3200 元"
+   ],
+   "evidence": [
+    [
+     "27 寸 4K 显示器"
+    ]
+   ]
+  },
+  {
+   "id": "S03",
+   "type": "fact",
+   "subtype": "keyword",
+   "language": "zh",
+   "question": "Raft 论文的笔记",
+   "expectedAnswer": "读完了 Raft 共识算法的论文，整理了领导者选举的笔记。",
+   "keyPoints": [
+    "领导者选举的笔记"
+   ],
+   "evidence": [
+    [
+     "Raft 共识算法"
+    ]
+   ]
+  },
+  {
+   "id": "S04",
+   "type": "fact",
+   "subtype": "keyword",
+   "language": "zh",
+   "question": "iCloud 套餐每月多少钱",
+   "expectedAnswer": "iCloud 2TB 套餐每月 68 元。",
+   "keyPoints": [
+    "每月 68 元"
+   ],
+   "evidence": [
+    [
+     "iCloud 2TB 套餐"
+    ]
+   ]
+  },
+  {
+   "id": "S05",
+   "type": "fact",
+   "subtype": "keyword",
+   "language": "zh",
+   "question": "后端迁移到 Go 的效果",
+   "expectedAnswer": "把后端从 Python 迁移到 Go 后，接口响应时间降了一半。",
+   "keyPoints": [
+    "接口响应时间降了一半"
+   ],
+   "evidence": [
+    [
+     "从 Python 迁移到 Go"
+    ]
+   ]
+  },
+  {
+   "id": "S06",
+   "type": "fact",
+   "subtype": "keyword",
+   "language": "zh",
+   "question": "东京马拉松",
+   "expectedAnswer": "报名了明年三月的东京马拉松。",
+   "keyPoints": [
+    "报名了明年三月的东京马拉松"
+   ],
+   "evidence": [
+    [
+     "东京马拉松"
+    ]
+   ]
+  },
+  {
+   "id": "S07",
+   "type": "fact",
+   "subtype": "keyword",
+   "language": "zh",
+   "question": "sqlite-vec 和 FAISS 的对比",
+   "expectedAnswer": "调研了 sqlite-vec 和 FAISS，记了一页对比。",
+   "keyPoints": [
+    "调研并记了一页对比"
+   ],
+   "evidence": [
+    [
+     "sqlite-vec 和 FAISS"
+    ]
+   ]
+  },
+  {
+   "id": "S08",
+   "type": "fact",
+   "subtype": "keyword",
+   "language": "zh",
+   "question": "开题报告发给谁了",
+   "expectedAnswer": "毕业论文的开题报告初稿发给了导师。",
+   "keyPoints": [
+    "导师"
+   ],
+   "evidence": [
+    [
+     "开题报告初稿"
+    ]
+   ]
+  },
+  {
+   "id": "S09",
+   "type": "fact",
+   "subtype": "paraphrase",
+   "language": "zh",
+   "question": "我最近看牙医了吗",
+   "expectedAnswer": "看了：11 月 10 日去牙科诊所洗牙，医生建议半年后复查智齿。",
+   "keyPoints": [
+    "去牙科诊所洗牙",
+    "半年后复查智齿"
+   ],
+   "evidence": [
+    [
+     "牙科诊所洗牙"
+    ]
+   ]
+  },
+  {
+   "id": "S10",
+   "type": "fact",
+   "subtype": "paraphrase",
+   "language": "zh",
+   "question": "年底的旅行安排",
+   "expectedAnswer": "订了 12 月去京都的机票和三晚的旅馆。",
+   "keyPoints": [
+    "12 月去京都",
+    "三晚的旅馆"
+   ],
+   "evidence": [
+    [
+     "去京都的机票"
+    ]
+   ]
+  },
+  {
+   "id": "S11",
+   "type": "fact",
+   "subtype": "paraphrase",
+   "language": "zh",
+   "question": "网站在手机上的显示问题解决了没",
+   "expectedAnswer": "解决了：实验室官网首页改成了响应式布局，手机上不再横向滚动。",
+   "keyPoints": [
+    "首页改成响应式布局"
+   ],
+   "evidence": [
+    [
+     "响应式布局"
+    ]
+   ]
+  },
+  {
+   "id": "S12",
+   "type": "fact",
+   "subtype": "paraphrase",
+   "language": "zh",
+   "question": "最近休息得怎么样",
+   "expectedAnswer": "10 月底连续三天只睡了五个小时左右，下午明显犯困。",
+   "keyPoints": [
+    "连续三天只睡五个小时左右"
+   ],
+   "evidence": [
+    [
+     "只睡了五个小时"
+    ]
+   ]
+  },
+  {
+   "id": "S13",
+   "type": "fact",
+   "subtype": "paraphrase",
+   "language": "zh",
+   "question": "明年住房的开销会变吗",
+   "expectedAnswer": "会：和房东确认明年房租上涨到每月 5800 元（目前每月 5500 元）。",
+   "keyPoints": [
+    "房租上涨到每月 5800 元"
+   ],
+   "evidence": [
+    [
+     "房租上涨到每月 5800 元"
+    ]
+   ]
+  },
+  {
+   "id": "S14",
+   "type": "fact",
+   "subtype": "paraphrase",
+   "language": "zh",
+   "question": "家人的庆祝活动",
+   "expectedAnswer": "给妈妈过生日，订了一家粤菜馆的包间。",
+   "keyPoints": [
+    "给妈妈过生日"
+   ],
+   "evidence": [
+    [
+     "给妈妈过生日"
+    ]
+   ]
+  },
+  {
+   "id": "S15",
+   "type": "fact",
+   "subtype": "paraphrase",
+   "language": "zh",
+   "question": "招人的事情有什么进展",
+   "expectedAnswer": "面试了一位申请实习的本科生，考了动态规划。",
+   "keyPoints": [
+    "面试了一位申请实习的本科生"
+   ],
+   "evidence": [
+    [
+     "申请实习的本科生"
+    ]
+   ]
+  },
+  {
+   "id": "S16",
+   "type": "fact",
+   "subtype": "paraphrase",
+   "language": "zh",
+   "question": "我的健康检查有什么需要注意的",
+   "expectedAnswer": "体检显示血脂略高，医生让少吃油炸食品。",
+   "keyPoints": [
+    "血脂略高",
+    "少吃油炸食品"
+   ],
+   "evidence": [
+    [
+     "血脂略高"
+    ]
+   ]
+  },
+  {
+   "id": "S17",
+   "type": "fact",
+   "subtype": "paraphrase",
+   "language": "zh",
+   "question": "笔记本电脑要送修吗",
+   "expectedAnswer": "MacBook 电池健康度降到 79%，已预约天才吧更换电池。",
+   "keyPoints": [
+    "电池健康度 79%",
+    "预约更换电池"
+   ],
+   "evidence": [
+    [
+     "电池健康度降到 79%"
+    ]
+   ]
+  },
+  {
+   "id": "S18",
+   "type": "fact",
+   "subtype": "paraphrase",
+   "language": "zh",
+   "question": "最近下厨做了什么菜",
+   "expectedAnswer": "学做了一次红烧牛腩，炖了两个小时。",
+   "keyPoints": [
+    "红烧牛腩"
+   ],
+   "evidence": [
+    [
+     "红烧牛腩"
+    ]
+   ]
+  },
+  {
+   "id": "S19",
+   "type": "fact",
+   "subtype": "paraphrase",
+   "language": "zh",
+   "question": "为什么不用苹果的云服务做同步",
+   "expectedAnswer": "因为 Lumen 要支持 Android，所以不用 CloudKit，改为自建同步服务。",
+   "keyPoints": [
+    "要支持 Android"
+   ],
+   "evidence": [
+    [
+     "Lumen 不用 CloudKit",
+     "放弃 CloudKit，改用自建同步服务"
+    ]
+   ]
+  },
+  {
+   "id": "S20",
+   "type": "fact",
+   "subtype": "paraphrase",
+   "language": "zh",
+   "question": "取消了哪些订阅",
+   "expectedAnswer": "退订了很少看的视频会员，每年省下 258 元。",
+   "keyPoints": [
+    "退订了视频会员"
+   ],
+   "evidence": [
+    [
+     "退订了很少看的视频会员"
+    ]
+   ]
+  },
+  {
+   "id": "S21",
+   "type": "fact",
+   "subtype": "paraphrase",
+   "language": "zh",
+   "question": "和老师聊了论文的什么内容",
+   "expectedAnswer": "和导师讨论了论文第三章的实验设计，决定增加两组消融实验。",
+   "keyPoints": [
+    "第三章的实验设计",
+    "增加两组消融实验"
+   ],
+   "evidence": [
+    [
+     "论文第三章的实验设计"
+    ]
+   ]
+  },
+  {
+   "id": "S22",
+   "type": "fact",
+   "subtype": "paraphrase",
+   "language": "zh",
+   "question": "给开源项目反馈过什么问题",
+   "expectedAnswer": "在 GitHub 上给 GRDB 提了一个关于 FTS5 分词器的 issue。",
+   "keyPoints": [
+    "GRDB",
+    "FTS5 分词器的 issue"
+   ],
+   "evidence": [
+    [
+     "FTS5 分词器"
+    ]
+   ]
+  },
+  {
+   "id": "S23",
+   "type": "crossLingual",
+   "subtype": "english",
+   "language": "en",
+   "question": "what did I report at the lab meeting",
+   "expectedAnswer": "At the group meeting you reported the multimodal retrieval baseline results; accuracy improved by 4 points.",
+   "keyPoints": [
+    "multimodal retrieval baseline results",
+    "accuracy up 4 points"
+   ],
+   "evidence": [
+    [
+     "多模态检索基线"
+    ]
+   ]
+  },
+  {
+   "id": "S24",
+   "type": "crossLingual",
+   "subtype": "english",
+   "language": "en",
+   "question": "dataset import feature for the labeling tool",
+   "expectedAnswer": "You added batch import of COCO-format datasets to the Orbit labeling tool (Nov 9).",
+   "keyPoints": [
+    "batch import of COCO-format datasets"
+   ],
+   "evidence": [
+    [
+     "COCO 格式数据集"
+    ]
+   ]
+  },
+  {
+   "id": "S25",
+   "type": "crossLingual",
+   "subtype": "english",
+   "language": "en",
+   "question": "how much did the monitor cost",
+   "expectedAnswer": "The 27-inch 4K monitor cost 3200 yuan.",
+   "keyPoints": [
+    "3200 yuan"
+   ],
+   "evidence": [
+    [
+     "27 寸 4K 显示器"
+    ]
+   ]
+  },
+  {
+   "id": "S26",
+   "type": "crossLingual",
+   "subtype": "japanese",
+   "language": "ja",
+   "question": "歯医者に行った？",
+   "expectedAnswer": "はい。11 月 10 日に歯科医院で歯のクリーニングをし、半年後に親知らずの再検査を勧められました。",
+   "keyPoints": [
+    "歯科医院で歯のクリーニング（洗牙）"
+   ],
+   "evidence": [
+    [
+     "牙科诊所洗牙"
+    ]
+   ]
+  },
+  {
+   "id": "S27",
+   "type": "temporal",
+   "subtype": "when",
+   "language": "zh",
+   "question": "我是哪天报名东京马拉松的？",
+   "expectedAnswer": "2026 年 10 月 9 日。",
+   "keyPoints": [
+    "10 月 9 日"
+   ],
+   "evidence": [
+    [
+     "东京马拉松"
+    ]
+   ]
+  },
+  {
+   "id": "S28",
+   "type": "temporal",
+   "subtype": "when",
+   "language": "zh",
+   "question": "京都的机票是什么时候订的？",
+   "expectedAnswer": "2026 年 11 月 7 日。",
+   "keyPoints": [
+    "11 月 7 日"
+   ],
+   "evidence": [
+    [
+     "去京都的机票"
+    ]
+   ]
+  },
+  {
+   "id": "S29",
+   "type": "temporal",
+   "subtype": "relativeDate",
+   "language": "zh",
+   "question": "三天前我修了什么 bug？",
+   "expectedAnswer": "三天前（11 月 15 日）修复了 Lumen 离线重连后重复上传附件的问题。",
+   "keyPoints": [
+    "离线重连后重复上传附件的问题"
+   ],
+   "evidence": [
+    [
+     "离线重连后重复上传附件"
+    ]
+   ]
+  },
+  {
+   "id": "S30",
+   "type": "temporal",
+   "subtype": "relativeDate",
+   "language": "zh",
+   "question": "上周四我买了什么？",
+   "expectedAnswer": "上周四（11 月 12 日）买了一台 27 寸 4K 显示器，花了 3200 元。",
+   "keyPoints": [
+    "27 寸 4K 显示器"
+   ],
+   "evidence": [
+    [
+     "27 寸 4K 显示器"
+    ]
+   ]
+  },
+  {
+   "id": "S31",
+   "type": "temporal",
+   "subtype": "ordering",
+   "language": "zh",
+   "question": "我是先订了京都的机票，还是先续订了 iCloud？",
+   "expectedAnswer": "先续订 iCloud（11 月 3 日），4 天后（11 月 7 日）才订京都的机票。",
+   "keyPoints": [
+    "先续订 iCloud"
+   ],
+   "evidence": [
+    [
+     "iCloud 2TB 套餐"
+    ],
+    [
+     "去京都的机票"
+    ]
+   ]
+  },
+  {
+   "id": "S32",
+   "type": "temporal",
+   "subtype": "ordering",
+   "language": "zh",
+   "question": "体检和洗牙哪个在前？",
+   "expectedAnswer": "体检在前（10 月 22 日），洗牙在后（11 月 10 日）。",
+   "keyPoints": [
+    "体检在前"
+   ],
+   "evidence": [
+    [
+     "血脂略高"
+    ],
+    [
+     "牙科诊所洗牙"
+    ]
+   ]
+  },
+  {
+   "id": "S33",
+   "type": "fact",
+   "subtype": "multiEvidence",
+   "language": "zh",
+   "question": "这段时间我在订阅服务上有哪些变化？",
+   "expectedAnswer": "续订了 iCloud 2TB 套餐（每月 68 元），退订了很少看的视频会员（每年省下 258 元）。",
+   "keyPoints": [
+    "续订 iCloud 2TB",
+    "退订视频会员"
+   ],
+   "evidence": [
+    [
+     "iCloud 2TB 套餐"
+    ],
+    [
+     "退订了很少看的视频会员"
+    ]
+   ]
+  },
+  {
+   "id": "S34",
+   "type": "followUp",
+   "subtype": "sameProject",
+   "language": "zh",
+   "question": "Lumen 最近有什么重要的决定？",
+   "expectedAnswer": "决定不用 CloudKit，改为自建同步服务。",
+   "keyPoints": [
+    "不用 CloudKit，改为自建同步服务"
+   ],
+   "evidence": [
+    [
+     "Lumen 不用 CloudKit",
+     "放弃 CloudKit，改用自建同步服务"
+    ]
+   ],
+   "conversation": "C1",
+   "turn": 1
+  },
+  {
+   "id": "S35",
+   "type": "followUp",
+   "subtype": "sameProject",
+   "language": "zh",
+   "question": "为什么这么决定？",
+   "expectedAnswer": "因为需要支持 Android。",
+   "keyPoints": [
+    "要支持 Android"
+   ],
+   "evidence": [
+    [
+     "Lumen 不用 CloudKit",
+     "放弃 CloudKit，改用自建同步服务"
+    ]
+   ],
+   "conversation": "C1",
+   "turn": 2
+  },
+  {
+   "id": "S36",
+   "type": "followUp",
+   "subtype": "sameProject",
+   "language": "zh",
+   "question": "那之前修过它的什么 bug？",
+   "expectedAnswer": "修复了离线重连后重复上传附件的问题（11 月 15 日）。",
+   "keyPoints": [
+    "离线重连后重复上传附件的问题"
+   ],
+   "evidence": [
+    [
+     "离线重连后重复上传附件"
+    ]
+   ],
+   "conversation": "C1",
+   "turn": 3
+  },
+  {
+   "id": "S37",
+   "type": "unanswerable",
+   "subtype": "absentEntity",
+   "language": "zh",
+   "question": "我上次去巴黎出差是什么时候？",
+   "expectedAnswer": "记忆里没有去巴黎出差的记录。",
+   "keyPoints": [
+    "说明没有相关记录"
+   ],
+   "evidence": [],
+   "absentTerms": [
+    "巴黎"
+   ]
+  },
+  {
+   "id": "S38",
+   "type": "unanswerable",
+   "subtype": "absentEntity",
+   "language": "zh",
+   "question": "我的车险什么时候到期？",
+   "expectedAnswer": "记忆里没有车险的记录。",
+   "keyPoints": [
+    "说明没有相关记录"
+   ],
+   "evidence": [],
+   "absentTerms": [
+    "车险"
+   ]
+  },
+  {
+   "id": "S39",
+   "type": "unanswerable",
+   "subtype": "absentEntity",
+   "language": "zh",
+   "question": "我学吉他学到哪一步了？",
+   "expectedAnswer": "记忆里没有学吉他的记录。",
+   "keyPoints": [
+    "说明没有相关记录"
+   ],
+   "evidence": [],
+   "absentTerms": [
+    "吉他"
+   ]
+  },
+  {
+   "id": "S40",
+   "type": "unanswerable",
+   "subtype": "noRecordDate",
+   "language": "zh",
+   "question": "2026 年 9 月 20 日那天我做了什么？",
+   "expectedAnswer": "记忆里没有 2026 年 9 月 20 日的记录。",
+   "keyPoints": [
+    "说明那一天没有记录"
+   ],
+   "evidence": []
+  },
+  {
+   "id": "S41",
+   "type": "unanswerable",
+   "subtype": "falsePremise",
+   "language": "zh",
+   "question": "我把 Lumen 的同步改成 CloudKit 之后效果怎么样？",
+   "expectedAnswer": "前提不成立：记忆里记录的是 Lumen 决定不用 CloudKit，改为自建同步服务。",
+   "keyPoints": [
+    "指出记忆不支持改用 CloudKit 的前提"
+   ],
+   "evidence": [],
+   "context": [
+    [
+     "Lumen 不用 CloudKit"
+    ]
+   ]
+  },
+  {
+   "id": "S42",
+   "type": "unanswerable",
+   "subtype": "falsePremise",
+   "language": "zh",
+   "question": "我那台 5000 元的显示器用着怎么样？",
+   "expectedAnswer": "前提不成立：记忆里的显示器是 27 寸 4K、花了 3200 元，不是 5000 元。",
+   "keyPoints": [
+    "指出显示器是 3200 元而不是 5000 元"
+   ],
+   "evidence": [],
+   "context": [
+    [
+     "27 寸 4K 显示器"
+    ]
+   ]
+  },
+  {
+   "id": "N01",
+   "type": "unanswerable",
+   "subtype": "offTopic",
+   "language": "zh",
+   "question": "把这句话翻译成英文",
+   "expectedAnswer": "与个人记忆无关的问题。",
+   "keyPoints": [
+    "不需要个人记忆"
+   ],
+   "evidence": [],
+   "retrievalOnly": true
+  },
+  {
+   "id": "N02",
+   "type": "unanswerable",
+   "subtype": "offTopic",
+   "language": "zh",
+   "question": "Swift 里 actor 和 class 有什么区别",
+   "expectedAnswer": "与个人记忆无关的问题。",
+   "keyPoints": [
+    "不需要个人记忆"
+   ],
+   "evidence": [],
+   "retrievalOnly": true
+  },
+  {
+   "id": "N03",
+   "type": "unanswerable",
+   "subtype": "offTopic",
+   "language": "zh",
+   "question": "写一首关于秋天的诗",
+   "expectedAnswer": "与个人记忆无关的问题。",
+   "keyPoints": [
+    "不需要个人记忆"
+   ],
+   "evidence": [],
+   "retrievalOnly": true
+  },
+  {
+   "id": "N04",
+   "type": "unanswerable",
+   "subtype": "offTopic",
+   "language": "zh",
+   "question": "解释一下这段代码的意思",
+   "expectedAnswer": "与个人记忆无关的问题。",
+   "keyPoints": [
+    "不需要个人记忆"
+   ],
+   "evidence": [],
+   "retrievalOnly": true
+  },
+  {
+   "id": "N05",
+   "type": "unanswerable",
+   "subtype": "offTopic",
+   "language": "en",
+   "question": "What is the capital of France",
+   "expectedAnswer": "与个人记忆无关的问题。",
+   "keyPoints": [
+    "不需要个人记忆"
+   ],
+   "evidence": [],
+   "retrievalOnly": true
+  },
+  {
+   "id": "N06",
+   "type": "unanswerable",
+   "subtype": "offTopic",
+   "language": "zh",
+   "question": "帮我润色这封邮件",
+   "expectedAnswer": "与个人记忆无关的问题。",
+   "keyPoints": [
+    "不需要个人记忆"
+   ],
+   "evidence": [],
+   "retrievalOnly": true
+  },
+  {
+   "id": "N07",
+   "type": "unanswerable",
+   "subtype": "offTopic",
+   "language": "zh",
+   "question": "1 加 1 等于几",
+   "expectedAnswer": "与个人记忆无关的问题。",
+   "keyPoints": [
+    "不需要个人记忆"
+   ],
+   "evidence": [],
+   "retrievalOnly": true
+  },
+  {
+   "id": "N08",
+   "type": "unanswerable",
+   "subtype": "offTopic",
+   "language": "zh",
+   "question": "这个单词是什么意思",
+   "expectedAnswer": "与个人记忆无关的问题。",
+   "keyPoints": [
+    "不需要个人记忆"
+   ],
+   "evidence": [],
+   "retrievalOnly": true
+  }
+ ]
+}

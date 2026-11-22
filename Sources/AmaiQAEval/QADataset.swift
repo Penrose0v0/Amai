@@ -102,6 +102,26 @@ public struct QAItem: Codable, Sendable, Equatable {
     /// 问题与证据原文的最长公共片段（归一化后的字符数），用来排除照抄原文的题。
     public var maxOverlap: Int
 
+    public init(
+        id: String, conversation: String, turn: Int, type: QAQuestionType, subtype: String, language: String,
+        question: String, expectedAnswer: String, keyPoints: [String], evidence: [String], context: [String],
+        absentTerms: [String], maxOverlap: Int
+    ) {
+        self.id = id
+        self.conversation = conversation
+        self.turn = turn
+        self.type = type
+        self.subtype = subtype
+        self.language = language
+        self.question = question
+        self.expectedAnswer = expectedAnswer
+        self.keyPoints = keyPoints
+        self.evidence = evidence
+        self.context = context
+        self.absentTerms = absentTerms
+        self.maxOverlap = maxOverlap
+    }
+
     public var isAnswerable: Bool { type != .unanswerable }
 }
 

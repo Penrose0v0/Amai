@@ -13,6 +13,7 @@ let package = Package(
         .executable(name: "amai-memory", targets: ["AmaiMemoryCLI"]),
         .executable(name: "amai-extraction", targets: ["AmaiExtractionCLI"]),
         .executable(name: "amai-mcp", targets: ["AmaiMCPServer"]),
+        .executable(name: "amai-bench", targets: ["AmaiBenchmarkCLI"]),
     ],
     dependencies: [
         // 记忆层派生索引（SQLite + FTS5）。ADR-0002。
@@ -88,6 +89,17 @@ let package = Package(
             dependencies: ["AmaiCore", "AmaiMemory", "AmaiAssistant"]
         ),
 
+        // 统一 Quality Benchmark（docs/benchmark.md）：感知、记忆生成、检索、问答与端到端的合成评测，
+        // 每个指标标明 Ground Truth 来源；支持重复运行与版本间对比。复用 AmaiMemoryEval 与 AmaiQAEval，
+        // 驱动各层的正式代码。只在开发时由 amai-bench 调用，App 不链接。
+        .target(
+            name: "AmaiBenchmark",
+            dependencies: [
+                "AmaiCore", "AmaiPerception", "AmaiInference", "AmaiExtraction", "AmaiMemory", "AmaiMemoryEval",
+                "AmaiAssistant", "AmaiQAEval",
+            ]
+        ),
+
         // 记忆窗口的 SwiftUI 视图（只读浏览、检索、来源查看）。通过回调与 App 交互，便于在测试中渲染检查。
         .target(
             name: "AmaiMemoryUI",
@@ -136,6 +148,12 @@ let package = Package(
             dependencies: ["AmaiCore", "AmaiMemory", .product(name: "MCP", package: "swift-sdk")]
         ),
 
+        // amai-bench：统一 Quality Benchmark 的命令行（run / compare / report）。
+        .executableTarget(
+            name: "AmaiBenchmarkCLI",
+            dependencies: ["AmaiBenchmark", "AmaiInference"]
+        ),
+
         // amai-mcp：由外部 Agent（Claude Desktop、Atd 等）以 stdio 启动。随 App 打包在 Contents/MacOS。
         .executableTarget(
             name: "AmaiMCPServer",
@@ -150,6 +168,7 @@ let package = Package(
         .testTarget(name: "AmaiMemoryTests", dependencies: ["AmaiMemory", "AmaiMemoryEval", "AmaiMemoryUI"]),
         .testTarget(name: "AmaiCloudTests", dependencies: ["AmaiCloud"]),
         .testTarget(name: "AmaiQAEvalTests", dependencies: ["AmaiQAEval", "AmaiAssistant", "AmaiMemory"]),
+        .testTarget(name: "AmaiBenchmarkTests", dependencies: ["AmaiBenchmark", "AmaiQAEval", "AmaiPerception"]),
         .testTarget(name: "AmaiMCPTests", dependencies: ["AmaiMCP", "AmaiMemory", .product(name: "MCP", package: "swift-sdk")]),
     ]
 )

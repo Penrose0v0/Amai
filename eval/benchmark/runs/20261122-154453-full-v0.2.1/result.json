@@ -1,0 +1,1998 @@
+{
+  "finishedAt" : "2026-11-22T06:52:59Z",
+  "gitCommit" : "76f199cb08ba",
+  "gitDirty" : true,
+  "label" : "full-v0.2.1",
+  "machine" : "Apple M5 Pro · 48 GB · macOS 27.2.1",
+  "options" : {
+    "missingModels" : "",
+    "model.answer" : "mlx-community/gemma-4-26b-a4b-it-4bit",
+    "model.embedder" : "mlx-community/Qwen3-Embedding-0.6B-4bit-DWQ",
+    "model.judge" : "mlx-community/Qwen2.5-7B-Instruct-4bit",
+    "model.memory" : "mlx-community/gemma-4-e4b-it-4bit",
+    "model.vision" : "mlx-community/gemma-4-e4b-it-4bit",
+    "suites" : "perception,memory,retrieval,qa,e2e,real"
+  },
+  "repeats" : 1,
+  "runId" : "20261122-154453-full-v0.2.1",
+  "schema" : "amai-bench/1",
+  "startedAt" : "2026-11-22T06:44:53Z",
+  "suites" : [
+    {
+      "datasets" : [
+        {
+          "name" : "activity-day",
+          "origin" : "synthetic",
+          "path" : "eval/benchmark/fixtures/activity-day.json",
+          "sha256" : "b9c23d27e6be7d2b25ce5a6649e30a398ab1fdc43b4db0bde32abc183628e973"
+        },
+        {
+          "name" : "ocr-samples",
+          "origin" : "synthetic",
+          "path" : "eval/benchmark/fixtures/ocr-samples.json",
+          "sha256" : "5c06043be9a34f2fccc313280c26efcffe0c532d56275fb743f12dc34f18cc6d"
+        }
+      ],
+      "details" : [
+        "details/perception-ocr.json"
+      ],
+      "id" : "perception",
+      "metrics" : [
+        {
+          "denominator" : 318,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "perception.capture.timeCoverage",
+          "name" : "采集覆盖率（应采集的 tick 中实际采到）",
+          "numerator" : 318,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 1
+        },
+        {
+          "denominator" : 18,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "perception.capture.stateCoverage",
+          "name" : "屏幕状态覆盖率（持续 ≥ 1 个间隔的内容版本）",
+          "numerator" : 18,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 1
+        },
+        {
+          "denominator" : 1,
+          "direction" : "info",
+          "groundTruth" : "synthetic",
+          "id" : "perception.capture.shortStateCoverage",
+          "name" : "短暂状态覆盖率（持续 < 1 个间隔）",
+          "note" : "定时截图的固有限制，仅供参考",
+          "numerator" : 0,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0
+        },
+        {
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "perception.capture.firstCaptureDelay",
+          "name" : "内容出现到首次采到的平均延迟",
+          "note" : "采集间隔 10 秒",
+          "origin" : "synthetic",
+          "unit" : "seconds",
+          "value" : 0.1111111111111111
+        },
+        {
+          "denominator" : 72,
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "perception.capture.privacyLeak",
+          "name" : "隐私泄漏（不应采集却采到的 tick）",
+          "note" : "锁屏、暂停、安全输入、被排除的应用",
+          "numerator" : 0,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0
+        },
+        {
+          "denominator" : 42,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "perception.capture.skipReasonAccuracy",
+          "name" : "跳过原因正确率",
+          "numerator" : 42,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 1
+        },
+        {
+          "denominator" : 30,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "perception.capture.blockedAccuracy",
+          "name" : "锁屏时停止采集",
+          "numerator" : 30,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 1
+        },
+        {
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "measured",
+          "id" : "perception.capture.tickMs.p50",
+          "name" : "单次 tick 耗时中位数（含编码写入）",
+          "note" : "评测机器上测得，仅作数量级参考",
+          "origin" : "synthetic",
+          "unit" : "milliseconds",
+          "value" : 11.370125
+        },
+        {
+          "denominator" : 14,
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "perception.dedup.stream.falseMerge",
+          "name" : "采集流·误合并率（内容变了却标为重复）",
+          "note" : "被标为重复的帧不再送去描述，等于丢信息",
+          "numerator" : 0,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0
+        },
+        {
+          "denominator" : 300,
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "perception.dedup.stream.falseSplit",
+          "name" : "采集流·误拆分率（内容没变却没标为重复）",
+          "note" : "多做无用的识别与推理",
+          "numerator" : 1,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.0033333333333333335
+        },
+        {
+          "denominator" : 29,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "perception.dedup.pairs.image.accuracy",
+          "name" : "成对去重准确率·画面指纹（采集器使用）",
+          "numerator" : 27,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.9310344827586207
+        },
+        {
+          "denominator" : 17,
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "perception.dedup.pairs.image.falseMerge",
+          "name" : "误合并率·画面指纹（采集器使用）",
+          "numerator" : 2,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.11764705882352941
+        },
+        {
+          "denominator" : 12,
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "perception.dedup.pairs.image.falseSplit",
+          "name" : "误拆分率·画面指纹（采集器使用）",
+          "numerator" : 0,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0
+        },
+        {
+          "denominator" : 29,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "perception.dedup.pairs.text.accuracy",
+          "name" : "成对去重准确率·画面指纹 + OCR 文字",
+          "numerator" : 22,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.7586206896551724
+        },
+        {
+          "denominator" : 17,
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "perception.dedup.pairs.text.falseMerge",
+          "name" : "误合并率·画面指纹 + OCR 文字",
+          "numerator" : 4,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.23529411764705882
+        },
+        {
+          "denominator" : 12,
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "perception.dedup.pairs.text.falseSplit",
+          "name" : "误拆分率·画面指纹 + OCR 文字",
+          "numerator" : 3,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.25
+        },
+        {
+          "denominator" : 1118,
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "perception.ocr.video.cer",
+          "name" : "OCR 字符错误率·正式路径（视频分段解码）",
+          "numerator" : 61,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.05456171735241502
+        },
+        {
+          "denominator" : 46,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "perception.ocr.video.lineRecall",
+          "name" : "OCR 整行识别率·正式路径（视频分段解码）",
+          "note" : "归一化后整行作为子串出现",
+          "numerator" : 36,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.782608695652174
+        },
+        {
+          "denominator" : 1118,
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "perception.ocr.jpeg.cer",
+          "name" : "OCR 字符错误率·直接 JPEG",
+          "numerator" : 60,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.05366726296958855
+        },
+        {
+          "denominator" : 46,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "perception.ocr.jpeg.lineRecall",
+          "name" : "OCR 整行识别率·直接 JPEG",
+          "note" : "归一化后整行作为子串出现",
+          "numerator" : 38,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.8260869565217391
+        },
+        {
+          "denominator" : 195,
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "perception.ocr.video.cer.code",
+          "name" : "OCR 字符错误率·code",
+          "numerator" : 20,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.10256410256410256
+        },
+        {
+          "denominator" : 472,
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "perception.ocr.video.cer.en",
+          "name" : "OCR 字符错误率·en",
+          "numerator" : 11,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.023305084745762712
+        },
+        {
+          "denominator" : 75,
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "perception.ocr.video.cer.ja",
+          "name" : "OCR 字符错误率·ja",
+          "numerator" : 5,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.06666666666666667
+        },
+        {
+          "denominator" : 104,
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "perception.ocr.video.cer.mixed",
+          "name" : "OCR 字符错误率·mixed",
+          "numerator" : 6,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.057692307692307696
+        },
+        {
+          "denominator" : 272,
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "perception.ocr.video.cer.zh",
+          "name" : "OCR 字符错误率·zh",
+          "numerator" : 19,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.06985294117647059
+        },
+        {
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "measured",
+          "id" : "perception.ocr.ms.p50",
+          "name" : "OCR 单帧耗时中位数",
+          "note" : "评测机器上测得",
+          "origin" : "synthetic",
+          "unit" : "milliseconds",
+          "value" : 85.23404199999999
+        }
+      ],
+      "models" : {
+        "ocr" : "apple-vision (VNRecognizeTextRequest .accurate)"
+      },
+      "notes" : [
+        "去重判错的样本：text：文档 16px·光标+时钟 应为同一屏；image：文档 16px·改一个数字 应为不同画面；text：文档 16px·改一个数字 应为不同画面；text：英文 12px·改一行 应为不同画面；image：英文 12px·改一个数字 应为不同画面；text：英文 12px·改一个数字 应为不同画面；text：英文 12px·追加一行 应为不同画面；text：代码深色 13px·光标闪烁 应为同一屏；text：代码深色 13px·光标+时钟 应为同一屏",
+        "OCR 错误率最高的样本：code-dark-14 10.3%，zh-chat-dark-16 8.6%，zh-small-12 7.5%",
+        "合成画面没有图片、阴影与复杂背景，OCR 与去重结果偏乐观，应视为上界。"
+      ],
+      "seconds" : 25.427706003189087,
+      "status" : "ok",
+      "title" : "感知"
+    },
+    {
+      "datasets" : [
+        {
+          "name" : "memory-scenarios",
+          "origin" : "synthetic",
+          "path" : "eval/memory/scenarios.json",
+          "sha256" : "c3a05082d08e1d9538fa0056b81188dc8141c107ca2b370ffc9ef1a19c0a9ff8"
+        },
+        {
+          "name" : "memory-heldout",
+          "origin" : "synthetic",
+          "path" : "eval/memory/heldout.json",
+          "sha256" : "0eda7e2fd235b03a700f78b8abe8501b0a17d5640f9a95b2dc1ece01c52450b1"
+        }
+      ],
+      "details" : [
+        "details/memory-report.md",
+        "details/memory-results.json"
+      ],
+      "id" : "memory",
+      "metrics" : [
+        {
+          "denominator" : 29,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "memory.timeline.fidelity",
+          "name" : "时间线保真度（片段写入 daily 后起止时间、标题、摘要一致）",
+          "numerator" : 29,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 1
+        },
+        {
+          "denominator" : 22,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "memory.timeline.order",
+          "name" : "时间线顺序正确的天数",
+          "numerator" : 22,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 1
+        },
+        {
+          "denominator" : 18,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "anchor",
+          "id" : "memory.factRecall",
+          "name" : "事实召回率",
+          "note" : "期望事实的全部锚点出现在同一条有效条目中",
+          "numerator" : 11,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.6111111111111112
+        },
+        {
+          "denominator" : 36,
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "anchor",
+          "id" : "memory.falseMemory",
+          "name" : "错误记忆率（不应出现的内容命中）",
+          "note" : "只覆盖场景列出的错误类型（第三方数据、阅读当计划、把关注写成诊断等），是幻觉率的下界",
+          "numerator" : 5,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.1388888888888889
+        },
+        {
+          "denominator" : 18,
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "anchor",
+          "id" : "memory.omission",
+          "name" : "遗漏率",
+          "numerator" : 7,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.3888888888888889
+        },
+        {
+          "denominator" : 18,
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "anchor",
+          "id" : "memory.misattribution",
+          "name" : "错误归属率",
+          "numerator" : 1,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.05555555555555555
+        },
+        {
+          "denominator" : 17,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "anchor",
+          "id" : "memory.precision.lowerBound",
+          "name" : "事实准确率下界（写入中命中期望事实）",
+          "note" : "未命中期望的写入不一定错，真实准确率 ≥ 此值",
+          "numerator" : 11,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.6470588235294118
+        },
+        {
+          "denominator" : 17,
+          "direction" : "info",
+          "groundTruth" : "anchor",
+          "id" : "memory.unmatchedWritten",
+          "name" : "未匹配期望的写入比例",
+          "note" : "正确的额外信息与幻觉的总和，需要人工审计区分；幻觉率 ≤ 此值",
+          "numerator" : 6,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.35294117647058826
+        },
+        {
+          "denominator" : 3,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "anchor",
+          "id" : "memory.superseded",
+          "name" : "跨天变化处理正确率",
+          "note" : "旧信息撤下、新信息有效",
+          "numerator" : 2,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.6666666666666666
+        },
+        {
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "anchor",
+          "id" : "memory.contradictions",
+          "name" : "新旧信息同时有效",
+          "origin" : "synthetic",
+          "unit" : "count",
+          "value" : 0
+        },
+        {
+          "denominator" : 26,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "memory.routingRecall",
+          "name" : "类别路由召回率",
+          "numerator" : 25,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.9615384615384616
+        },
+        {
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "memory.routeExtra",
+          "name" : "多余路由",
+          "origin" : "synthetic",
+          "unit" : "count",
+          "value" : 8
+        },
+        {
+          "denominator" : 55,
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "memory.malformed",
+          "name" : "结构化输出不合格率",
+          "numerator" : 0,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0
+        },
+        {
+          "direction" : "info",
+          "groundTruth" : "measured",
+          "id" : "memory.itemsWritten",
+          "name" : "写入条目数",
+          "origin" : "synthetic",
+          "unit" : "count",
+          "value" : 17
+        },
+        {
+          "direction" : "info",
+          "groundTruth" : "measured",
+          "id" : "memory.modelCalls",
+          "name" : "模型调用次数",
+          "origin" : "synthetic",
+          "unit" : "count",
+          "value" : 55
+        },
+        {
+          "denominator" : 10,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "anchor",
+          "id" : "memory.factRecall.dev",
+          "name" : "事实召回率·dev",
+          "note" : "期望事实的全部锚点出现在同一条有效条目中",
+          "numerator" : 7,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.7
+        },
+        {
+          "denominator" : 10,
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "anchor",
+          "id" : "memory.falseMemory.dev",
+          "name" : "错误记忆率（不应出现的内容命中）·dev",
+          "note" : "只覆盖场景列出的错误类型（第三方数据、阅读当计划、把关注写成诊断等），是幻觉率的下界",
+          "numerator" : 0,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0
+        },
+        {
+          "denominator" : 8,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "anchor",
+          "id" : "memory.factRecall.heldout",
+          "name" : "事实召回率·heldout",
+          "note" : "期望事实的全部锚点出现在同一条有效条目中",
+          "numerator" : 4,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.5
+        },
+        {
+          "denominator" : 26,
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "anchor",
+          "id" : "memory.falseMemory.heldout",
+          "name" : "错误记忆率（不应出现的内容命中）·heldout",
+          "note" : "只覆盖场景列出的错误类型（第三方数据、阅读当计划、把关注写成诊断等），是幻觉率的下界",
+          "numerator" : 5,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.19230769230769232
+        },
+        {
+          "direction" : "higherIsBetter",
+          "groundTruth" : "missing",
+          "id" : "memory.precision.human",
+          "name" : "事实准确率（人工审计）",
+          "note" : "需要对本次写入逐条人工审计（明细 details/memory-report.md，口径见 eval/memory/audits/）；自动评分不能区分正确的额外信息与幻觉",
+          "origin" : "synthetic",
+          "unit" : "ratio"
+        },
+        {
+          "direction" : "higherIsBetter",
+          "groundTruth" : "missing",
+          "id" : "memory.timeline.sourceDate",
+          "name" : "写入条目的来源日期准确率",
+          "note" : "场景只标了事实锚点，没有标注每条事实应引用的日期",
+          "origin" : "synthetic",
+          "unit" : "ratio"
+        }
+      ],
+      "models" : {
+        "memory" : "mlx-community/gemma-4-e4b-it-4bit"
+      },
+      "notes" : [
+        "参考：2026-11-03 的人工审计（eval/memory/audits/2026-11-03.md，较早的代码版本）中 Gemma 4 E4B 的人工 Precision 为 47%、Recall 39%；不是本次运行的结果，不能直接比较。"
+      ],
+      "seconds" : 172.6333919763565,
+      "status" : "ok",
+      "title" : "记忆生成"
+    },
+    {
+      "datasets" : [
+        {
+          "name" : "synthetic-memory",
+          "origin" : "synthetic",
+          "path" : "eval/benchmark/fixtures/synthetic-memory.json",
+          "sha256" : "0447ec1741d30cf6b5b2a8e42f111de32493af77afe36666158d4f8687ab2e99"
+        },
+        {
+          "name" : "synthetic-qa",
+          "origin" : "synthetic",
+          "path" : "eval/benchmark/fixtures/synthetic-qa.json",
+          "sha256" : "3a58e227efb30bd3f9c05a769f33d713093e0c837204efe2f46d01419f3b73d5"
+        }
+      ],
+      "details" : [
+        "details/retrieval-summary.json",
+        "details/retrieval-report.md"
+      ],
+      "id" : "retrieval",
+      "metrics" : [
+        {
+          "denominator" : 36,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "retrieval.pipeline.recall@1",
+          "name" : "Recall@1·助手管线（4K 预算）",
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.819
+        },
+        {
+          "denominator" : 36,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "retrieval.pipeline.recall@3",
+          "name" : "Recall@3·助手管线（4K 预算）",
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.944
+        },
+        {
+          "denominator" : 36,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "retrieval.pipeline.recall@6",
+          "name" : "Recall@6·助手管线（4K 预算）",
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.944
+        },
+        {
+          "denominator" : 36,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "retrieval.pipeline.recall@10",
+          "name" : "Recall@10·助手管线（4K 预算）",
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.972
+        },
+        {
+          "denominator" : 36,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "retrieval.pipeline.precision@1",
+          "name" : "Precision@1·助手管线（4K 预算）",
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.861
+        },
+        {
+          "denominator" : 36,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "retrieval.pipeline.precision@3",
+          "name" : "Precision@3·助手管线（4K 预算）",
+          "note" : "每题只有 1–2 个信息点，P@K 的上限约为 信息点数/K",
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.37
+        },
+        {
+          "denominator" : 36,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "retrieval.pipeline.precision@6",
+          "name" : "Precision@6·助手管线（4K 预算）",
+          "note" : "每题只有 1–2 个信息点，P@K 的上限约为 信息点数/K",
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.185
+        },
+        {
+          "direction" : "higherIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "retrieval.pipeline.ndcg@6",
+          "name" : "nDCG@6·助手管线（4K 预算）",
+          "origin" : "synthetic",
+          "unit" : "score",
+          "value" : 0.908
+        },
+        {
+          "denominator" : 36,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "retrieval.pipeline.evidenceCoverage",
+          "name" : "证据覆盖率（所需信息点进入提示词的比例）",
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 1
+        },
+        {
+          "denominator" : 36,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "retrieval.pipeline.fullCoverage",
+          "name" : "证据完整率（所需信息点全部进入提示词）",
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 1
+        },
+        {
+          "direction" : "info",
+          "groundTruth" : "measured",
+          "id" : "retrieval.pipeline.meanTokens",
+          "name" : "提示词中记忆的平均 token",
+          "origin" : "synthetic",
+          "unit" : "count",
+          "value" : 92.194
+        },
+        {
+          "denominator" : 36,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "retrieval.hybrid.recall@1",
+          "name" : "Recall@1·混合检索",
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.833
+        },
+        {
+          "denominator" : 36,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "retrieval.hybrid.recall@3",
+          "name" : "Recall@3·混合检索",
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.958
+        },
+        {
+          "denominator" : 36,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "retrieval.hybrid.recall@6",
+          "name" : "Recall@6·混合检索",
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.972
+        },
+        {
+          "denominator" : 36,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "retrieval.hybrid.recall@10",
+          "name" : "Recall@10·混合检索",
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 1
+        },
+        {
+          "denominator" : 36,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "retrieval.hybrid.precision@1",
+          "name" : "Precision@1·混合检索",
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.861
+        },
+        {
+          "denominator" : 36,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "retrieval.hybrid.precision@3",
+          "name" : "Precision@3·混合检索",
+          "note" : "每题只有 1–2 个信息点，P@K 的上限约为 信息点数/K",
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.352
+        },
+        {
+          "denominator" : 36,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "retrieval.hybrid.precision@6",
+          "name" : "Precision@6·混合检索",
+          "note" : "每题只有 1–2 个信息点，P@K 的上限约为 信息点数/K",
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.19
+        },
+        {
+          "direction" : "higherIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "retrieval.hybrid.ndcg@6",
+          "name" : "nDCG@6·混合检索",
+          "origin" : "synthetic",
+          "unit" : "score",
+          "value" : 0.932
+        },
+        {
+          "denominator" : 36,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "retrieval.hybrid.recall@4K",
+          "name" : "4K 预算内的证据覆盖率·混合检索",
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 1
+        },
+        {
+          "denominator" : 36,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "retrieval.keyword.recall@1",
+          "name" : "Recall@1·纯关键词",
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.222
+        },
+        {
+          "denominator" : 36,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "retrieval.keyword.recall@3",
+          "name" : "Recall@3·纯关键词",
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.444
+        },
+        {
+          "denominator" : 36,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "retrieval.keyword.recall@6",
+          "name" : "Recall@6·纯关键词",
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.5
+        },
+        {
+          "denominator" : 36,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "retrieval.keyword.recall@10",
+          "name" : "Recall@10·纯关键词",
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.5
+        },
+        {
+          "denominator" : 36,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "retrieval.keyword.precision@1",
+          "name" : "Precision@1·纯关键词",
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.25
+        },
+        {
+          "denominator" : 36,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "retrieval.keyword.precision@3",
+          "name" : "Precision@3·纯关键词",
+          "note" : "每题只有 1–2 个信息点，P@K 的上限约为 信息点数/K",
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.167
+        },
+        {
+          "denominator" : 36,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "retrieval.keyword.precision@6",
+          "name" : "Precision@6·纯关键词",
+          "note" : "每题只有 1–2 个信息点，P@K 的上限约为 信息点数/K",
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.097
+        },
+        {
+          "direction" : "higherIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "retrieval.keyword.ndcg@6",
+          "name" : "nDCG@6·纯关键词",
+          "origin" : "synthetic",
+          "unit" : "score",
+          "value" : 0.393
+        },
+        {
+          "denominator" : 36,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "retrieval.keyword.recall@4K",
+          "name" : "4K 预算内的证据覆盖率·纯关键词",
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.5
+        },
+        {
+          "denominator" : 3,
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "retrieval.pipeline.noise.absentEntity",
+          "name" : "无关问题仍返回记忆的比例·pipeline·absentEntity",
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.333
+        },
+        {
+          "denominator" : 2,
+          "direction" : "info",
+          "groundTruth" : "synthetic",
+          "id" : "retrieval.pipeline.noise.falsePremise",
+          "name" : "无关问题仍返回记忆的比例·pipeline·falsePremise",
+          "note" : "错误前提的题，相关记忆有助于反驳，不算噪声",
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 1
+        },
+        {
+          "denominator" : 1,
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "retrieval.pipeline.noise.noRecordDate",
+          "name" : "无关问题仍返回记忆的比例·pipeline·noRecordDate",
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0
+        },
+        {
+          "denominator" : 8,
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "retrieval.pipeline.noise.offTopic",
+          "name" : "无关问题仍返回记忆的比例·pipeline·offTopic",
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.25
+        },
+        {
+          "denominator" : 3,
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "retrieval.hybrid.noise.absentEntity",
+          "name" : "无关问题仍返回记忆的比例·hybrid·absentEntity",
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.333
+        },
+        {
+          "denominator" : 2,
+          "direction" : "info",
+          "groundTruth" : "synthetic",
+          "id" : "retrieval.hybrid.noise.falsePremise",
+          "name" : "无关问题仍返回记忆的比例·hybrid·falsePremise",
+          "note" : "错误前提的题，相关记忆有助于反驳，不算噪声",
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 1
+        },
+        {
+          "denominator" : 1,
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "retrieval.hybrid.noise.noRecordDate",
+          "name" : "无关问题仍返回记忆的比例·hybrid·noRecordDate",
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0
+        },
+        {
+          "denominator" : 8,
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "retrieval.hybrid.noise.offTopic",
+          "name" : "无关问题仍返回记忆的比例·hybrid·offTopic",
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.25
+        },
+        {
+          "direction" : "higherIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "retrieval.hybrid.abstainAUROC",
+          "name" : "第一名得分区分可回答 / 无法回答（AUROC）",
+          "origin" : "synthetic",
+          "unit" : "score",
+          "value" : 0.942
+        },
+        {
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "measured",
+          "id" : "retrieval.pipeline.latency.p50",
+          "name" : "检索延迟中位数·pipeline",
+          "note" : "评测机器上测得",
+          "origin" : "synthetic",
+          "unit" : "milliseconds",
+          "value" : 16
+        },
+        {
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "measured",
+          "id" : "retrieval.hybrid.latency.p50",
+          "name" : "检索延迟中位数·hybrid",
+          "note" : "评测机器上测得",
+          "origin" : "synthetic",
+          "unit" : "milliseconds",
+          "value" : 16.23
+        },
+        {
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "measured",
+          "id" : "retrieval.keyword.latency.p50",
+          "name" : "检索延迟中位数·keyword",
+          "note" : "评测机器上测得",
+          "origin" : "synthetic",
+          "unit" : "milliseconds",
+          "value" : 1.5
+        }
+      ],
+      "models" : {
+        "embedder" : "mlx:Qwen3-Embedding-0.6B-4bit-DWQ"
+      },
+      "notes" : [
+
+      ],
+      "seconds" : 4.433161020278931,
+      "status" : "ok",
+      "title" : "记忆检索"
+    },
+    {
+      "datasets" : [
+        {
+          "name" : "synthetic-memory",
+          "origin" : "synthetic",
+          "path" : "eval/benchmark/fixtures/synthetic-memory.json",
+          "sha256" : "0447ec1741d30cf6b5b2a8e42f111de32493af77afe36666158d4f8687ab2e99"
+        },
+        {
+          "name" : "synthetic-qa",
+          "origin" : "synthetic",
+          "path" : "eval/benchmark/fixtures/synthetic-qa.json",
+          "sha256" : "3a58e227efb30bd3f9c05a769f33d713093e0c837204efe2f46d01419f3b73d5"
+        }
+      ],
+      "details" : [
+        "details/qa-summary.json",
+        "details/qa-records.jsonl",
+        "details/qa-report.md"
+      ],
+      "id" : "qa",
+      "metrics" : [
+        {
+          "denominator" : 36,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "judge",
+          "id" : "qa.correct",
+          "name" : "正确率（可回答的题）",
+          "numerator" : 32,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.889
+        },
+        {
+          "direction" : "higherIsBetter",
+          "groundTruth" : "judge",
+          "id" : "qa.lenient",
+          "name" : "宽松得分（correct 1、partial 0.5）",
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.944
+        },
+        {
+          "denominator" : 42,
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "judge",
+          "id" : "qa.hallucination",
+          "name" : "幻觉率（回答含无依据的说法）",
+          "note" : "Judge 列出的、既不被证据也不被所给记忆支持的关于用户的说法；可能漏报",
+          "numerator" : 5,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.119
+        },
+        {
+          "denominator" : 6,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "judge",
+          "id" : "qa.correctRefusal",
+          "name" : "正确拒答率（无法回答的题明确说没有记录）",
+          "numerator" : 5,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.833
+        },
+        {
+          "denominator" : 6,
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "judge",
+          "id" : "qa.unanswerableAnswered",
+          "name" : "无法回答却作答（编造或接受错误前提）",
+          "numerator" : 1,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.167
+        },
+        {
+          "denominator" : 36,
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "judge",
+          "id" : "qa.falseAbstention",
+          "name" : "错误拒答率（可回答却说没有记录）",
+          "numerator" : 0,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0
+        },
+        {
+          "denominator" : 36,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "judge",
+          "id" : "qa.correctWhenFullyRecalled",
+          "name" : "证据齐全时的正确率（作答能力）",
+          "numerator" : 32,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.889
+        },
+        {
+          "direction" : "higherIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "qa.evidenceRecall",
+          "name" : "证据召回（进入提示词）",
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 1
+        },
+        {
+          "denominator" : 36,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "anchor",
+          "id" : "qa.keyPointExact",
+          "name" : "关键点原文命中率（严格，不用 Judge）",
+          "note" : "措辞不同即算未命中，是正确率的保守对照",
+          "numerator" : 15,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.4166666666666667
+        },
+        {
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "measured",
+          "id" : "qa.latency.firstTextMs.p50",
+          "name" : "首字延迟中位数",
+          "note" : "评测机器上测得",
+          "origin" : "synthetic",
+          "unit" : "milliseconds",
+          "value" : 200
+        },
+        {
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "measured",
+          "id" : "qa.latency.totalMs.p50",
+          "name" : "回答总耗时中位数",
+          "note" : "评测机器上测得",
+          "origin" : "synthetic",
+          "unit" : "milliseconds",
+          "value" : 726
+        }
+      ],
+      "models" : {
+        "answer" : "mlx-community/gemma-4-26b-a4b-it-4bit",
+        "embedder" : "mlx:Qwen3-Embedding-0.6B-4bit-DWQ",
+        "judge" : "mlx-community/Qwen2.5-7B-Instruct-4bit"
+      },
+      "notes" : [
+        "Judge 是 7B 本地模型，判定有噪声；关键点命中率是不依赖 Judge 的严格对照（措辞不同也算未命中）。"
+      ],
+      "seconds" : 135.81823599338531,
+      "status" : "ok",
+      "title" : "AI 问答"
+    },
+    {
+      "datasets" : [
+        {
+          "name" : "activity-day",
+          "origin" : "synthetic",
+          "path" : "eval/benchmark/fixtures/activity-day.json",
+          "sha256" : "b9c23d27e6be7d2b25ce5a6649e30a398ab1fdc43b4db0bde32abc183628e973"
+        }
+      ],
+      "details" : [
+        "details/e2e-funnel.json",
+        "details/e2e-segments.md",
+        "details/e2e-qa-records.jsonl",
+        "details/e2e-memory.md"
+      ],
+      "id" : "e2e",
+      "metrics" : [
+        {
+          "denominator" : 318,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "e2e.capture.timeCoverage",
+          "name" : "采集覆盖率（应采集的 tick 中实际采到）",
+          "numerator" : 318,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 1
+        },
+        {
+          "denominator" : 72,
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "e2e.capture.privacyLeak",
+          "name" : "隐私泄漏（不应采集却采到的 tick）",
+          "note" : "锁屏、暂停、安全输入、被排除的应用",
+          "numerator" : 0,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0
+        },
+        {
+          "denominator" : 4,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "e2e.timeline.activityMatch",
+          "name" : "时间线准确率（活动与片段 IoU ≥ 0.5）",
+          "note" : "只评价 ≥ 3 分钟、用户在场、应采集的活动",
+          "numerator" : 4,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 1
+        },
+        {
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "e2e.timeline.boundaryError",
+          "name" : "片段边界平均误差",
+          "origin" : "synthetic",
+          "unit" : "minutes",
+          "value" : 1.1
+        },
+        {
+          "denominator" : 4,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "e2e.timeline.app",
+          "name" : "片段应用归属正确",
+          "numerator" : 4,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 1
+        },
+        {
+          "denominator" : 4,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "e2e.timeline.category",
+          "name" : "片段类别与期望一致",
+          "note" : "类别是人工给出的期望，有主观成分",
+          "numerator" : 3,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.75
+        },
+        {
+          "denominator" : 1,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "e2e.timeline.idle",
+          "name" : "离开时段识别为 idle",
+          "numerator" : 1,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 1
+        },
+        {
+          "denominator" : 8770,
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "e2e.ocr.cer",
+          "name" : "抽取中的 OCR 字符错误率",
+          "note" : "含脱敏替换与存储截断的影响",
+          "numerator" : 543,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.06191562143671608
+        },
+        {
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "measured",
+          "id" : "e2e.extraction.seconds",
+          "name" : "抽取耗时（一小时活动）",
+          "origin" : "synthetic",
+          "unit" : "seconds",
+          "value" : 88.33622300624847
+        },
+        {
+          "direction" : "info",
+          "groundTruth" : "measured",
+          "id" : "e2e.extraction.segments",
+          "name" : "片段数",
+          "origin" : "synthetic",
+          "unit" : "count",
+          "value" : 5
+        },
+        {
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "measured",
+          "id" : "e2e.extraction.fallbackBatches",
+          "name" : "兜底窗口数（模型失败）",
+          "origin" : "synthetic",
+          "unit" : "count",
+          "value" : 0
+        },
+        {
+          "denominator" : 5,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "judge",
+          "id" : "e2e.qa.correct",
+          "name" : "正确率（可回答的题）",
+          "numerator" : 3,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.6
+        },
+        {
+          "direction" : "higherIsBetter",
+          "groundTruth" : "judge",
+          "id" : "e2e.qa.lenient",
+          "name" : "宽松得分（correct 1、partial 0.5）",
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.6
+        },
+        {
+          "denominator" : 8,
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "judge",
+          "id" : "e2e.qa.hallucination",
+          "name" : "幻觉率（回答含无依据的说法）",
+          "note" : "Judge 列出的、既不被证据也不被所给记忆支持的关于用户的说法；可能漏报",
+          "numerator" : 1,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.125
+        },
+        {
+          "denominator" : 3,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "judge",
+          "id" : "e2e.qa.correctRefusal",
+          "name" : "正确拒答率（无法回答的题明确说没有记录）",
+          "numerator" : 3,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 1
+        },
+        {
+          "denominator" : 3,
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "judge",
+          "id" : "e2e.qa.unanswerableAnswered",
+          "name" : "无法回答却作答（编造或接受错误前提）",
+          "numerator" : 0,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0
+        },
+        {
+          "denominator" : 5,
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "judge",
+          "id" : "e2e.qa.falseAbstention",
+          "name" : "错误拒答率（可回答却说没有记录）",
+          "numerator" : 0,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0
+        },
+        {
+          "denominator" : 5,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "anchor",
+          "id" : "e2e.qa.keyPointExact",
+          "name" : "关键点原文命中率（严格，不用 Judge）",
+          "note" : "措辞不同即算未命中，是正确率的保守对照",
+          "numerator" : 0,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0
+        },
+        {
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "measured",
+          "id" : "e2e.qa.latency.firstTextMs.p50",
+          "name" : "首字延迟中位数",
+          "note" : "评测机器上测得",
+          "origin" : "synthetic",
+          "unit" : "milliseconds",
+          "value" : 435
+        },
+        {
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "measured",
+          "id" : "e2e.qa.latency.totalMs.p50",
+          "name" : "回答总耗时中位数",
+          "note" : "评测机器上测得",
+          "origin" : "synthetic",
+          "unit" : "milliseconds",
+          "value" : 643
+        },
+        {
+          "denominator" : 5,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "e2e.funnel.screen",
+          "name" : "信息保留·屏幕被采到",
+          "numerator" : 5,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 1
+        },
+        {
+          "denominator" : 5,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "anchor",
+          "id" : "e2e.funnel.ocr",
+          "name" : "信息保留·OCR",
+          "numerator" : 5,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 1
+        },
+        {
+          "denominator" : 5,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "anchor",
+          "id" : "e2e.funnel.segments",
+          "name" : "信息保留·活动片段",
+          "note" : "片段由模型改写，关键词不出现不一定是丢了信息",
+          "numerator" : 4,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.8
+        },
+        {
+          "denominator" : 5,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "anchor",
+          "id" : "e2e.funnel.memory",
+          "name" : "信息保留·记忆文件",
+          "numerator" : 4,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.8
+        },
+        {
+          "denominator" : 5,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "anchor",
+          "id" : "e2e.funnel.prompt",
+          "name" : "信息保留·进入提示词",
+          "numerator" : 4,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.8
+        },
+        {
+          "denominator" : 5,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "judge",
+          "id" : "e2e.funnel.answer",
+          "name" : "信息保留·回答正确（Judge）",
+          "numerator" : 3,
+          "origin" : "synthetic",
+          "unit" : "ratio",
+          "value" : 0.6
+        },
+        {
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "synthetic",
+          "id" : "e2e.privacy.canaryLeaks",
+          "name" : "口令 / 密钥 / 暂停期间内容出现在产物中的次数",
+          "note" : "检查 3 个标记 × 6 类产物（视频帧本身不检查）",
+          "origin" : "synthetic",
+          "unit" : "count",
+          "value" : 0
+        }
+      ],
+      "models" : {
+        "answer" : "mlx-community/gemma-4-26b-a4b-it-4bit",
+        "embedder" : "mlx-community/Qwen3-Embedding-0.6B-4bit-DWQ",
+        "judge" : "mlx-community/Qwen2.5-7B-Instruct-4bit",
+        "memory" : "mlx-community/gemma-4-e4b-it-4bit",
+        "vision" : "mlx-community/gemma-4-e4b-it-4bit"
+      },
+      "notes" : [
+        "整理：路由 work,goals；被拒绝的操作 4 条",
+        "一小时的合成活动，规模小：每个比例的分母只有个位数到几十，适合发现退化，不适合精确比较。"
+      ],
+      "seconds" : 147.8447721004486,
+      "status" : "ok",
+      "title" : "端到端"
+    },
+    {
+      "datasets" : [
+        {
+          "name" : "real-qa-dataset",
+          "origin" : "real",
+          "path" : "~/.amai-qa-eval/20261119-real",
+          "sha256" : "4b76a0d5d8d7e72ad09d61a60bc720ad8dc3cdc2fbe2c52ef96ebb28325bd9b8"
+        }
+      ],
+      "details" : [
+
+      ],
+      "id" : "real",
+      "metrics" : [
+        {
+          "denominator" : 85,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "judge",
+          "id" : "real.qa.correct",
+          "name" : "正确率（可回答的题）",
+          "numerator" : 47,
+          "origin" : "real",
+          "unit" : "ratio",
+          "value" : 0.553
+        },
+        {
+          "direction" : "higherIsBetter",
+          "groundTruth" : "judge",
+          "id" : "real.qa.lenient",
+          "name" : "宽松得分（correct 1、partial 0.5）",
+          "origin" : "real",
+          "unit" : "ratio",
+          "value" : 0.653
+        },
+        {
+          "denominator" : 100,
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "judge",
+          "id" : "real.qa.hallucination",
+          "name" : "幻觉率（回答含无依据的说法）",
+          "note" : "Judge 列出的、既不被证据也不被所给记忆支持的关于用户的说法；可能漏报",
+          "numerator" : 32,
+          "origin" : "real",
+          "unit" : "ratio",
+          "value" : 0.32
+        },
+        {
+          "denominator" : 15,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "judge",
+          "id" : "real.qa.correctRefusal",
+          "name" : "正确拒答率（无法回答的题明确说没有记录）",
+          "numerator" : 14,
+          "origin" : "real",
+          "unit" : "ratio",
+          "value" : 0.933
+        },
+        {
+          "denominator" : 15,
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "judge",
+          "id" : "real.qa.unanswerableAnswered",
+          "name" : "无法回答却作答（编造或接受错误前提）",
+          "numerator" : 1,
+          "origin" : "real",
+          "unit" : "ratio",
+          "value" : 0.067
+        },
+        {
+          "denominator" : 85,
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "judge",
+          "id" : "real.qa.falseAbstention",
+          "name" : "错误拒答率（可回答却说没有记录）",
+          "numerator" : 1,
+          "origin" : "real",
+          "unit" : "ratio",
+          "value" : 0.012
+        },
+        {
+          "denominator" : 44,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "judge",
+          "id" : "real.qa.correctWhenFullyRecalled",
+          "name" : "证据齐全时的正确率（作答能力）",
+          "numerator" : 35,
+          "origin" : "real",
+          "unit" : "ratio",
+          "value" : 0.795
+        },
+        {
+          "direction" : "higherIsBetter",
+          "groundTruth" : "provisional",
+          "id" : "real.qa.evidenceRecall",
+          "name" : "证据召回（进入提示词）",
+          "origin" : "real",
+          "unit" : "ratio",
+          "value" : 0.596
+        },
+        {
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "measured",
+          "id" : "real.qa.latency.firstTextMs.p50",
+          "name" : "首字延迟中位数",
+          "note" : "评测机器上测得",
+          "origin" : "real",
+          "unit" : "milliseconds",
+          "value" : 462
+        },
+        {
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "measured",
+          "id" : "real.qa.latency.totalMs.p50",
+          "name" : "回答总耗时中位数",
+          "note" : "评测机器上测得",
+          "origin" : "real",
+          "unit" : "milliseconds",
+          "value" : 1180
+        },
+        {
+          "denominator" : 67,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "provisional",
+          "id" : "real.retrieval.pipeline.recall@1",
+          "name" : "Recall@1·助手管线（4K 预算）",
+          "origin" : "real",
+          "unit" : "ratio",
+          "value" : 0.254
+        },
+        {
+          "denominator" : 67,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "provisional",
+          "id" : "real.retrieval.pipeline.recall@3",
+          "name" : "Recall@3·助手管线（4K 预算）",
+          "origin" : "real",
+          "unit" : "ratio",
+          "value" : 0.343
+        },
+        {
+          "denominator" : 67,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "provisional",
+          "id" : "real.retrieval.pipeline.recall@6",
+          "name" : "Recall@6·助手管线（4K 预算）",
+          "origin" : "real",
+          "unit" : "ratio",
+          "value" : 0.463
+        },
+        {
+          "denominator" : 67,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "provisional",
+          "id" : "real.retrieval.pipeline.recall@10",
+          "name" : "Recall@10·助手管线（4K 预算）",
+          "origin" : "real",
+          "unit" : "ratio",
+          "value" : 0.604
+        },
+        {
+          "denominator" : 67,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "provisional",
+          "id" : "real.retrieval.pipeline.precision@1",
+          "name" : "Precision@1·助手管线（4K 预算）",
+          "origin" : "real",
+          "unit" : "ratio",
+          "value" : 0.284
+        },
+        {
+          "denominator" : 67,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "provisional",
+          "id" : "real.retrieval.pipeline.precision@3",
+          "name" : "Precision@3·助手管线（4K 预算）",
+          "note" : "每题只有 1–2 个信息点，P@K 的上限约为 信息点数/K",
+          "origin" : "real",
+          "unit" : "ratio",
+          "value" : 0.134
+        },
+        {
+          "denominator" : 67,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "provisional",
+          "id" : "real.retrieval.pipeline.precision@6",
+          "name" : "Precision@6·助手管线（4K 预算）",
+          "note" : "每题只有 1–2 个信息点，P@K 的上限约为 信息点数/K",
+          "origin" : "real",
+          "unit" : "ratio",
+          "value" : 0.09
+        },
+        {
+          "direction" : "higherIsBetter",
+          "groundTruth" : "provisional",
+          "id" : "real.retrieval.pipeline.ndcg@6",
+          "name" : "nDCG@6·助手管线（4K 预算）",
+          "origin" : "real",
+          "unit" : "score",
+          "value" : 0.368
+        },
+        {
+          "denominator" : 67,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "provisional",
+          "id" : "real.retrieval.pipeline.evidenceCoverage",
+          "name" : "证据覆盖率（所需信息点进入提示词的比例）",
+          "origin" : "real",
+          "unit" : "ratio",
+          "value" : 0.94
+        },
+        {
+          "denominator" : 67,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "provisional",
+          "id" : "real.retrieval.pipeline.fullCoverage",
+          "name" : "证据完整率（所需信息点全部进入提示词）",
+          "origin" : "real",
+          "unit" : "ratio",
+          "value" : 0.925
+        },
+        {
+          "direction" : "info",
+          "groundTruth" : "measured",
+          "id" : "real.retrieval.pipeline.meanTokens",
+          "name" : "提示词中记忆的平均 token",
+          "origin" : "real",
+          "unit" : "count",
+          "value" : 2522.149
+        },
+        {
+          "denominator" : 67,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "provisional",
+          "id" : "real.retrieval.hybrid.recall@1",
+          "name" : "Recall@1·混合检索",
+          "origin" : "real",
+          "unit" : "ratio",
+          "value" : 0.388
+        },
+        {
+          "denominator" : 67,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "provisional",
+          "id" : "real.retrieval.hybrid.recall@3",
+          "name" : "Recall@3·混合检索",
+          "origin" : "real",
+          "unit" : "ratio",
+          "value" : 0.537
+        },
+        {
+          "denominator" : 67,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "provisional",
+          "id" : "real.retrieval.hybrid.recall@6",
+          "name" : "Recall@6·混合检索",
+          "origin" : "real",
+          "unit" : "ratio",
+          "value" : 0.687
+        },
+        {
+          "denominator" : 67,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "provisional",
+          "id" : "real.retrieval.hybrid.recall@10",
+          "name" : "Recall@10·混合检索",
+          "origin" : "real",
+          "unit" : "ratio",
+          "value" : 0.716
+        },
+        {
+          "denominator" : 67,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "provisional",
+          "id" : "real.retrieval.hybrid.precision@1",
+          "name" : "Precision@1·混合检索",
+          "origin" : "real",
+          "unit" : "ratio",
+          "value" : 0.418
+        },
+        {
+          "denominator" : 67,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "provisional",
+          "id" : "real.retrieval.hybrid.precision@3",
+          "name" : "Precision@3·混合检索",
+          "note" : "每题只有 1–2 个信息点，P@K 的上限约为 信息点数/K",
+          "origin" : "real",
+          "unit" : "ratio",
+          "value" : 0.199
+        },
+        {
+          "denominator" : 67,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "provisional",
+          "id" : "real.retrieval.hybrid.precision@6",
+          "name" : "Precision@6·混合检索",
+          "note" : "每题只有 1–2 个信息点，P@K 的上限约为 信息点数/K",
+          "origin" : "real",
+          "unit" : "ratio",
+          "value" : 0.127
+        },
+        {
+          "direction" : "higherIsBetter",
+          "groundTruth" : "provisional",
+          "id" : "real.retrieval.hybrid.ndcg@6",
+          "name" : "nDCG@6·混合检索",
+          "origin" : "real",
+          "unit" : "score",
+          "value" : 0.545
+        },
+        {
+          "denominator" : 67,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "provisional",
+          "id" : "real.retrieval.hybrid.recall@4K",
+          "name" : "4K 预算内的证据覆盖率·混合检索",
+          "origin" : "real",
+          "unit" : "ratio",
+          "value" : 0.91
+        },
+        {
+          "denominator" : 67,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "provisional",
+          "id" : "real.retrieval.keyword.recall@1",
+          "name" : "Recall@1·纯关键词",
+          "origin" : "real",
+          "unit" : "ratio",
+          "value" : 0.254
+        },
+        {
+          "denominator" : 67,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "provisional",
+          "id" : "real.retrieval.keyword.recall@3",
+          "name" : "Recall@3·纯关键词",
+          "origin" : "real",
+          "unit" : "ratio",
+          "value" : 0.336
+        },
+        {
+          "denominator" : 67,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "provisional",
+          "id" : "real.retrieval.keyword.recall@6",
+          "name" : "Recall@6·纯关键词",
+          "origin" : "real",
+          "unit" : "ratio",
+          "value" : 0.44
+        },
+        {
+          "denominator" : 67,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "provisional",
+          "id" : "real.retrieval.keyword.recall@10",
+          "name" : "Recall@10·纯关键词",
+          "origin" : "real",
+          "unit" : "ratio",
+          "value" : 0.56
+        },
+        {
+          "denominator" : 67,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "provisional",
+          "id" : "real.retrieval.keyword.precision@1",
+          "name" : "Precision@1·纯关键词",
+          "origin" : "real",
+          "unit" : "ratio",
+          "value" : 0.284
+        },
+        {
+          "denominator" : 67,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "provisional",
+          "id" : "real.retrieval.keyword.precision@3",
+          "name" : "Precision@3·纯关键词",
+          "note" : "每题只有 1–2 个信息点，P@K 的上限约为 信息点数/K",
+          "origin" : "real",
+          "unit" : "ratio",
+          "value" : 0.129
+        },
+        {
+          "denominator" : 67,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "provisional",
+          "id" : "real.retrieval.keyword.precision@6",
+          "name" : "Precision@6·纯关键词",
+          "note" : "每题只有 1–2 个信息点，P@K 的上限约为 信息点数/K",
+          "origin" : "real",
+          "unit" : "ratio",
+          "value" : 0.087
+        },
+        {
+          "direction" : "higherIsBetter",
+          "groundTruth" : "provisional",
+          "id" : "real.retrieval.keyword.ndcg@6",
+          "name" : "nDCG@6·纯关键词",
+          "origin" : "real",
+          "unit" : "score",
+          "value" : 0.355
+        },
+        {
+          "denominator" : 67,
+          "direction" : "higherIsBetter",
+          "groundTruth" : "provisional",
+          "id" : "real.retrieval.keyword.recall@4K",
+          "name" : "4K 预算内的证据覆盖率·纯关键词",
+          "origin" : "real",
+          "unit" : "ratio",
+          "value" : 0.739
+        },
+        {
+          "direction" : "higherIsBetter",
+          "groundTruth" : "provisional",
+          "id" : "real.retrieval.hybrid.abstainAUROC",
+          "name" : "第一名得分区分可回答 / 无法回答（AUROC）",
+          "origin" : "real",
+          "unit" : "score",
+          "value" : 0.984
+        },
+        {
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "measured",
+          "id" : "real.retrieval.pipeline.latency.p50",
+          "name" : "检索延迟中位数·pipeline",
+          "note" : "评测机器上测得",
+          "origin" : "real",
+          "unit" : "milliseconds",
+          "value" : 64
+        },
+        {
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "measured",
+          "id" : "real.retrieval.hybrid.latency.p50",
+          "name" : "检索延迟中位数·hybrid",
+          "note" : "评测机器上测得",
+          "origin" : "real",
+          "unit" : "milliseconds",
+          "value" : 55.66
+        },
+        {
+          "direction" : "lowerIsBetter",
+          "groundTruth" : "measured",
+          "id" : "real.retrieval.keyword.latency.p50",
+          "name" : "检索延迟中位数·keyword",
+          "note" : "评测机器上测得",
+          "origin" : "real",
+          "unit" : "milliseconds",
+          "value" : 40.06
+        },
+        {
+          "direction" : "higherIsBetter",
+          "groundTruth" : "missing",
+          "id" : "real.retrieval.humanGT",
+          "name" : "真实记忆检索（人工 GT）",
+          "note" : "人工标注尚未导入（qa-eval gt-sheet → gt-import）；当前只有临时 GT",
+          "origin" : "real",
+          "unit" : "ratio"
+        }
+      ],
+      "models" : {
+        "answer" : "mlx:gemma-4-26b-a4b-it-4bit",
+        "embedder" : "mlx:Qwen3-Embedding-0.6B-4bit-DWQ",
+        "judge" : "mlx:Qwen2.5-7B-Instruct-4bit"
+      },
+      "notes" : [
+        "问答：85 道可回答、15 道无法回答；题目由 claude-code:opus 根据抽样证据写成，评分规则 qa-rubric-v1@02fc8811577c；结果生成于 2026-11-19T10:04:48Z，不是本次运行重新得到的",
+        "检索：**临时 GT（出题时的种子证据，未经人工确认），只用于诊断，不作结论**；参与评分 67 道"
+      ],
+      "seconds" : 0.0052449703216552734,
+      "status" : "ok",
+      "title" : "真实记忆（导入 qa-eval 结果）"
+    }
+  ]
+}
