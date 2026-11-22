@@ -6611,18 +6611,18 @@
         }
       }
     },
-    "用于读取其他应用的窗口标题和选中的文字，以及在你点击「替换」时写回选区。只在你唤起助手时读取，不监听键盘。没有这项权限时对话仍可使用，但读不到选区。屏幕截图沿用已有的屏幕录制权限和「感知」里的排除名单。": {
+    "用于读取其他应用的窗口标题和选中的文字。只在你唤起助手时读取，不监听键盘。没有这项权限时对话仍可使用，但读不到选区。屏幕截图沿用已有的屏幕录制权限和「感知」里的排除名单。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Used to read window titles and selected text in other apps, and to write the result back when you click “Replace”. Amai reads only when you invoke the assistant and does not monitor the keyboard. Without it, conversations still work but selections cannot be read. Screenshots use the existing Screen Recording permission and the exclusion list in Perception."
+            "value": "Used to read window titles and selected text in other apps. Amai reads only when you invoke the assistant and does not monitor the keyboard. Without it, conversations still work but selections cannot be read. Screenshots use the existing Screen Recording permission and the exclusion list in Perception."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ほかのアプリのウインドウタイトルと選択テキストの取得、および「置き換え」をクリックしたときの書き戻しに使います。アシスタントを呼び出したときだけ取得し、キーボードは監視しません。この許可がなくても会話は使えますが、選択範囲は取得できません。スクリーンショットは既存の画面収録の許可と「キャプチャ」の除外リストに従います。"
+            "value": "ほかのアプリのウインドウタイトルと選択テキストの取得に使います。アシスタントを呼び出したときだけ取得し、キーボードは監視しません。この許可がなくても会話は使えますが、選択範囲は取得できません。スクリーンショットは既存の画面収録の許可と「キャプチャ」の除外リストに従います。"
           }
         }
       }
