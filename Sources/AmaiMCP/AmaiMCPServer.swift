@@ -124,8 +124,7 @@ public actor AmaiMCPServer {
                 guard let query = args["query"]?.stringValue, !query.trimmingCharacters(in: .whitespaces).isEmpty else {
                     return Self.failure("query is required")
                 }
-                let limit = args["limit"]?.intValue ?? Int(args["limit"]?.doubleValue ?? 10)
-                return try Self.success(["results": try await api.search(query, limit: limit)])
+                return try Self.success(["results": try await api.search(query, limit: Self.limit(args["limit"]))])
             case "get_timeline":
                 guard let date = args["date"]?.stringValue else { return Self.failure("date is required") }
                 return try Self.success(try api.timeline(on: date))
@@ -148,6 +147,15 @@ public actor AmaiMCPServer {
             log.error("tool \(params.name, privacy: .public) failed: \(String(describing: type(of: error)), privacy: .public)")
             return Self.failure("Amai could not read its memory: \(error.localizedDescription)")
         }
+    }
+
+    /// `search_memory` 的 `limit`。参数来自外部客户端，任何 JSON 数字都可能出现：超出 Int 范围的浮点数
+    ///（1e300、2^63）直接 `Int(_:)` 会让进程 trap，NaN / 无穷不会出现在 JSON 里但同样处理。
+    /// 先在 Double 上夹到允许范围再转换；缺失或类型不对时用默认值（与之前一致），由 `MemoryAPI.search` 再夹一次。
+    static func limit(_ value: Value?, default fallback: Int = 10) -> Int {
+        if let int = value?.intValue { return min(max(int, 1), MemoryAPI.maxSearchLimit) }
+        guard let double = value?.doubleValue, double.isFinite else { return fallback }
+        return Int(min(max(double.rounded(.down), 1), Double(MemoryAPI.maxSearchLimit)))
     }
 
     // MARK: - Private

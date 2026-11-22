@@ -74,6 +74,10 @@ public actor MemoryIndex {
             result.removed = gone.count
         }
         if result.indexed > 0 || result.removed > 0 {
+            // 内容变了或被删除的块，其向量不再被引用。向量是正文的派生物，不留到下一次补算向量时才清理。
+            try db.writer.write { db in
+                try db.execute(sql: "DELETE FROM embedding WHERE hash NOT IN (SELECT hash FROM chunk)")
+            }
             log.info("index refresh: \(result.indexed) indexed, \(result.removed) removed")
         }
         return result

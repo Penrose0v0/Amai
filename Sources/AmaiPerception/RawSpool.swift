@@ -254,12 +254,6 @@ public actor RawSpool {
     }
 
     private static func appendLine(_ line: Data, to url: URL) throws {
-        if let handle = try? FileHandle(forWritingTo: url) {
-            defer { try? handle.close() }
-            try handle.seekToEnd()
-            try handle.write(contentsOf: line)
-        } else {
-            try line.write(to: url, options: .atomic)
-        }
+        try AppendOnlyFile.append(line, to: url)
     }
 }

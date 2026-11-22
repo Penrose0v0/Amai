@@ -137,6 +137,7 @@ public actor PerceptionCoordinator {
         guard !started else { return }
         started = true
         userPaused = false
+        interaction.setPaused(false)
         power.start()
         await systemState.start()
         await interaction.start()
@@ -164,8 +165,10 @@ public actor PerceptionCoordinator {
         log.info("perception stopped")
     }
 
+    /// 暂停所有感知通道：截图（含正在进行的一次）、焦点切换记录、后台最近画面。交互式读取不受影响（见 `startInteractiveTracking`）。
     public func pause() async {
         userPaused = true
+        interaction.setPaused(true)
         await capturer.setUserPaused(true)
         await live.setBackgroundActive(false)
         log.info("perception paused by user")
@@ -173,6 +176,7 @@ public actor PerceptionCoordinator {
 
     public func resume() async {
         userPaused = false
+        interaction.setPaused(false)
         await capturer.setUserPaused(false)
         await live.setBackgroundActive(started)
         log.info("perception resumed by user")

@@ -79,7 +79,12 @@ public struct ContextBuilder: Sendable {
     }
 
     /// 本轮 user 消息的开头部分：屏幕上下文。在用户提交之前就能确定。
+    ///
+    /// 这是屏幕上下文发给助手模型（可能是云端模型）与写入对话记录前的最后一站，所有来自屏幕的文字都在这里脱敏：
+    /// 窗口标题与选中文字经辅助功能读取，不经过 OCR 路径的脱敏；屏幕文字在感知层已脱敏，这里再过一遍（幂等）。
+    /// 用户自己输入的问题不在此列，原样发送。
     public func contextBlock(_ context: LiveContext) -> String {
+        func clean(_ text: String) -> String { SecretRedactor.redact(text).text }
         var lines = ["<context>"]
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
@@ -89,7 +94,7 @@ public struct ContextBuilder: Sendable {
 
         if let focus = context.focus, let app = focus.appName {
             var line = "Active app: \(app)"
-            if let title = focus.windowTitle, !title.isEmpty { line += " — window \"\(title)\"" }
+            if let title = focus.windowTitle, !title.isEmpty { line += " — window \"\(clean(title))\"" }
             lines.append(line)
         }
         if let reason = context.blockedReason {
@@ -99,7 +104,7 @@ public struct ContextBuilder: Sendable {
             lines.append("")
             lines.append("Selected text:")
             lines.append("\"\"\"")
-            lines.append(Self.clip(selection, Self.selectionLimit))
+            lines.append(Self.clip(clean(selection), Self.selectionLimit))
             lines.append("\"\"\"")
         }
         if context.screenUnchanged {
@@ -108,7 +113,7 @@ public struct ContextBuilder: Sendable {
         } else if let text = context.screenText, !text.isEmpty {
             lines.append("")
             lines.append("Screen text (OCR of the front window):")
-            lines.append(Self.clip(text, Self.screenTextLimit))
+            lines.append(Self.clip(clean(text), Self.screenTextLimit))
         }
         if !context.recent.isEmpty {
             let time = DateFormatter()
@@ -119,9 +124,9 @@ public struct ContextBuilder: Sendable {
             lines.append("Recent screens (oldest first):")
             for state in context.recent.suffix(Self.maxRecentStates) {
                 var header = "- \(time.string(from: state.lastSeen)) \(state.appName ?? "Unknown app")"
-                if let title = state.windowTitle, !title.isEmpty { header += " — \"\(title)\"" }
+                if let title = state.windowTitle, !title.isEmpty { header += " — \"\(clean(title))\"" }
                 lines.append(header + ":")
-                let text = Self.clip(state.text, Self.recentTextLimit).replacingOccurrences(of: "\n", with: " ⏎ ")
+                let text = Self.clip(clean(state.text), Self.recentTextLimit).replacingOccurrences(of: "\n", with: " ⏎ ")
                 lines.append("  \(text)")
             }
         }

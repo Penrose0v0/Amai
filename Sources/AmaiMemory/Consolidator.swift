@@ -119,12 +119,16 @@ public actor Consolidator {
             case .tooMuchLoss(let file): String(localized: "本次整理会删除 \(file) 中过多已有记忆，已拒绝")
             case .categoriesFailed(let list):
                 String(localized: "部分分区整理失败（\(list.compactMap { MemoryCategory(rawValue: $0)?.localizedName }.joined(separator: "、"))），稍后重试")
+            // 不显示给用户：删除后放弃的整理只记日志，之后会按剩下的数据重新整理。
+            case .dayErased(let day): "data of \(day) was erased during consolidation"
             }
         }
 
         case unparsableModelOutput(String)
         case tooMuchLoss(String)
         case categoriesFailed([String])
+        /// 整理进行中，这一天的数据被删除了（`forgetDay`）。
+        case dayErased(String)
     }
 
     private struct DayProgress: Codable, Equatable {
@@ -172,6 +176,8 @@ public actor Consolidator {
     private let log = AmaiLog.logger("memory.consolidate")
     private var state: State
     private var loop: Task<Void, Never>?
+    /// 每天被删除过几次（只在进程内）。整理开始时记下，写入前比对：期间这一天的数据被删除，就放弃写入。
+    private var erasures: [String: Int] = [:]
 
     public private(set) var status = Status()
 
@@ -278,6 +284,7 @@ public actor Consolidator {
         let dayName = MemoryDirectory.dayName(for: day, timeZone: timeZone)
         let file = MemoryDirectory.dailyFile(for: day, timeZone: timeZone)
         var report = DayReport()
+        let generation = erasures[dayName, default: 0]
 
         do {
             let daily = await store.read(file)
@@ -309,11 +316,17 @@ public actor Consolidator {
                 throw ConsolidationError.unparsableModelOutput("digest")
             }
             let digestBody = Self.renderDigest(stats: stats, digest: digest, timeZone: timeZone, language: lang)
+            try checkNotErased(dayName, since: generation)
             report.digestWritten = try await store.writeBlock(
                 Self.digestBlock(lang), body: digestBody, file: file, newFileTitle: dayName,
                 heading: Self.digestHeading(lang), insertBeforeHeading: TimelineBlock.heading(in: daily) ?? TimelineBlock.heading(lang),
                 snapshots: snapshots, task: "daily-digest", model: model.identifier, itemCount: digest.highlights?.count ?? 0
             )
+            // 写入与删除在 MemoryStore 上的先后不确定：写完再查一次，删除已经发生就把刚写的摘要去掉。
+            if erasures[dayName, default: 0] != generation {
+                try await removeDerived(file)
+                throw ConsolidationError.dayErased(dayName)
+            }
             if progress.routes == nil {
                 if let routes = digest.routes?.categories {
                     progress.routes = routes.map(\.rawValue)
@@ -337,11 +350,14 @@ public actor Consolidator {
                     continue
                 }
                 do {
+                    try checkNotErased(dayName, since: generation)
                     report.modelCalls += 1
-                    let outcome = try await updateCategory(category, dayName: dayName, ledger: ledger)
+                    let outcome = try await updateCategory(category, dayName: dayName, ledger: ledger, generation: generation)
                     report.rejected += outcome.rejected.map { "\(category.rawValue)：\($0)" }
                     if outcome.written { report.updated.append(category) }
                     progress.done.append(category.rawValue)
+                } catch ConsolidationError.dayErased(let erased) {
+                    throw ConsolidationError.dayErased(erased)
                 } catch {
                     let attempts = (progress.attempts[category.rawValue] ?? 0) + 1
                     progress.attempts[category.rawValue] = attempts
@@ -364,11 +380,39 @@ public actor Consolidator {
                 : String(localized: "整理 \(dayName) 的\(report.failed.map(\.localizedName).joined(separator: "、"))记忆多次失败，已跳过")
             log.info("daily consolidated: digest=\(report.digestWritten) routed=\(report.routed.count) updated=\(report.updated.count) rejected=\(report.rejected.count)")
             return report
+        } catch ConsolidationError.dayErased(let erased) {
+            log.info("consolidation of a day abandoned: its data was erased")
+            throw ConsolidationError.dayErased(erased)
         } catch {
             status.lastError = String(localized: "整理 \(dayName) 失败：\(String(describing: error))")
             log.error("daily consolidation failed: \(String(describing: error), privacy: .public)")
             throw error
         }
+    }
+
+    // MARK: - Erase
+
+    /// 删除时间段之后对受影响的每一天调用（`AppModel.eraseData`）。
+    ///
+    /// - 日终摘要由这一天的片段生成，无法按时间段局部裁剪，整块去掉（区块外的用户内容不变）；
+    /// - daily 文件的整理前快照含有改写前的时间线，一并删除；
+    /// - 正在进行的这一天的整理不再写入（摘要与分区都在写入前比对）。
+    ///
+    /// 长期记忆分区中来源于这一天的条目不在这里处理：docs/memory.md §7 设计的"来源已删除"标记尚未确定，
+    /// 删除长期记忆属于产品决定。
+    public func forgetDay(_ day: Date) async throws {
+        let dayName = MemoryDirectory.dayName(for: day, timeZone: timeZone)
+        erasures[dayName, default: 0] += 1
+        try await removeDerived(MemoryDirectory.dailyFile(for: day, timeZone: timeZone))
+    }
+
+    private func removeDerived(_ dailyFile: String) async throws {
+        try await store.removeBlock(Self.digestBlock, file: dailyFile, headings: Self.allDigestHeadings)
+        snapshots.removeSnapshots(of: dailyFile)
+    }
+
+    private func checkNotErased(_ dayName: String, since generation: Int) throws {
+        if erasures[dayName, default: 0] != generation { throw ConsolidationError.dayErased(dayName) }
     }
 
     struct CategoryOutcome {
@@ -377,7 +421,9 @@ public actor Consolidator {
     }
 
     /// 整理一个分区：把当天依据、分区手写内容（U）与已有条目交给模型，按代码规则应用返回的操作。
-    private func updateCategory(_ category: MemoryCategory, dayName: String, ledger base: EvidenceLedger) async throws -> CategoryOutcome {
+    private func updateCategory(
+        _ category: MemoryCategory, dayName: String, ledger base: EvidenceLedger, generation: Int
+    ) async throws -> CategoryOutcome {
         let path = category.file!
         let policy = CategoryPolicy.policy(for: category, language: lang)
         let text = await store.read(path)
@@ -411,6 +457,8 @@ public actor Consolidator {
         let result = updater.apply(output.operations ?? [], to: all, sectionMeta: meta)
         var outcome = CategoryOutcome(rejected: result.rejected)
         guard result.changed else { return outcome }
+        // 模型调用期间这一天被删除：依据已不存在，不写入。
+        try checkNotErased(dayName, since: generation)
         outcome.written = try await store.writeBlock(
             Self.memoryBlock(lang), body: Self.renderCategory(result.items, policy: policy, meta: result.sectionMeta),
             file: path, newFileTitle: MemorySchema.title(for: category, language: lang), heading: MemorySchema.blockHeading(lang),

@@ -47,11 +47,14 @@ public struct ExclusionListPolicy: PrivacyPolicy {
     public var excludedAppNames: Set<String>
 
     /// 首次运行自动加入的密码管理器（参考 Dayflow 的做法）。
+    /// 后来新增的条目按 `ExclusionConfiguration.defaultsRevision` 补给已有配置（只补一次）。
     public static let defaultExcludedBundleIds: Set<String> = [
         "com.1password.1password",
         "com.agilebits.onepassword7",
         "com.bitwarden.desktop",
         "com.apple.keychainaccess",
+        // macOS 15 起系统自带的"密码"App。在其中查看的密码是普通文字，不触发安全输入。
+        "com.apple.Passwords",
         "org.keepassxc.keepassxc",
     ]
 

@@ -1,3 +1,4 @@
+import AmaiCore
 import Foundation
 
 /// 整理改写文件前的快照（参考 OpenClaw 保存改写前像）。
@@ -31,14 +32,7 @@ public struct SnapshotStore: Sendable {
         ]
         var line = try JSONSerialization.data(withJSONObject: entry, options: [.sortedKeys])
         line.append(0x0A)
-        let log = root.appendingPathComponent("changes.jsonl")
-        if let handle = try? FileHandle(forWritingTo: log) {
-            defer { try? handle.close() }
-            try handle.seekToEnd()
-            try handle.write(contentsOf: line)
-        } else {
-            try line.write(to: log, options: .atomic)
-        }
+        try AppendOnlyFile.append(line, to: root.appendingPathComponent("changes.jsonl"))
         prune()
     }
 
@@ -46,6 +40,21 @@ public struct SnapshotStore: Sendable {
         ((try? FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)) ?? [])
             .filter { $0.pathExtension == "md" }
             .sorted { $0.lastPathComponent < $1.lastPathComponent }
+    }
+
+    /// 删除某个文件的全部快照（删除数据时调用：快照是改写前的全文，会留下已删除的内容）。
+    /// `changes.jsonl` 中的改动记录只有文件名、任务与条目数，不含内容，保留。返回删除的快照数。
+    @discardableResult
+    public func removeSnapshots(of relativePath: String) -> Int {
+        let encoded = relativePath.replacingOccurrences(of: "/", with: "__")
+        var removed = 0
+        for url in snapshots() {
+            // 文件名：`<时间戳>__<编码后的相对路径>`；时间戳本身不含 "__"。
+            let name = url.lastPathComponent
+            guard let separator = name.range(of: "__"), name[separator.upperBound...] == encoded else { continue }
+            if (try? FileManager.default.removeItem(at: url)) != nil { removed += 1 }
+        }
+        return removed
     }
 
     private func prune() {

@@ -870,8 +870,9 @@ final class AppModel {
         }
     }
 
-    /// 删除时间段内的全部数据：原始截图与索引、抽取结果，以及 daily 中对应的时间线条目。
-    /// 区块外用户手写的内容不受影响。
+    /// 删除时间段内的全部数据：原始截图与索引、抽取结果，daily 中对应的时间线条目，
+    /// 以及受影响日期的日终摘要与 daily 快照（docs/memory.md §7）。区块外用户手写的内容不受影响。
+    /// 正在进行的抽取与整理在提交时丢弃落在这段时间内的结果（ExtractionStore 的墓碑、Consolidator.forgetDay）。
     func eraseData(from start: Date, to end: Date) async -> String {
         guard end > start else { return String(localized: "结束时间必须晚于开始时间") }
         var notes: [String] = []
@@ -882,6 +883,7 @@ final class AppModel {
             }
             let days = try await extractionStore?.deleteData(overlapping: TimeRange(start: start, end: end)) ?? []
             notes.append(String(localized: "影响 \(days.count) 天的抽取结果"))
+            for day in days { try await consolidator?.forgetDay(day) }
             if let memorySync {
                 for day in days { try await memorySync.rewrite(day: day) }
                 await memorySync.syncOnce()

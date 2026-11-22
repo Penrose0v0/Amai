@@ -80,11 +80,11 @@
 
 流水线（`ExtractionPipeline`）每 60 秒检查一次就绪窗口，每轮最多处理 4 个：
 
-- **增量**：`extracted/state.json` 的水位线记录已处理到的最后事件，重启后从断点继续。
+- **增量**：`extracted/state.json` 的水位线记录已处理到的最后事件，重启后从断点继续。一批的观察、片段与新水位线经预写日志 `pending-commit.json` 一起提交（`ExtractionStore.commit`），中途退出后由日志补完，同一批不会写两遍。
 - **等待**：窗口内有帧所在的视频分段仍在写入时，整窗推迟到下一轮。
 - **失败**：同一窗口失败 3 次后按前台应用连续段写入低置信度兜底片段（`fallback:metadata`），流程不卡住；帧描述在重试间缓存，不重复推理。模型未安装不算失败，流水线停在原地等待。
 - **节流**：电源档位为 saver / paused 时推迟，插电后追赶；手动"立即处理"忽略档位。
-- **存储**：`extracted/YYYY-MM-DD/observations.jsonl` 与 `segments.json`；片段按 id 覆盖更新，`updatedAt` 供记忆层增量读取。
+- **存储**：`extracted/YYYY-MM-DD/observations.jsonl` 与 `segments.json`；片段按 id 覆盖更新，观察按 id 去重，`updatedAt` 供记忆层增量读取。读不出的 `segments.json` 移到 `segments.corrupt-<时间>.json` 保留，不被覆盖。
 
 设计约束：
 - 任一模态缺失时流水线仍可运行。

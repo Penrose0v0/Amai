@@ -115,6 +115,47 @@ public actor MemoryStore {
         return true
     }
 
+    /// 去掉文件中的一个系统区块（删除数据时清掉派生内容）。区块所在小节因此变空时，一并去掉该小节标题
+    ///（`headings` 中的任一写法）。区块外的用户内容不变；不存快照——快照会把要删除的内容留下。返回文件是否变化。
+    @discardableResult
+    public func removeBlock(_ block: SystemBlock, file relativePath: String, headings: Set<String>) throws -> Bool {
+        let url = root.appendingPathComponent(relativePath)
+        guard FileManager.default.fileExists(atPath: url.path) else { return false }
+        guard let data = try? Data(contentsOf: url), let existing = String(data: data, encoding: .utf8) else {
+            throw WriteError.unreadableExisting(relativePath)
+        }
+        guard block.content(in: existing) != nil else {
+            // 只有一条标记：不知道区块边界，宁可不动。
+            if existing.contains(block.beginPrefix) || existing.contains(block.endMarker) {
+                throw WriteError.malformedBlock(relativePath)
+            }
+            return false
+        }
+        let updated = Self.droppingEmptySections(block.removing(from: existing), headings: headings)
+        guard updated != existing else { return false }
+        try Data(updated.utf8).write(to: url, options: .atomic)
+        return true
+    }
+
+    /// 去掉后面紧跟另一个标题（或文件结尾）、中间只有空行的指定标题行。
+    static func droppingEmptySections(_ text: String, headings: Set<String>) -> String {
+        var lines = text.components(separatedBy: "\n")
+        var i = 0
+        while i < lines.count {
+            guard headings.contains(lines[i].trimmingCharacters(in: .whitespaces)) else { i += 1; continue }
+            var j = i + 1
+            while j < lines.count, lines[j].trimmingCharacters(in: .whitespaces).isEmpty { j += 1 }
+            if j == lines.count || lines[j].hasPrefix("#") {
+                lines.removeSubrange(i..<j)
+            } else {
+                i += 1
+            }
+        }
+        var result = lines.joined(separator: "\n")
+        while result.contains("\n\n\n") { result = result.replacingOccurrences(of: "\n\n\n", with: "\n\n") }
+        return result
+    }
+
     public func read(_ relativePath: String) -> String? {
         try? String(contentsOf: root.appendingPathComponent(relativePath), encoding: .utf8)
     }

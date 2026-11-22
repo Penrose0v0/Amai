@@ -187,8 +187,8 @@ public actor ExtractionPipeline {
         for batch in batches.prefix(options.maxBatchesPerRun) {
             let started = Date()
             do {
-                let written = try await process(batch)
-                try await advance(&state, to: batch, written: written, started: started)
+                let output = try await process(batch)
+                try await advance(&state, to: batch, output: output, started: started)
                 processed += 1
             } catch ExtractionError.framesPending {
                 status.state = .waitingForFrames
@@ -212,12 +212,13 @@ public actor ExtractionPipeline {
 
     // MARK: - Batch processing
 
-    private func process(_ batch: ExtractionBatch) async throws -> Int {
+    /// 计算一批窗口的结果，不写存储；由 `advance` 与水位线一起原子提交。
+    private func process(_ batch: ExtractionBatch) async throws -> ExtractionStore.BatchOutput {
         if batch.frames.isEmpty {
-            return try await writeRuleSegment(batch, kind: .privacy(reason: dominantSkipReason(batch)))
+            return await ruleSegment(batch, kind: .privacy(reason: dominantSkipReason(batch)))
         }
         if IdleClassifier.isIdle(batch) {
-            return try await writeRuleSegment(batch, kind: .idle)
+            return await ruleSegment(batch, kind: .idle)
         }
 
         let selected = FrameSelector.select(batch.frames, options: options.selection)
@@ -263,8 +264,8 @@ public actor ExtractionPipeline {
         let previous = await mergeablePrevious(before: batch.range.start)
         let parsed = try await segment(batch, timeline: timeline.map(\.1), previous: previous)
 
-        try await deps.store.append(observations)
-        return try await writeModelSegments(parsed, batch: batch, selected: selected, observations: observations, previous: previous)
+        let segments = modelSegments(parsed, batch: batch, selected: selected, observations: observations, previous: previous)
+        return ExtractionStore.BatchOutput(observations: observations, segments: segments)
     }
 
     private func factObservation(for frame: PerceptionEvent, jpeg: Data?) async -> (Observation, String) {
@@ -356,15 +357,15 @@ public actor ExtractionPipeline {
         throw ExtractionError.invalidModelOutput
     }
 
-    private func writeModelSegments(
+    private func modelSegments(
         _ parsed: [ParsedSegment],
         batch: ExtractionBatch,
         selected: [PerceptionEvent],
         observations: [Observation],
         previous: ActivitySegment?
-    ) async throws -> Int {
+    ) -> [ActivitySegment] {
         let now = deps.clock.now()
-        var written = 0
+        var segments: [ActivitySegment] = []
         for (i, p) in parsed.enumerated() {
             let isLast = i == parsed.count - 1
             func inside(_ d: Date) -> Bool {
@@ -403,10 +404,9 @@ public actor ExtractionPipeline {
                     updatedAt: now
                 )
             }
-            try await deps.store.upsert(segment)
-            written += 1
+            segments.append(segment)
         }
-        return written
+        return segments
     }
 
     // MARK: - Rule & fallback segments
@@ -426,7 +426,7 @@ public actor ExtractionPipeline {
         return top.flatMap(SkipReasonLabel.init(rawValue:)) ?? .other
     }
 
-    private func writeRuleSegment(_ batch: ExtractionBatch, kind: RuleKind) async throws -> Int {
+    private func ruleSegment(_ batch: ExtractionBatch, kind: RuleKind) async -> ExtractionStore.BatchOutput {
         let (title, summary, category, confidence, provider): (String, String, ActivityCategory, Double, String)
         switch kind {
         case .idle:
@@ -443,33 +443,34 @@ public actor ExtractionPipeline {
         let apps = uniqueApps(batch.frames)
         let now = deps.clock.now()
 
+        let segment: ActivitySegment
         if let prev = await mergeablePrevious(before: batch.range.start),
            prev.provider == provider, prev.title == title {
-            try await deps.store.upsert(ActivitySegment(
+            segment = ActivitySegment(
                 id: prev.id,
                 timeRange: TimeRange(start: prev.timeRange.start, end: max(prev.timeRange.end, batch.range.end)),
                 title: title, summary: summary, category: category,
                 apps: union(prev.apps, apps), observations: prev.observations,
                 evidence: capped(prev.evidence + evidence),
                 confidence: confidence, provider: provider, updatedAt: now
-            ))
+            )
         } else {
-            try await deps.store.upsert(ActivitySegment(
+            segment = ActivitySegment(
                 timeRange: batch.range, title: title, summary: summary, category: category,
                 apps: apps, observations: [], evidence: evidence,
                 confidence: confidence, provider: provider, updatedAt: now
-            ))
+            )
         }
-        return 1
+        return ExtractionStore.BatchOutput(segments: [segment])
     }
 
     /// 模型多次失败后的兜底：按前台应用连续段生成低置信度片段，明确标注来源。
-    private func processFallback(_ batch: ExtractionBatch) async throws -> Int {
+    private func processFallback(_ batch: ExtractionBatch) async -> ExtractionStore.BatchOutput {
         // 多屏时同一时刻每块屏幕各有一帧、前台应用相同，只看焦点屏即可。
         let focus = batch.frames.filter(\.metadata.isOnFocusDisplay)
         let frames = (focus.isEmpty ? batch.frames : focus).sorted { $0.wallTime < $1.wallTime }
         guard !frames.isEmpty else {
-            return try await writeRuleSegment(batch, kind: .privacy(reason: dominantSkipReason(batch)))
+            return await ruleSegment(batch, kind: .privacy(reason: dominantSkipReason(batch)))
         }
         var raw: [[PerceptionEvent]] = []
         for frame in frames {
@@ -490,10 +491,11 @@ public actor ExtractionPipeline {
             }
         }
         let now = deps.clock.now()
+        var segments: [ActivitySegment] = []
         for run in runs {
             guard let first = run.first, let last = run.last else { continue }
             let name = first.metadata.app ?? first.metadata.bundleId ?? text.unknownApp
-            try await deps.store.upsert(ActivitySegment(
+            segments.append(ActivitySegment(
                 timeRange: TimeRange(start: first.wallTime, end: last.wallTime.addingTimeInterval(options.batching.frameSpan)),
                 title: text.fallbackTitle(name),
                 summary: text.fallbackSummary,
@@ -506,7 +508,7 @@ public actor ExtractionPipeline {
                 updatedAt: now
             ))
         }
-        return runs.count
+        return ExtractionStore.BatchOutput(segments: segments)
     }
 
     private func handleFailure(
@@ -521,9 +523,9 @@ public actor ExtractionPipeline {
             return false
         }
         do {
-            let written = try await processFallback(batch)
+            let output = await processFallback(batch)
+            try await advance(&state, to: batch, output: output, started: started)
             status.fallbackBatches += 1
-            try await advance(&state, to: batch, written: written, started: started)
             return true
         } catch {
             status.state = .retrying
@@ -532,9 +534,14 @@ public actor ExtractionPipeline {
         }
     }
 
-    private func advance(_ state: inout ExtractionStore.State, to batch: ExtractionBatch, written: Int, started: Date) async throws {
-        state.processedUntil = batch.lastEventTime
-        try await deps.store.saveState(state)
+    /// 结果与水位线一起提交（`ExtractionStore.commit`）：中途退出不会让同一批写两遍。
+    private func advance(
+        _ state: inout ExtractionStore.State, to batch: ExtractionBatch, output: ExtractionStore.BatchOutput, started: Date
+    ) async throws {
+        var next = state
+        next.processedUntil = batch.lastEventTime
+        let written = try await deps.store.commit(output, state: next)
+        state = next
         attempts[batch.id] = nil
         descriptionCache.removeAll()
         status.processedUntil = batch.lastEventTime

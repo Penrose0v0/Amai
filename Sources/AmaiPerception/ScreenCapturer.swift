@@ -15,6 +15,8 @@ public enum CaptureTickOutcome: Equatable, Sendable {
 public enum BlockReason: String, Sendable, Equatable {
     case systemState
     case powerProfile
+    /// 截图进行中采集被暂停、停止、分段被收尾（删除数据前）或隐私规则改变：这次截到的画面丢弃。
+    case interrupted
 }
 
 public struct ScreenCaptureStats: Sendable, Equatable {
@@ -93,6 +95,9 @@ public actor ScreenCapturer {
 
     private var loop: Task<Void, Never>?
     private var userPaused = false
+    /// 控制操作的计数：暂停、停止、收尾分段、更换隐私规则。本类型是 actor，一次 tick 在 `await` 截图或写入时挂起，
+    /// 这些操作可以插进来执行；tick 恢复后比对计数，变了就不再写入这次的画面（否则暂停之后还会写下一帧并打开新分段）。
+    private var controlGeneration = 0
     /// 每块显示器上一帧的哈希与事件 id，用于独立去重。
     private var lastFrames: [UInt32: (hash: UInt64, eventId: UUID)] = [:]
     private var backoffUntil: Date?
@@ -126,6 +131,7 @@ public actor ScreenCapturer {
     }
 
     public func stop() async {
+        controlGeneration += 1
         loop?.cancel()
         loop = nil
         lastFrames.removeAll()
@@ -136,6 +142,7 @@ public actor ScreenCapturer {
     public func setUserPaused(_ paused: Bool) async {
         userPaused = paused
         if paused {
+            controlGeneration += 1
             lastFrames.removeAll()
             await deps.frames.finishSegment()
         }
@@ -143,6 +150,7 @@ public actor ScreenCapturer {
 
     /// 结束所有显示器的视频分段（删除时间段前调用，让分段可被整段删除）。
     public func closeSegment() async {
+        controlGeneration += 1
         lastFrames.removeAll()
         await deps.frames.finishSegment()
     }
@@ -153,6 +161,7 @@ public actor ScreenCapturer {
     }
 
     public func updatePolicy(_ policy: any PrivacyPolicy) {
+        controlGeneration += 1
         deps.policy = policy
     }
 
@@ -210,6 +219,7 @@ public actor ScreenCapturer {
             return .skipped(reason)
         }
 
+        let generation = controlGeneration
         let capture: ScreenCapture
         do {
             capture = try await deps.source.captureAll(
@@ -222,6 +232,7 @@ public actor ScreenCapturer {
         } catch {
             return recordFailure(.captureFailed(String(describing: type(of: error))), at: now)
         }
+        guard generation == controlGeneration else { return await interrupted() }
 
         // 显示器断开（或本次没截到）：收尾它的分段，丢掉它的去重状态。重新接上时从新分段开始。
         let present = Set(capture.frames.map(\.displayId))
@@ -253,6 +264,8 @@ public actor ScreenCapturer {
                 }
             }
 
+            // 多块屏幕依次写入，每次写入都可能让出执行；暂停等操作之后的屏幕不再写。
+            guard generation == controlGeneration else { break }
             let ref: FrameStore.FrameRef
             do {
                 ref = try await deps.frames.append(frame.image, displayId: frame.displayId, at: now)
@@ -284,6 +297,11 @@ public actor ScreenCapturer {
             stats.captured += 1
             ids.append(event.id)
         }
+        if generation != controlGeneration {
+            // 控制操作之前已写下的屏幕保留；不把这次画面当作最新画面交给观察者。
+            let outcome = await interrupted()
+            return ids.isEmpty ? outcome : .captured(ids)
+        }
         guard !ids.isEmpty else {
             return recordFailure(.captureFailed("frame store"), at: now)
         }
@@ -296,6 +314,13 @@ public actor ScreenCapturer {
         backoffUntil = nil
         await deps.observer?.didCapture(capture, hashes: hashes, frontmost: frontmost, at: now)
         return .captured(ids)
+    }
+
+    private func interrupted() async -> CaptureTickOutcome {
+        lastFrames.removeAll()
+        await deps.observer?.didNotCapture()
+        log.info("capture discarded: capture was paused, stopped or reconfigured while in flight")
+        return userPaused ? .skipped(.userPaused) : .blocked(.interrupted)
     }
 
     private func recordFailure(_ error: ScreenCaptureError, at now: Date) -> CaptureTickOutcome {

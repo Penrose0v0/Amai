@@ -5,11 +5,12 @@ import os
 
 /// 键鼠交互的最小实现：只记录应用焦点切换。
 /// 不记录按键内容；活动强度统计（需输入监控权限）留待后续。
-/// 切换到被排除应用时只写占位，与截图路径的处理保持一致。
+/// 切换到被排除应用时只写占位，与截图路径的处理保持一致；用户暂停采集期间什么都不记。
 @MainActor
 public final class InteractionMonitor {
     private nonisolated let counter = OSAllocatedUnfairLock(initialState: 0)
     private nonisolated let excluded: OSAllocatedUnfairLock<Set<String>>
+    private nonisolated let paused = OSAllocatedUnfairLock(initialState: false)
     private nonisolated let spool: RawSpool
     private nonisolated let clock: any AmaiClock
     private nonisolated let log = AmaiLog.logger("perception.interaction")
@@ -22,6 +23,13 @@ public final class InteractionMonitor {
     }
 
     public nonisolated var focusChangeCount: Int { counter.withLock { $0 } }
+
+    /// 用户暂停采集（`PerceptionCoordinator.pause`）。暂停期间的焦点切换不写入、不计数。
+    public nonisolated func setPaused(_ value: Bool) {
+        paused.withLock { $0 = value }
+    }
+
+    public nonisolated var isPaused: Bool { paused.withLock { $0 } }
 
     public nonisolated func updateExcludedBundleIds(_ ids: Set<String>) {
         excluded.withLock { $0 = ids }
@@ -65,6 +73,7 @@ public final class InteractionMonitor {
     }
 
     private nonisolated func record(name: String?, bundleId: String?) {
+        guard !isPaused else { return }
         let event = makeEvent(name: name, bundleId: bundleId)
         counter.withLock { $0 += 1 }
         let spool = self.spool
