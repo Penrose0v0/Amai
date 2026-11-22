@@ -26,6 +26,8 @@ public actor AssistantSession {
         public var maxHistoryCharacters = 80_000
         /// 面板唤出时准备的上下文最多用多久。屏幕没变也有上限：上下文里的时间是准备时的时间。
         public var preparedContextMaxAge: TimeInterval = 600
+        /// 每轮放进提示词的记忆最多多少 token（`MemoryRecall`，ADR-0012）。
+        public var memoryTokenBudget = MemoryRecall.defaultTokenBudget
 
         public init() {}
     }
@@ -109,7 +111,7 @@ public actor AssistantSession {
         self.builder = builder
         self.configuration = configuration
         self.clock = clock
-        let recall = memory.map { MemoryRecall(api: $0, timeZone: builder.timeZone) }
+        let recall = memory.map { MemoryRecall(api: $0, timeZone: builder.timeZone, tokenBudget: configuration.memoryTokenBudget) }
         self.recall = recall?.isEnabled == true ? recall : nil
         self.system = builder.systemPrompt(hasMemory: self.recall != nil)
     }

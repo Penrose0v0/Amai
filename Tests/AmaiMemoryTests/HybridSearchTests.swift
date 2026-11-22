@@ -1,5 +1,6 @@
 import AmaiCore
 import Foundation
+import GRDB
 import os
 import Testing
 @testable import AmaiMemory
@@ -125,6 +126,57 @@ struct HybridSearchTests {
         }
 
         func cleanup() { try? FileManager.default.removeItem(at: root) }
+    }
+
+    @Test("a strong keyword hit that missed the vector shortlist keeps its real semantic score instead of 0")
+    func keywordHitKeepsSimilarity() async throws {
+        let f = try Fixture()
+        defer { f.cleanup() }
+        // 几条只讲同步的片段语义上最接近；目标条目同时讲同步、花钱、失眠，余弦约 0.58，低于"高于平均 1.5 个标准差"的门槛，
+        // 进不了向量候选，但带着问题里的专有词 XK9。其余几十条与问题无关。
+        let sync = (0..<5).map { "- 0\($0):00–0\($0):30 调试同步冲突第 \($0) 次" }
+        let other = (0..<40).map { "- 1\($0 % 10):\(String(format: "%02d", $0)):00 整理第 \($0) 份文档" }
+        try f.write("daily/2026-11-09.md", "# 2026-11-09\n\n## 时间线\n\n" + (sync + other).joined(separator: "\n") + "\n- 23:00–23:30 XK9 的同步服务器花钱续费，熬夜失眠\n")
+        let embedder = ConceptEmbedder()
+        try await f.index.refresh()
+        try await f.index.embedPending(using: embedder)
+        var options = f.options
+        options.maxResults = 10
+        let hits = try await f.index.search("同步 XK9", embedder: embedder, options: options)
+        let target = try #require(hits.first { $0.content.contains("XK9") })
+        #expect(target.vectorScore != nil && target.keywordScore != nil)
+        #expect(target.score >= options.minScore)
+    }
+
+    @Test("MMR with incremental similarity picks exactly what the full recomputation picks")
+    func mmrUnchanged() {
+        func reference(_ items: [(candidate: MemoryIndex.Candidate, score: Double, ranking: Double)], lambda: Double, limit: Int) -> [Int64] {
+            let high = items.map(\.ranking).max() ?? 1, low = items.map(\.ranking).min() ?? 0, span = high - low
+            let sets = items.map { Set($0.candidate.row.terms.split(separator: " ").map(String.init)) }
+            var remaining = Array(items.indices), selected: [Int] = []
+            while selected.count < limit, !remaining.isEmpty {
+                var bestIndex = 0, bestScore = -Double.infinity
+                for (offset, index) in remaining.enumerated() {
+                    let relevance = span > 0 ? (items[index].ranking - low) / span : 1
+                    let similarity = selected.map { MemoryTerms.jaccard(sets[index], sets[$0]) }.max() ?? 0
+                    let score = lambda * relevance - (1 - lambda) * similarity
+                    if score > bestScore { bestScore = score; bestIndex = offset }
+                }
+                selected.append(remaining.remove(at: bestIndex))
+            }
+            return selected.map { items[$0].candidate.row.id }
+        }
+        var generator = SystemRandomNumberGenerator()
+        let words = ["同步", "冲突", "论文", "跑步", "邮件", "lumen", "orbit", "会议", "显示", "旅馆"]
+        for _ in 0..<20 {
+            let items = (0..<60).map { i -> (candidate: MemoryIndex.Candidate, score: Double, ranking: Double) in
+                let terms = (0..<4).map { _ in words.randomElement(using: &generator)! }.joined(separator: " ")
+                let row = MemoryIndex.ChunkRow(Row(["id": Int64(i), "file": "work.md", "heading": "", "content": terms, "day": nil as Date?, "terms": terms]))
+                let r = Double.random(in: 0...1, using: &generator)
+                return (MemoryIndex.Candidate(row: row, keyword: r, vector: nil), r, r)
+            }
+            #expect(MemoryIndex.diversify(items, lambda: 0.7, limit: 50).map(\.candidate.row.id) == reference(items, lambda: 0.7, limit: 50))
+        }
     }
 
     @Test("keyword search answers a natural-language question (the old phrase match could not)")

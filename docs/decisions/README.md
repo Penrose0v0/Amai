@@ -31,4 +31,5 @@
 | [0008](0008-read-only-mcp-server.md) | 统一的只读 Memory API 与 MCP Server | Accepted |
 | [0009](0009-remove-memory-kind.md) | 移除记忆条目的依据类型（kind） | Accepted |
 | [0010](0010-assistant-integration.md) | 内置助手（Eira 集成）：统一感知、独立的模型运行时与 Agent | Accepted（扩大了 0004 的云端边界；Agent 循环与记忆工具由 0011 取代） |
-| [0011](0011-assistant-qa-pipeline.md) | 问答管线：后端检索记忆、混合检索、面板唤出时预填充 | Accepted |
+| [0011](0011-assistant-qa-pipeline.md) | 问答管线：后端检索记忆、混合检索、面板唤出时预填充 | Accepted（检索条数与截断由 0012 取代） |
+| [0012](0012-budgeted-memory-recall.md) | 记忆检索：按 token 预算选取、修正融合与日期解析 | Accepted（性能结论待人工 GT） |

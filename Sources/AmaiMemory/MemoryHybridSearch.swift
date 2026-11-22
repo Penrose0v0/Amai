@@ -71,13 +71,21 @@ extension MemoryIndex {
         var vectorUsed = false
         if let embedder, embedder.isAvailable,
            let vector = await Self.queryVector(q, embedder: embedder, timeout: options.embeddingTimeout) {
-            let hits = try vectorCandidates(vector, embedder: embedder, options: options, limit: candidates)
+            let (hits, similarities) = try vectorCandidates(vector, embedder: embedder, options: options, limit: candidates)
             vectorUsed = !hits.isEmpty
             for (row, similarity) in hits {
                 if merged[row.id] != nil {
                     merged[row.id]?.vector = similarity
                 } else {
                     merged[row.id] = Candidate(row: row, keyword: nil, vector: similarity)
+                }
+            }
+            // 关键词命中、却没进向量候选的块：补上它真实的语义得分，而不是当作 0。
+            // 否则它的融合得分最多只有 textWeight（0.3），过不了最低分，关键词命中得再好也会被丢掉
+            // （真实记忆评测里有 5 个信息点纯关键词能找到、混合检索前 50 名却没有）。
+            if vectorUsed {
+                for id in merged.keys where merged[id]?.vector == nil {
+                    merged[id]?.vector = similarities[id]
                 }
             }
         }
@@ -243,9 +251,10 @@ extension MemoryIndex {
 
     /// 向量一路：把（过滤后的）全部向量读出来逐个算点积。个人记忆是几千块的量级，
     /// 384 维的暴力扫描在毫秒级，不值得为此引入向量索引扩展。
+    /// 返回进入候选的块（通过 `calibrate` 的门槛），以及所有块换算后的语义得分（不做门槛，供关键词候选补分）。
     private func vectorCandidates(
         _ query: [Float], embedder: any TextEmbedder, options: MemorySearchOptions, limit: Int
-    ) throws -> [(ChunkRow, Double)] {
+    ) throws -> (hits: [(ChunkRow, Double)], similarities: [Int64: Double]) {
         let extra = filter(options)
         var scored: [(Int64, Double)] = try db.writer.read { db in
             var result: [(Int64, Double)] = []
@@ -265,9 +274,12 @@ extension MemoryIndex {
             }
             return result
         }
+        let similarities = Dictionary(
+            scored.map { ($0.0, Self.linear($0.1, range: embedder.similarityRange)) }, uniquingKeysWith: { a, _ in a }
+        )
         scored = Self.calibrate(scored, range: embedder.similarityRange, options: options)
         let top = scored.sorted { $0.1 > $1.1 }.prefix(limit)
-        guard !top.isEmpty else { return [] }
+        guard !top.isEmpty else { return ([], similarities) }
         let byId = Dictionary(uniqueKeysWithValues: top.map { ($0.0, $0.1) })
         let rows = try db.writer.read { db in
             try Row.fetchAll(db, sql: """
@@ -275,10 +287,10 @@ extension MemoryIndex {
                 WHERE id IN (\(top.map { String($0.0) }.joined(separator: ",")))
                 """)
         }
-        return rows.map { row in
+        return (rows.map { row in
             let chunk = ChunkRow(row)
             return (chunk, byId[chunk.id] ?? 0)
-        }
+        }, similarities)
     }
 
     private static func queryVector(_ query: String, embedder: any TextEmbedder, timeout: TimeInterval) async -> [Float]? {
@@ -309,12 +321,17 @@ extension MemoryIndex {
         let mean = values.reduce(0, +) / Double(values.count)
         let variance = values.reduce(0) { $0 + ($1 - mean) * ($1 - mean) } / Double(values.count)
         let deviation = max(variance.squareRoot(), 0.01)
-        let (low, high) = (Double(range.lowerBound), Double(range.upperBound))
         return scored.compactMap { id, cosine in
             if scored.count >= 30, (cosine - mean) / deviation < options.vectorMinZ { return nil }
-            let score = min(1, max(0, (cosine - low) / max(high - low, 0.01)))
+            let score = linear(cosine, range: range)
             return score > 0 ? (id, score) : nil
         }
+    }
+
+    /// 余弦相似度按模型的有效区间线性换算到 0…1。
+    static func linear(_ cosine: Double, range: ClosedRange<Float>) -> Double {
+        let (low, high) = (Double(range.lowerBound), Double(range.upperBound))
+        return min(1, max(0, (cosine - low) / max(high - low, 0.01)))
     }
 
     /// FTS5 的 bm25() 越小（越负）越相关。折算方式与 OpenClaw 的 `bm25RankToScore` 相同。
@@ -344,19 +361,25 @@ extension MemoryIndex {
         let sets = items.map { Set($0.candidate.row.terms.split(separator: " ").map(String.init)) }
         var remaining = Array(items.indices)
         var selected: [Int] = []
+        // 每个候选与已选结果的最大相似度，只在新选中一条时更新：结果与每轮重算全部相同，
+        // 但取 50 条时从 O(条数² × 候选) 降到 O(条数 × 候选)。
+        var closest = [Double](repeating: 0, count: items.count)
         while selected.count < limit, !remaining.isEmpty {
             var bestIndex = 0
             var bestScore = -Double.infinity
             for (offset, index) in remaining.enumerated() {
                 let relevance = span > 0 ? (items[index].ranking - low) / span : 1
-                let similarity = selected.map { MemoryTerms.jaccard(sets[index], sets[$0]) }.max() ?? 0
-                let score = lambda * relevance - (1 - lambda) * similarity
+                let score = lambda * relevance - (1 - lambda) * closest[index]
                 if score > bestScore {
                     bestScore = score
                     bestIndex = offset
                 }
             }
-            selected.append(remaining.remove(at: bestIndex))
+            let chosen = remaining.remove(at: bestIndex)
+            selected.append(chosen)
+            for index in remaining {
+                closest[index] = max(closest[index], MemoryTerms.jaccard(sets[index], sets[chosen]))
+            }
         }
         return selected.map { items[$0] }
     }

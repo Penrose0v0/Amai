@@ -221,6 +221,48 @@ struct AssistantSessionTests {
         #expect(!follow.contains("Timeline for 2026-11-10:") && !follow.contains("提交 CHI 论文"))
     }
 
+    @Test("a long day is no longer cut at a fixed length; a tight budget keeps the matching entries and says what is left out")
+    func longDayBudget() async throws {
+        let fixture = try MemoryFixture()
+        defer { fixture.cleanup() }
+        // 60 个片段，约 2700 个字符：超过旧的 1800 字符上限，要找的那条在最后。
+        var lines = ["# 2026-11-09", "", "## 时间线", "", "<!-- amai:timeline:begin · x -->"]
+        for i in 0..<59 { lines.append("- \(String(format: "%02d", 6 + i / 4)):\(String(format: "%02d", (i % 4) * 15))–\(String(format: "%02d", 6 + i / 4)):\(String(format: "%02d", (i % 4) * 15 + 10)) 整理 Orbit 标注数据第 \(i + 1) 批 <!-- seg:\(i) conf:0.9 -->") }
+        lines.append("- 22:00–22:30 给妈妈订了抹茶生日蛋糕 <!-- seg:last conf:0.9 -->")
+        lines.append("<!-- amai:timeline:end -->")
+        try fixture.write("daily/2026-11-09.md", lines.joined(separator: "\n"))
+        let api = try fixture.api([.work, .daily])
+
+        let full = try #require(await MemoryRecall(api: api, timeZone: utc).recall(question: "11 月 9 日晚上我订了什么？", now: clock.date))
+        #expect(full.text.contains("给妈妈订了抹茶生日蛋糕") && full.text.contains("第 1 批"))
+        #expect(!full.text.contains("not shown") && !full.text.contains("[…]"))
+
+        let tight = MemoryRecall(api: api, timeZone: utc, tokenBudget: 300)
+        let first = try #require(await tight.recall(question: "11 月 9 日我给妈妈订的蛋糕是什么口味？", now: clock.date))
+        #expect(MemoryRecall.tokens(first.text) <= 300 + 20)
+        #expect(first.text.contains("抹茶生日蛋糕"))
+        #expect(first.text.contains("more entries of this day not shown"))
+        // 追问"那天"：给过的不再给，补上剩下的，并说明之前给过几条。
+        let second = try #require(await tight.recall(
+            question: "那天还做了什么？", previousQuestion: "11 月 9 日我给妈妈订的蛋糕是什么口味？", previousDays: first.days,
+            shown: first.keys, now: clock.date
+        ))
+        #expect(!second.text.contains("抹茶生日蛋糕"))
+        #expect(second.text.contains("entries of this day were shown earlier"))
+        #expect(first.keys.isDisjoint(with: second.keys) && !second.keys.isEmpty)
+    }
+
+    @Test("a hit inside a mentioned day appears once, inside that day's timeline")
+    func dayHitsNotDuplicated() async throws {
+        let fixture = try MemoryFixture()
+        defer { fixture.cleanup() }
+        let recalled = try #require(await MemoryRecall(api: try fixture.api([.work, .daily]), timeZone: utc)
+            .recall(question: "我昨天提交 CHI 论文了吗？", now: clock.date))
+        #expect(recalled.text.components(separatedBy: "提交 CHI 论文").count == 2)
+        #expect(!recalled.text.contains("[timeline 2026-11-10]"))
+        #expect(recalled.sources.contains(MemorySource(category: .daily, file: "daily/2026-11-10.md", date: "2026-11-10")))
+    }
+
     @Test("categories the user did not allow are never retrieved; with none allowed the prompt has no memory part")
     func access() async throws {
         let fixture = try MemoryFixture()
@@ -397,6 +439,29 @@ struct DateMentionTests {
         #expect(parse("上周五做了什么").days == ["2026-11-06"])
         // 没写年份而日期在将来：指去年。
         #expect(parse("12月25日做了什么").days == ["2025-12-25"])
+    }
+
+    @Test("days written as counts, English month names and Japanese / English weekdays")
+    func moreDays() {
+        #expect(parse("6 天前我在忙什么").days == ["2026-11-05"])
+        #expect(parse("3天之前做了什么").days == ["2026-11-08"])
+        #expect(parse("What did I do 10 days ago?").days == ["2026-11-01"])
+        #expect(parse("5日前に何をした？").days == ["2026-11-06"])
+        #expect(parse("What was I doing on the afternoon of November 11th?").days == ["2026-11-11"])
+        #expect(parse("what happened on Nov 6, 2026").days == ["2026-11-06"])
+        #expect(parse("the 6th of November").days == ["2026-11-06"])
+        #expect(parse("先週の金曜日に何をした？").days == ["2026-11-06"])
+        #expect(parse("今週の月曜は？").days == ["2026-11-09"])
+        #expect(parse("金曜日の午後").days == ["2026-11-06"])
+        #expect(parse("What did I do last Friday?").days == ["2026-11-06"])
+        #expect(parse("this Monday").days == ["2026-11-09"])
+        #expect(parse("on Wednesday").days == ["2026-11-11"])
+        // 指明了星期几时不再当作一整周。
+        #expect(parse("先週の金曜日に何をした？").range == nil)
+        #expect(parse("这周三做了什么").range == nil)
+        // 不是日期的数字与单词。
+        #expect(parse("may I ask about 3 services").days.isEmpty)
+        #expect(parse("用了 3 天才做完").days.isEmpty)
     }
 
     @Test("ranges; questions without a date are left alone")

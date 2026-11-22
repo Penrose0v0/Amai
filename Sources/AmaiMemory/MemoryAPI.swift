@@ -144,7 +144,10 @@ public struct MemoryAPI: Sendable {
 
     /// 在已授权的分区中检索：关键词（BM25）加语义向量的混合检索（`MemoryIndex.search`），没有向量模型时只用关键词。
     /// 结果是条目粒度的；长期记忆的命中补上来源日期。只读，不触发向量的补算。
-    public func search(_ query: String, limit: Int = 10, now: Date = Date()) async throws -> [MemorySearchResult] {
+    /// - Parameter days: 只在这几天的 daily 里找（当天 00:00 起止）；给出时长期记忆不参与。
+    public func search(
+        _ query: String, limit: Int = 10, now: Date = Date(), days: ClosedRange<Date>? = nil
+    ) async throws -> [MemorySearchResult] {
         let limit = min(max(limit, 1), Self.maxSearchLimit)
         guard let index, !access.categories.isEmpty else { return [] }
         try await index.refresh()
@@ -152,6 +155,10 @@ public struct MemoryAPI: Sendable {
         options.maxResults = limit
         options.categories = access.categories
         options.now = now
+        if let days {
+            guard access.allows(.daily) else { return [] }
+            options.dayRange = days
+        }
         let hits = try await index.search(query, embedder: embedder, options: options)
         var documents: [MemoryCategory: MemoryDocument] = [:]
         var results: [MemorySearchResult] = []

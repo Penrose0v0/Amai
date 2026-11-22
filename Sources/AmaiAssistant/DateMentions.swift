@@ -62,6 +62,21 @@ enum DateMentions {
         for match in matches(#"(?<![\d年])(\d{1,2})\s*月\s*(\d{1,2})\s*[日号]?"#) {
             add(date(year: nil, month: Int(match.groups[1]) ?? 0, day: Int(match.groups[2]) ?? 0), at: match.position)
         }
+        // 英文月份：November 11th、Nov 11, 2026、11 November、the 11th of November。
+        let months = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"]
+        let monthName = #"(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?"#
+        for match in matches(#"\b"# + monthName + #"\s+(\d{1,2})(?:st|nd|rd|th)?\b(?:,?\s*(\d{4}))?"#) {
+            guard let month = months.firstIndex(of: match.groups[1]) else { continue }
+            add(date(year: Int(match.groups[3]), month: month + 1, day: Int(match.groups[2]) ?? 0), at: match.position)
+        }
+        for match in matches(#"\b(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?"# + monthName + #"(?:,?\s*(\d{4}))?"#) {
+            guard let month = months.firstIndex(of: match.groups[2]) else { continue }
+            add(date(year: Int(match.groups[3]), month: month + 1, day: Int(match.groups[1]) ?? 0), at: match.position)
+        }
+        // N 天前：3 天前、3天之前、3 days ago、3日前。
+        for match in matches(#"(\d{1,2})\s*(?:天(?:之)?前|days?\s+ago|日前)"#) {
+            if let n = Int(match.groups[1]), n > 0 { add(offset(-n), at: match.position) }
+        }
         // 相对的某一天。长的写法在前（"大前天"包含"前天"）。
         let relative: [(String, Int)] = [
             ("大前天", -3), ("前天", -2), ("一昨日", -2), ("おととい", -2), ("day before yesterday", -2),
@@ -92,6 +107,34 @@ enum DateMentions {
             }
             add(offset(-back), at: match.position)
         }
+        // 日文与英文的星期几：先週の金曜日、今週の水曜、金曜日；last Friday、this Wednesday、on Monday。
+        // "上 / 先週 / last"指上一个自然周的那一天，"这 / 今週 / this"指本周的那一天，没有修饰时取最近的那一个（含今天）。
+        func weekdayOffset(_ weekday: Int, _ modifier: String) -> Int {
+            let current = calendar.component(.weekday, from: today)
+            let sinceMonday = (current + 5) % 7
+            let targetFromMonday = (weekday + 5) % 7
+            switch modifier {
+            case "last": return -(sinceMonday + 7 - targetFromMonday)
+            case "lastlast": return -(sinceMonday + 14 - targetFromMonday)
+            case "this": return targetFromMonday - sinceMonday
+            default: return -((current - weekday + 7) % 7)
+            }
+        }
+        var namedWeekday = false
+        let japanese: [String: Int] = ["月": 2, "火": 3, "水": 4, "木": 5, "金": 6, "土": 7, "日": 1]
+        for match in matches(#"(先々週|先週|今週)?の?([月火水木金土日])曜"#) {
+            guard let weekday = japanese[match.groups[2]] else { continue }
+            let modifier = ["先々週": "lastlast", "先週": "last", "今週": "this"][match.groups[1]] ?? ""
+            namedWeekday = true
+            add(offset(weekdayOffset(weekday, modifier)), at: match.position)
+        }
+        let english = ["sunday": 1, "monday": 2, "tuesday": 3, "wednesday": 4, "thursday": 5, "friday": 6, "saturday": 7]
+        for match in matches(#"\b(?:(last|this|on)\s+)?(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b"#) {
+            guard let weekday = english[match.groups[2]] else { continue }
+            namedWeekday = true
+            add(offset(weekdayOffset(weekday, match.groups[1] == "on" ? "" : match.groups[1])), at: match.position)
+        }
+        if !matches(#"(?:周|星期|礼拜)[一二三四五六日天]"#).isEmpty { namedWeekday = true }
         result.days = found.sorted { $0.position < $1.position }.prefix(maxDays).map(\.day)
 
         // 一段时间。
@@ -102,10 +145,9 @@ enum DateMentions {
            let count = match.groups.dropFirst().compactMap({ Int($0) }).first, count > 0 {
             let span = min(count, maxRangeDays)
             if let start = offset(-(span - 1)) { result.range = start...today }
-        } else if ["这周", "本周", "这星期", "这个星期", "this week", "今週"].contains(where: lower.contains) {
+        } else if !namedWeekday, ["这周", "本周", "这星期", "这个星期", "this week", "今週"].contains(where: lower.contains) {
             result.range = min(weekStart(today), today)...today
-        } else if ["上周", "上星期", "上个星期", "last week", "先週"].contains(where: lower.contains),
-                  !lower.contains("上周一"), matches(#"上(?:周|星期)[一二三四五六日天]"#).isEmpty,
+        } else if !namedWeekday, ["上周", "上星期", "上个星期", "last week", "先週"].contains(where: lower.contains),
                   let lastWeek = calendar.date(byAdding: .day, value: -7, to: weekStart(today)),
                   let end = calendar.date(byAdding: .day, value: 6, to: lastWeek) {
             result.range = lastWeek...end
