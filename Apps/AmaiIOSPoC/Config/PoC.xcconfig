@@ -1,0 +1,16 @@
+// PoC 的公共构建设置。签名团队与 bundle 前缀写在 Local.xcconfig（不入库），见 Local.xcconfig.example。
+AMAI_BUNDLE_PREFIX = com.amai.ios
+DEVELOPMENT_TEAM =
+
+#include? "Local.xcconfig"
+
+AMAI_APP_GROUP = group.$(AMAI_BUNDLE_PREFIX).poc
+AMAI_BROADCAST_BUNDLE_ID = $(AMAI_BUNDLE_PREFIX).poc.broadcast
+
+IPHONEOS_DEPLOYMENT_TARGET = 18.0
+TARGETED_DEVICE_FAMILY = 1
+SWIFT_VERSION = 5.0
+CODE_SIGN_STYLE = Automatic
+MARKETING_VERSION = 0.1
+CURRENT_PROJECT_VERSION = 1
+GENERATE_INFOPLIST_FILE = YES

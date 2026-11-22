@@ -41,3 +41,6 @@ dist/
 
 # 标志设计源文件与探索稿；应用和 README 用到的导出物在 Resources/ 与 docs/assets/
 design/
+
+# iOS PoC 的本地签名设置
+Apps/AmaiIOSPoC/Config/Local.xcconfig
