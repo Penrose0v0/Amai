@@ -1,22 +1,24 @@
 # Amai 产品定义
 
-> 状态：草案（2026-10-19）。本文档描述产品定位、目标用户、需求与 MVP 范围。架构见 [architecture.md](architecture.md)，记忆系统见 [memory.md](memory.md)，开发计划见 [roadmap.md](roadmap.md)。
+> 状态：草案（2026-10-19；2026-11-22 更新定位）。本文档描述产品定位、目标用户、需求与 MVP 范围。架构见 [architecture.md](architecture.md)，记忆系统见 [memory.md](memory.md)，开发计划见 [roadmap.md](roadmap.md)。
 
 ## 1. 一句话定位
 
-Amai 是一个运行在 macOS 上的 **Ambient Personal AI**：在后台持续感知用户在电脑上的活动，自动把这些活动理解为语义化的上下文，并沉淀为用户可读、可编辑的 Markdown 长期记忆。
+Amai 是一个 **Ambient Personal AI**：在后台持续理解用户的日常活动，积累个人上下文，并沉淀为用户可读、可编辑的 Markdown 长期记忆，供内置助手和其他 AI Agent 使用。
 
-与传统助手的区别在于：**用户不需要主动告诉它自己在做什么**。
+与传统助手的区别在于：**用户不需要主动告诉它自己在做什么**，也不需要在每次对话、每个工具里重新解释背景。它不只是自动记录活动、生成记忆的工具：记忆是为了被助手和 Agent 用上。
+
+产品定位不限定平台。当前实现与发布版本运行在 macOS（Apple Silicon）上；其他平台处于调研阶段（iOS 屏幕采集见 [references/ios-screen-capture.md](references/ios-screen-capture.md)），尚无承诺。
 
 ### 市场位置（2026-10-19，详见 [references/competitors.md](references/competitors.md)）
 
 - Rewind 已于 2025-12 随 Limitless 被 Meta 收购而关停；Screenpipe 转向企业工作流并改为 source-available；Dayflow 只做工作日志；Ambi 刚公测，以云端语音为核心，屏幕感知与长期记忆停留在宣称层面。
-- macOS 上目前没有在售的"本地优先 + 多模态 + 用户可读可编辑的长期记忆"消费产品。这是 Amai 的空位。
+- 当前平台 macOS 上目前没有在售的"本地优先 + 多模态 + 用户可读可编辑的长期记忆"消费产品。这是 Amai 的空位。
 - Amai 不与 Ambi 争"主动 Agent"叙事，先把感知 → 抽取 → 记忆的基础做可靠。
 
 ## 2. 目标用户（MVP 阶段）
 
-- 单一用户，macOS（Apple Silicon）作为主力工作机。
+- 单一用户，以 macOS（Apple Silicon）电脑作为主力工作机（当前唯一支持的平台）。
 - 长时间在电脑上进行知识工作：研究、写作、编程、阅读、会议。
 - 希望拥有"自己的数据自己掌握"的个人记忆系统，而不是把生活数据交给云端。
 - 能接受在 Markdown 文件层面直接查看和修改记忆。
@@ -31,7 +33,8 @@ MVP 阶段的首要用户是项目作者本人，产品决策以"作者每天愿
 | 上下文记忆 | 记住正在推进的研究、项目、决策和它们的变化 | work/、goals/ 专题记忆 |
 | 长期画像 | 系统逐步形成对用户偏好、习惯、目标的稳定理解 | summary.md |
 | 隐私可控 | 数据本地处理，用户随时暂停、检查、删除 | 采集控制、检查器、删除机制 |
-| 为未来 Agent 打基础 | 记忆是未来主动式助手的"地基"，不是终点 | 可检索的记忆接口 |
+| 上下文可被使用 | 内置助手结合当前屏幕与记忆回答问题；外部 Agent 在授权范围内读取记忆，用户不必反复解释背景 | 内置助手、只读 MCP Server |
+| 为未来 Agent 打基础 | 记忆是未来主动式助手的"地基"，不是终点 | 只读 Memory API |
 
 ## 4. 产品原则（来自 AGENTS.md，产品视角的解读）
 
