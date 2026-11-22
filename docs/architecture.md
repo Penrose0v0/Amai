@@ -181,7 +181,7 @@ system（固定） → 历史（只追加） → <context> 屏幕上下文 → <
 | 模块 | 职责 |
 |---|---|
 | `AssistantSession` | 一段对话：每轮调用模型一次，消息只追加，出错或取消时撤回这一轮。`prepare()` 在面板唤出时并行地预热模型、准备记忆索引、读屏幕并 OCR，然后把屏幕上下文预填充进模型的缓存；提交时确认屏幕没变就沿用 |
-| `MemoryRecall` | 调用模型之前检索记忆：问题里的日期直接取那几天的时间线，其余做一次混合检索；限定日期时结果只保留那几天的；给过的内容不重复给。只经过 `MemoryAPI` |
+| `MemoryRecall` | 调用模型之前检索记忆：问题里的日期取那几天的时间线（逐条作为候选），加上混合检索的结果，按 token 预算（默认 4K）依优先级选取并去重（ADR-0012）；限定日期时结果只保留那几天的；给过的条目不重复给。只经过 `MemoryAPI` |
 | `DateMentions` | 用规则认出问题里的日期（中英日；单独的某天与一段时间） |
 | `ContextBuilder` | 固定的 system；`<context>` 块（时间、应用 / 窗口、选区、屏幕文字、最近状态）；整条 user 消息的排列。屏幕文字没变不重复，最近状态只带新的 |
 | `ScreenLook` | 用户打开"带上屏幕"时取截图，随消息直接发给模型（现有来源都能看图） |
@@ -190,6 +190,8 @@ system（固定） → 历史（只追加） → <context> 屏幕上下文 → <
 今后要加 Agent 能力时，`ChatModel` 的工具调用契约与各来源的实现都在，在这条流水线之上加循环即可；普通问答不需要它。
 
 App 中的 `AssistantController` 负责装配：按 `config.json` 的 `assistant` 段创建模型与会话，持有聊天面板与全局快捷键（默认 ⌘⇧Space 打开对话）；面板唤出前读一次焦点（经复制读到的选区交给聊天面板），唤出时触发 `prepare()` 并在后台给新增的记忆补算向量。聊天界面移植自 Eira。
+
+问答评测 `AmaiQAEval`（开发用，`amai-memory qa-eval`，见 `docs/qa-eval.md`）：在真实记忆的只读副本上出题，让题目经过同一个 `AssistantSession`（不读屏幕、时钟固定），再由独立的本地模型按固定的评分规则判定。只依赖 AmaiCore、AmaiMemory 与 AmaiAssistant；Judge 用的纯文本模型由 `AmaiInference/MLXTextChatModel` 加载，不进入 App 的模型登记。
 
 ### 2.5 横切模块
 

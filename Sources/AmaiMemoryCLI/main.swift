@@ -11,6 +11,8 @@ import Foundation
 //   amai-memory reindex                     增量刷新索引
 //   amai-memory rebuild                     清空后全量重建
 //   amai-memory migrate [--status|--rollback]  Schema v1 迁移、查看迁移记录、回滚（ADR-0006）
+//   amai-memory qa-eval <prepare|generate|run|judge|report> --workdir <目录>
+//                                           真实记忆问答评测（docs/qa-eval.md）
 //   amai-memory eval <场景.json> (--claude <claude 路径> [--model opus] | --local <模型标签>) [--only 场景,…] [--output 目录]
 //                                           用 Claude 订阅（本机 Claude Code）或本地 MLX 模型跑记忆整理评测；
 //                                           只用合成数据与临时目录，不读写真实记忆目录。本地模型需要二进制旁有 mlx.metallib。
@@ -24,10 +26,16 @@ let usage = """
   amai-memory rebuild
   amai-memory migrate [--status|--rollback]
   amai-memory eval <场景.json> (--claude <claude 路径> [--model opus] | --local <模型标签>) [--only 场景,…] [--output 目录]
+  amai-memory qa-eval <prepare|generate|run|judge|report> --workdir <目录>（详见 docs/qa-eval.md）
 选项：--memory <记忆目录>  --index <索引文件>
 """
 
 var args = Array(CommandLine.arguments.dropFirst())
+
+// qa-eval 有自己的选项（其中 --memory 的含义不同），在通用选项解析之前分派。
+if args.first == "qa-eval" {
+    exit(await QAEvalCommand.main(Array(args.dropFirst())))
+}
 
 @MainActor
 func option(_ name: String) -> String? {

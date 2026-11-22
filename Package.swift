@@ -81,6 +81,13 @@ let package = Package(
             dependencies: ["AmaiCore", "AmaiMemory"]
         ),
 
+        // 真实记忆问答评测：从记忆副本出题，经助手的问答管线（AssistantSession）作答，独立 Judge 按原始证据评分。
+        // 只在开发时由 amai-memory qa-eval 调用；记忆副本只读，不接触真实记忆目录、配置与会话记录。
+        .target(
+            name: "AmaiQAEval",
+            dependencies: ["AmaiCore", "AmaiMemory", "AmaiAssistant"]
+        ),
+
         // 记忆窗口的 SwiftUI 视图（只读浏览、检索、来源查看）。通过回调与 App 交互，便于在测试中渲染检查。
         .target(
             name: "AmaiMemoryUI",
@@ -108,10 +115,11 @@ let package = Package(
             ]
         ),
 
-        // 开发用记忆检索命令行：swift run amai-memory search <查询>；eval 子命令用 Claude Code 或本地模型跑记忆整理评测。
+        // 开发用记忆检索命令行：swift run amai-memory search <查询>；eval 子命令用 Claude Code 或本地模型跑记忆整理评测；
+        // qa-eval 子命令跑真实记忆问答评测（AmaiQAEval）。
         .executableTarget(
             name: "AmaiMemoryCLI",
-            dependencies: ["AmaiMemory", "AmaiMemoryEval", "AmaiCloud", "AmaiExtraction"]
+            dependencies: ["AmaiMemory", "AmaiMemoryEval", "AmaiCloud", "AmaiExtraction", "AmaiAssistant", "AmaiQAEval"]
         ),
 
         // 开发用抽取评测命令行：amai-extraction eval，在已录制的原始帧上用指定本地模型重跑抽取，比较速度、内存与切分。
@@ -141,6 +149,7 @@ let package = Package(
         .testTarget(name: "AmaiAssistantTests", dependencies: ["AmaiAssistant", "AmaiMemory"]),
         .testTarget(name: "AmaiMemoryTests", dependencies: ["AmaiMemory", "AmaiMemoryEval", "AmaiMemoryUI"]),
         .testTarget(name: "AmaiCloudTests", dependencies: ["AmaiCloud"]),
+        .testTarget(name: "AmaiQAEvalTests", dependencies: ["AmaiQAEval", "AmaiAssistant", "AmaiMemory"]),
         .testTarget(name: "AmaiMCPTests", dependencies: ["AmaiMCP", "AmaiMemory", .product(name: "MCP", package: "swift-sdk")]),
     ]
 )
