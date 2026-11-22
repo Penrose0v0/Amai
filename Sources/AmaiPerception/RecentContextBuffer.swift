@@ -15,7 +15,8 @@ struct RecentContextBuffer {
         var bundleId: String?
         var windowTitle: String?
         var jpeg: Data
-        var hash: UInt64
+        var fingerprint: ScreenFingerprint
+        var hash: UInt64 { fingerprint.layoutHash }
         /// 按需 OCR 的结果；画面更新后清空。
         var text: String?
     }
@@ -38,20 +39,20 @@ struct RecentContextBuffer {
     /// 记录一次观察到的画面。`encode` 只在确实需要保存画面时调用（编码有成本）。
     @discardableResult
     mutating func note(
-        hash: UInt64, appName: String?, bundleId: String?, windowTitle: String?, at now: Date,
+        fingerprint: ScreenFingerprint, appName: String?, bundleId: String?, windowTitle: String?, at now: Date,
         encode: () -> Data?
     ) -> Change {
         prune(now: now)
         if let last = states.indices.last, states[last].bundleId == bundleId {
-            let distance = ImageHashing.distance(states[last].hash, hash)
-            if distance <= ImageHashing.sameScreenThreshold {
+            // 版式没变、只换了文字（聊天来了新消息、列表翻页）也要更新画面，之后按需重新 OCR。
+            if states[last].fingerprint.isSameScreen(as: fingerprint) {
                 states[last].lastSeen = now
                 return .unchanged
             }
-            if distance < newStateDistance {
+            if states[last].fingerprint.layoutDistance(fingerprint) < newStateDistance {
                 guard let jpeg = encode() else { return .unchanged }
                 states[last].jpeg = jpeg
-                states[last].hash = hash
+                states[last].fingerprint = fingerprint
                 states[last].lastSeen = now
                 states[last].text = nil
                 if let windowTitle { states[last].windowTitle = windowTitle }
@@ -61,16 +62,16 @@ struct RecentContextBuffer {
         guard let jpeg = encode() else { return .unchanged }
         states.append(State(
             firstSeen: now, lastSeen: now, appName: appName, bundleId: bundleId, windowTitle: windowTitle,
-            jpeg: jpeg, hash: hash, text: nil
+            jpeg: jpeg, fingerprint: fingerprint, text: nil
         ))
         if states.count > capacity { states.removeFirst(states.count - capacity) }
         return .added
     }
 
     /// 这帧画面与最后一个状态是否是同一屏（是的话 `note` 只会刷新时间）。
-    func isSameAsLast(hash: UInt64, bundleId: String?) -> Bool {
+    func isSameAsLast(fingerprint: ScreenFingerprint, bundleId: String?) -> Bool {
         guard let last = states.last, last.bundleId == bundleId else { return false }
-        return ImageHashing.distance(last.hash, hash) <= ImageHashing.sameScreenThreshold
+        return last.fingerprint.isSameScreen(as: fingerprint)
     }
 
     mutating func prune(now: Date) {
@@ -91,8 +92,8 @@ struct RecentContextBuffer {
         var kept: [(state: State, lines: Set<String>)] = []
         for state in states.reversed() {
             guard let text = state.text, !text.isEmpty else { continue }
-            let lines = Self.lineSet(text)
-            if kept.contains(where: { Self.jaccard($0.lines, lines) >= threshold }) { continue }
+            let lines = ScreenTextSimilarity.lines(text)
+            if kept.contains(where: { ScreenTextSimilarity.similarity($0.lines, lines) >= threshold }) { continue }
             kept.append((state, lines))
         }
         return kept.reversed().map { item in
@@ -101,15 +102,5 @@ struct RecentContextBuffer {
                 windowTitle: item.state.windowTitle, text: item.state.text ?? "", source: .ocr
             )
         }
-    }
-
-    static func lineSet(_ text: String) -> Set<String> {
-        Set(text.split(separator: "\n").map { $0.trimmingCharacters(in: .whitespaces) }.filter { $0.count > 1 })
-    }
-
-    static func jaccard(_ a: Set<String>, _ b: Set<String>) -> Double {
-        if a.isEmpty && b.isEmpty { return 1 }
-        let union = a.union(b).count
-        return union == 0 ? 0 : Double(a.intersection(b).count) / Double(union)
     }
 }

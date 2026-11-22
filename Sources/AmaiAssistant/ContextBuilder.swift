@@ -147,14 +147,8 @@ public struct ContextBuilder: Sendable {
         text.count > limit ? String(text.prefix(limit)) + " […]" : text
     }
 
-    /// 两段屏幕文字是否基本相同（按行集合的 Jaccard 相似度）。
-    static func isSameScreenText(_ a: String, _ b: String, threshold: Double = 0.9) -> Bool {
-        func lines(_ text: String) -> Set<String> {
-            Set(text.split(separator: "\n").map { $0.trimmingCharacters(in: .whitespaces) }.filter { $0.count > 1 })
-        }
-        let (x, y) = (lines(a), lines(b))
-        if x.isEmpty && y.isEmpty { return true }
-        let union = x.union(y).count
-        return union > 0 && Double(x.intersection(y).count) / Double(union) >= threshold
+    /// 两段屏幕文字是否基本相同（按行集合的 Jaccard 相似度，与感知层共用 `ScreenTextSimilarity`）。
+    static func isSameScreenText(_ a: String, _ b: String, threshold: Double = ScreenTextSimilarity.sameScreenThreshold) -> Bool {
+        ScreenTextSimilarity.isSame(a, b, threshold: threshold)
     }
 }

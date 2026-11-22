@@ -77,7 +77,7 @@ struct LiveContextTests {
             let image = SyntheticImage.make(seed: seed)
             await reader.didCapture(
                 ScreenCapture(frames: [CapturedFrame(image: image, displayId: 1)], focusDisplayId: 1),
-                hashes: [:], frontmost: frontmost.app, at: clock.now()
+                fingerprints: [:], frontmost: frontmost.app, at: clock.now()
             )
         }
     }
@@ -124,6 +124,21 @@ struct LiveContextTests {
         let fallback = try await h.reader.screen(.focusedWindow, maxAge: 2, maxHeight: 1080)
         #expect(fallback.scope == .desktop)
         #expect(h.screens.calls == 1)
+    }
+
+    /// 回归：版式相同、只换了文字时 dHash 不变，原来会在 90 秒内一直返回旧的 OCR 文字。
+    @Test("a text-only change is recognized again; a blinking cursor is not")
+    func recognitionNoticesTextChange() async throws {
+        let h = Harness()
+        h.windows.image = SyntheticImage.textScreen()
+        _ = try await h.reader.screenText(.focusedWindow, maxAge: 2)
+        h.windows.image = SyntheticImage.textScreen(cursor: true)
+        _ = try await h.reader.screenText(.focusedWindow, maxAge: 2)
+        #expect(h.ocr.calls == 1)
+
+        h.windows.image = SyntheticImage.textScreen(changedLine: SyntheticImage.changedLine)
+        _ = try await h.reader.screenText(.focusedWindow, maxAge: 2)
+        #expect(h.ocr.calls == 2)
     }
 
     @Test("screen text is recognized once while the screen stays the same; a changed screen or an old result is read again")
@@ -260,7 +275,7 @@ struct RecentContextBufferTests {
         var encodes = 0
         for i in 0..<8 {
             // 每个状态换一个应用，保证都是新状态。
-            buffer.note(hash: UInt64(i), appName: "App\(i)", bundleId: "b\(i)", windowTitle: nil, at: Self.t0.addingTimeInterval(Double(i))) {
+            buffer.note(fingerprint: ScreenFingerprint(layoutHash: UInt64(i)), appName: "App\(i)", bundleId: "b\(i)", windowTitle: nil, at: Self.t0.addingTimeInterval(Double(i))) {
                 encodes += 1
                 return Data([UInt8(i)])
             }
@@ -276,16 +291,32 @@ struct RecentContextBufferTests {
         #expect(distinct.map(\.appName) == ["App3", "App5", "App6", "App7"])
     }
 
+    /// 回归：同一应用里版式不变、只换了文字（聊天新消息、列表翻页）原来被当成"没变"，新画面丢失。
+    @Test("a text-only change in the same app updates the state; a blinking cursor does not")
+    func textOnlyChangeUpdates() {
+        var buffer = RecentContextBuffer()
+        let base = ImageHashing.fingerprint(SyntheticImage.textScreen())
+        let cursor = ImageHashing.fingerprint(SyntheticImage.textScreen(cursor: true))
+        let changed = ImageHashing.fingerprint(SyntheticImage.textScreen(changedLine: SyntheticImage.changedLine))
+        #expect(ImageHashing.isSameScreen(base.layoutHash, changed.layoutHash))
+
+        #expect(buffer.note(fingerprint: base, appName: "Messages", bundleId: "m", windowTitle: nil, at: Self.t0) { Data([1]) } == .added)
+        #expect(buffer.note(fingerprint: cursor, appName: "Messages", bundleId: "m", windowTitle: nil, at: Self.t0.addingTimeInterval(10)) { Data([2]) } == .unchanged)
+        buffer.setText("old", at: 0)
+        #expect(buffer.note(fingerprint: changed, appName: "Messages", bundleId: "m", windowTitle: nil, at: Self.t0.addingTimeInterval(20)) { Data([3]) } == .updated)
+        #expect(buffer.states.count == 1 && buffer.states[0].text == nil && buffer.states[0].jpeg == Data([3]))
+    }
+
     @Test("small changes in the same app update the last state instead of adding one")
     func updateInPlace() {
         var buffer = RecentContextBuffer()
         let base: UInt64 = 0
-        #expect(buffer.note(hash: base, appName: "Xcode", bundleId: "x", windowTitle: "a", at: Self.t0) { Data([1]) } == .added)
-        #expect(buffer.note(hash: 0b111, appName: "Xcode", bundleId: "x", windowTitle: "a", at: Self.t0.addingTimeInterval(10)) { Data([2]) } == .unchanged)
+        #expect(buffer.note(fingerprint: ScreenFingerprint(layoutHash: base), appName: "Xcode", bundleId: "x", windowTitle: "a", at: Self.t0) { Data([1]) } == .added)
+        #expect(buffer.note(fingerprint: ScreenFingerprint(layoutHash: 0b111), appName: "Xcode", bundleId: "x", windowTitle: "a", at: Self.t0.addingTimeInterval(10)) { Data([2]) } == .unchanged)
         buffer.setText("old", at: 0)
-        #expect(buffer.note(hash: 0xFF, appName: "Xcode", bundleId: "x", windowTitle: "b", at: Self.t0.addingTimeInterval(20)) { Data([3]) } == .updated)
+        #expect(buffer.note(fingerprint: ScreenFingerprint(layoutHash: 0xFF), appName: "Xcode", bundleId: "x", windowTitle: "b", at: Self.t0.addingTimeInterval(20)) { Data([3]) } == .updated)
         #expect(buffer.states.count == 1 && buffer.states[0].text == nil && buffer.states[0].windowTitle == "b")
-        #expect(buffer.note(hash: 0xFFFF_FFFF, appName: "Xcode", bundleId: "x", windowTitle: "c", at: Self.t0.addingTimeInterval(30)) { Data([4]) } == .added)
+        #expect(buffer.note(fingerprint: ScreenFingerprint(layoutHash: 0xFFFF_FFFF), appName: "Xcode", bundleId: "x", windowTitle: "c", at: Self.t0.addingTimeInterval(30)) { Data([4]) } == .added)
         #expect(buffer.states.count == 2)
     }
 }

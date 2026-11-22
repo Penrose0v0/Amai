@@ -1,5 +1,6 @@
 import AmaiCore
 import CoreGraphics
+import CoreText
 import Foundation
 @testable import AmaiPerception
 
@@ -112,6 +113,40 @@ enum SyntheticImage {
             provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent
         )!
     }
+}
+
+extension SyntheticImage {
+    /// 1920×1080 的"文字画面"：浅色背景、彩色顶栏、20 行 14pt 文字。只改 `changedLine` 那一行时版式不变，
+    /// dHash 看不出差别（用于验证去重对文字变化敏感）；`cursor` 加一条闪烁光标（应被当作同一屏）。
+    static func textScreen(changedLine: String? = nil, cursor: Bool = false) -> CGImage {
+        let (width, height, fontSize): (Int, Int, CGFloat) = (1920, 1080, 14)
+        let ctx = CGContext(
+            data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        )!
+        ctx.setFillColor(gray: 0.96, alpha: 1)
+        ctx.fill(CGRect(x: 0, y: 0, width: width, height: height))
+        ctx.setFillColor(red: 0.2, green: 0.4, blue: 0.8, alpha: 1)
+        ctx.fill(CGRect(x: 0, y: height - 60, width: width, height: 60))
+        let font = CTFontCreateWithName("Helvetica" as CFString, fontSize, nil)
+        for index in 0..<20 {
+            var line = "Line \(index): the quick brown fox jumps over the lazy dog near riverbank"
+            if index == 5, let changedLine { line = changedLine }
+            let attributed = NSAttributedString(string: line, attributes: [
+                NSAttributedString.Key(kCTFontAttributeName as String): font,
+                NSAttributedString.Key(kCTForegroundColorAttributeName as String): CGColor(gray: 0.1, alpha: 1),
+            ])
+            ctx.textPosition = CGPoint(x: 40, y: CGFloat(height - 120) - CGFloat(index) * fontSize * 1.6)
+            CTLineDraw(CTLineCreateWithAttributedString(attributed), ctx)
+        }
+        if cursor {
+            ctx.setFillColor(gray: 0, alpha: 1)
+            ctx.fill(CGRect(x: 300, y: CGFloat(height - 124), width: 2, height: fontSize + 4))
+        }
+        return ctx.makeImage()!
+    }
+
+    static let changedLine = "Line 5: completely different message arrived from someone else today"
 }
 
 enum PixelStats {

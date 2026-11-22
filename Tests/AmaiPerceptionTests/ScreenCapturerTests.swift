@@ -105,6 +105,36 @@ struct ScreenCapturerTests {
         await h.capturer.stop()
     }
 
+    /// 回归：版式相同、只换了文字的画面原来被 dHash 判为重复，抽取层会跳过它。
+    @Test("a text-only change is not a duplicate; a blinking cursor is")
+    func textOnlyChange() async throws {
+        let h = try Harness()
+        defer { h.cleanup() }
+        var ids: [UUID] = []
+        for image in [
+            SyntheticImage.textScreen(),
+            SyntheticImage.textScreen(cursor: true),
+            SyntheticImage.textScreen(changedLine: SyntheticImage.changedLine),
+        ] {
+            h.source.set(image: image)
+            guard case .captured(let captured) = await h.capturer.performTick() else {
+                Issue.record("tick should capture"); return
+            }
+            ids += captured
+            h.clock.advance(10)
+        }
+        let events = try await h.spool.events(on: h.clock.now())
+        let byId = Dictionary(uniqueKeysWithValues: events.map { ($0.id, $0) })
+        let cursor = try #require(byId[ids[1]])
+        let changed = try #require(byId[ids[2]])
+        #expect(cursor.metadata.duplicateOf == ids[0])
+        #expect(changed.metadata.duplicateOf == nil)
+        // dHash 本身看不出这一变化：距离仍在同屏阈值内。
+        #expect((changed.metadata.changeDistance ?? .max) <= ImageHashing.sameScreenThreshold)
+        #expect(await h.capturer.stats.duplicates == 1)
+        await h.capturer.stop()
+    }
+
     @Test("secure input → skipped placeholder with no app metadata")
     func secureInput() async throws {
         let h = try Harness()

@@ -22,7 +22,7 @@ public enum BlockReason: String, Sendable, Equatable {
 public struct ScreenCaptureStats: Sendable, Equatable {
     /// 已捕获的帧数（多显示器时每块屏幕各算一帧）。
     public var captured = 0
-    /// 已捕获帧中被 dHash 判定与同一显示器上一帧相同的数量（仍编码进视频，仅作提示）。
+    /// 已捕获帧中被画面指纹（dHash + 文字网格）判定与同一显示器上一帧相同的数量（仍编码进视频，仅作提示）。
     public var duplicates = 0
     /// 最近一次成功采集到的显示器数量。
     public var displays = 0
@@ -38,8 +38,8 @@ public struct ScreenCaptureStats: Sendable, Equatable {
 
 /// 定时截图采集器（ADR-0002：Dayflow 风格）。
 ///
-/// 每个 tick：系统状态 → 电源档位 → 退避 → 隐私策略 → 截取所有显示器 → 各屏 dHash → 各自追加进视频分段 → 索引。
-/// 所有帧都编码（相邻相似帧由编码器压缩）；dHash 只作为元数据提示抽取层。
+/// 每个 tick：系统状态 → 电源档位 → 退避 → 隐私策略 → 截取所有显示器 → 各屏画面指纹 → 各自追加进视频分段 → 索引。
+/// 所有帧都编码（相邻相似帧由编码器压缩）；去重结果只作为元数据提示抽取层。
 /// 去重按显示器独立进行：一块屏幕在播放视频不会让另一块静止屏幕的帧被当作"有变化"。
 /// 省电档只拉长间隔，仍然采集所有显示器。
 /// 所有系统 I/O 经协议注入，`performTick()` 可在测试中直接驱动。
@@ -99,7 +99,7 @@ public actor ScreenCapturer {
     /// 这些操作可以插进来执行；tick 恢复后比对计数，变了就不再写入这次的画面（否则暂停之后还会写下一帧并打开新分段）。
     private var controlGeneration = 0
     /// 每块显示器上一帧的哈希与事件 id，用于独立去重。
-    private var lastFrames: [UInt32: (hash: UInt64, eventId: UUID)] = [:]
+    private var lastFrames: [UInt32: (fingerprint: ScreenFingerprint, eventId: UUID)] = [:]
     private var backoffUntil: Date?
 
     public private(set) var stats = ScreenCaptureStats()
@@ -245,10 +245,11 @@ public actor ScreenCapturer {
         let focus = present.count > 1 ? capture.focusDisplayId : nil
         let monoTime = deps.clock.monotonicNanoseconds()
         var ids: [UUID] = []
-        var hashes: [UInt32: UInt64] = [:]
+        var fingerprints: [UInt32: ScreenFingerprint] = [:]
         for frame in capture.frames {
-            let hash = ImageHashing.dHash(frame.image)
-            hashes[frame.displayId] = hash
+            let fingerprint = ImageHashing.fingerprint(frame.image)
+            let hash = fingerprint.layoutHash
+            fingerprints[frame.displayId] = fingerprint
             var metadata = PerceptionMetadata(
                 app: frontmost?.name,
                 bundleId: frontmost?.bundleId,
@@ -258,8 +259,9 @@ public actor ScreenCapturer {
                 imageHash: String(hash, radix: 16)
             )
             if let last = lastFrames[frame.displayId] {
-                metadata.changeDistance = ImageHashing.distance(last.hash, hash)
-                if ImageHashing.isSameScreen(last.hash, hash) {
+                metadata.changeDistance = last.fingerprint.layoutDistance(fingerprint)
+                // 版式相同但文字成片变化（聊天、列表翻页）不算重复。
+                if last.fingerprint.isSameScreen(as: fingerprint) {
                     metadata.duplicateOf = last.eventId
                 }
             }
@@ -292,7 +294,7 @@ public actor ScreenCapturer {
                 return recordFailure(.captureFailed("spool"), at: now)
             }
 
-            lastFrames[frame.displayId] = (hash, event.id)
+            lastFrames[frame.displayId] = (fingerprint, event.id)
             if metadata.duplicateOf != nil { stats.duplicates += 1 }
             stats.captured += 1
             ids.append(event.id)
@@ -312,7 +314,7 @@ public actor ScreenCapturer {
         stats.lastError = nil
         stats.permissionDenied = false
         backoffUntil = nil
-        await deps.observer?.didCapture(capture, hashes: hashes, frontmost: frontmost, at: now)
+        await deps.observer?.didCapture(capture, fingerprints: fingerprints, frontmost: frontmost, at: now)
         return .captured(ids)
     }
 

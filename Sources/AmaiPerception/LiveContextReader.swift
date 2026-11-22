@@ -7,7 +7,7 @@ import ScreenCaptureKit
 
 /// 采集器每次成功截图（或因隐私 / 系统状态没有截图）后通知的对象。
 public protocol ScreenCaptureObserver: Sendable {
-    func didCapture(_ capture: ScreenCapture, hashes: [UInt32: UInt64], frontmost: FrontmostApp?, at time: Date) async
+    func didCapture(_ capture: ScreenCapture, fingerprints: [UInt32: ScreenFingerprint], frontmost: FrontmostApp?, at time: Date) async
     /// 这一次没有截图（被排除的应用在前台、安全输入、暂停、睡眠等）。之前留在内存里的画面不应再被复用。
     func didNotCapture() async
 }
@@ -158,14 +158,14 @@ public actor LiveContextReader: LiveContextReading, ScreenCaptureObserver {
     /// 应用切换后等画面稳定再记录的时间。
     static let appSwitchSettle: Duration = .milliseconds(1500)
 
-    /// 复用上一次 OCR 结果的条件：画面哈希相差不超过这么多位，且不超过这么久。
-    /// 时间限制是因为哈希看不出小改动（在编辑器里多打了几个字）。
+    /// 复用上一次 OCR 结果的条件：画面哈希相差不超过这么多位、文字网格没有成片变化，且不超过这么久。
+    /// 时间限制是因为指纹仍看不出很小的改动（在编辑器里多打了几个字）。
     static let recognitionReuseDistance = 3
     static let recognitionReuseWindow: TimeInterval = 90
 
     private var deps: Dependencies
     private var targetHeight: Int
-    private var lastRecognition: (scope: ScreenScope, hash: UInt64, text: String, at: Date)?
+    private var lastRecognition: (scope: ScreenScope, fingerprint: ScreenFingerprint, text: String, at: Date)?
     private var latest: LatestFrame?
     private var recent = RecentContextBuffer()
     private var backgroundActive = false
@@ -202,12 +202,12 @@ public actor LiveContextReader: LiveContextReading, ScreenCaptureObserver {
         switchTask?.cancel()
     }
 
-    public func didCapture(_ capture: ScreenCapture, hashes: [UInt32: UInt64], frontmost: FrontmostApp?, at time: Date) {
+    public func didCapture(_ capture: ScreenCapture, fingerprints: [UInt32: ScreenFingerprint], frontmost: FrontmostApp?, at time: Date) {
         guard let frame = Self.focusFrame(capture) else { return }
-        let hash = hashes[frame.displayId] ?? ImageHashing.dHash(frame.image)
-        latest = LatestFrame(frame: frame, hash: hash, capturedAt: time, bundleId: frontmost?.bundleId)
+        let fingerprint = fingerprints[frame.displayId] ?? ImageHashing.fingerprint(frame.image)
+        latest = LatestFrame(frame: frame, hash: fingerprint.layoutHash, capturedAt: time, bundleId: frontmost?.bundleId)
         guard backgroundActive else { return }
-        noteRecent(frame: frame, hash: hash, app: frontmost, at: time)
+        noteRecent(frame: frame, fingerprint: fingerprint, app: frontmost, at: time)
     }
 
     public func didNotCapture() {
@@ -232,16 +232,16 @@ public actor LiveContextReader: LiveContextReading, ScreenCaptureObserver {
               let frame = Self.focusFrame(capture), backgroundActive
         else { return }
         let now = deps.clock.now()
-        let hash = ImageHashing.dHash(frame.image)
-        latest = LatestFrame(frame: frame, hash: hash, capturedAt: now, bundleId: app.bundleId)
-        noteRecent(frame: frame, hash: hash, app: app, at: now)
+        let fingerprint = ImageHashing.fingerprint(frame.image)
+        latest = LatestFrame(frame: frame, hash: fingerprint.layoutHash, capturedAt: now, bundleId: app.bundleId)
+        noteRecent(frame: frame, fingerprint: fingerprint, app: app, at: now)
     }
 
-    private func noteRecent(frame: CapturedFrame, hash: UInt64, app: FrontmostApp?, at time: Date) {
+    private func noteRecent(frame: CapturedFrame, fingerprint: ScreenFingerprint, app: FrontmostApp?, at time: Date) {
         // 窗口标题是一次进程间查询，只在画面确实变了、要更新状态时才读。
-        let unchanged = recent.isSameAsLast(hash: hash, bundleId: app?.bundleId)
+        let unchanged = recent.isSameAsLast(fingerprint: fingerprint, bundleId: app?.bundleId)
         let title = unchanged ? nil : app.flatMap { deps.focus.isTrusted ? deps.focus.windowTitle(pid: $0.pid) : nil }
-        recent.note(hash: hash, appName: app?.name, bundleId: app?.bundleId, windowTitle: title, at: time) {
+        recent.note(fingerprint: fingerprint, appName: app?.name, bundleId: app?.bundleId, windowTitle: title, at: time) {
             try? JPEGEncoder.encode(Self.scale(frame.image, maxHeight: 1080), quality: 0.7)
         }
     }
@@ -290,6 +290,12 @@ public actor LiveContextReader: LiveContextReading, ScreenCaptureObserver {
     }
 
     public func screen(_ scope: ScreenScope, maxAge: TimeInterval = 2, maxHeight: Int = 1080) async throws -> ScreenImage {
+        try await capturedScreen(scope, maxAge: maxAge, maxHeight: maxHeight).image
+    }
+
+    private func capturedScreen(
+        _ scope: ScreenScope, maxAge: TimeInterval, maxHeight: Int
+    ) async throws -> (image: ScreenImage, fingerprint: ScreenFingerprint) {
         let app = await deps.target.frontmostApp()
         try checkPolicy(app)
         let now = deps.clock.now()
@@ -325,15 +331,16 @@ public actor LiveContextReader: LiveContextReading, ScreenCaptureObserver {
     /// 画面与上一次识别时基本相同（且隔得不久）就直接返回上次的文字，不重复 OCR。
     /// 助手在面板唤出时识别一次，用户提交问题时再读一次做确认：屏幕没变的话第二次只花一次截图的时间。
     public func screenText(_ scope: ScreenScope, maxAge: TimeInterval = 2) async throws -> String {
-        let image = try await screen(scope, maxAge: maxAge, maxHeight: 1440)
+        let (image, fingerprint) = try await capturedScreen(scope, maxAge: maxAge, maxHeight: 1440)
         let now = deps.clock.now()
         if let last = lastRecognition, last.scope == image.scope,
            now.timeIntervalSince(last.at) <= Self.recognitionReuseWindow,
-           (last.hash ^ image.perceptualHash).nonzeroBitCount <= Self.recognitionReuseDistance {
+           last.fingerprint.layoutDistance(fingerprint) <= Self.recognitionReuseDistance,
+           last.fingerprint.isSameScreen(as: fingerprint) {
             return last.text
         }
         let text = await recognize(image.jpeg, limit: Self.screenTextLimit)
-        lastRecognition = (image.scope, image.perceptualHash, text, now)
+        lastRecognition = (image.scope, fingerprint, text, now)
         return text
     }
 
@@ -393,15 +400,17 @@ public actor LiveContextReader: LiveContextReading, ScreenCaptureObserver {
 
     private static func encode(
         _ image: CGImage, scope: ScreenScope, at time: Date, maxHeight: Int, reused: Bool
-    ) throws -> ScreenImage {
+    ) throws -> (image: ScreenImage, fingerprint: ScreenFingerprint) {
         let scaled = scale(image, maxHeight: maxHeight)
         guard let jpeg = try? JPEGEncoder.encode(scaled, quality: 0.8) else {
             throw LiveContextError.unavailable("encode failed")
         }
-        return ScreenImage(
-            jpeg: jpeg, perceptualHash: ImageHashing.dHash(scaled), scope: scope, capturedAt: time,
+        let fingerprint = ImageHashing.fingerprint(scaled)
+        let screen = ScreenImage(
+            jpeg: jpeg, perceptualHash: fingerprint.layoutHash, scope: scope, capturedAt: time,
             reusedBackgroundFrame: reused
         )
+        return (screen, fingerprint)
     }
 
     static func scale(_ image: CGImage, maxHeight: Int) -> CGImage {
