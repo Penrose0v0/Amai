@@ -162,17 +162,14 @@ struct RedactionCoverageTests {
 
     // MARK: - 资源
 
-    /// 性能保护：`sk-` 规则若用前瞻 `(?=body*[0-9])` 要求主体含数字（OCR 容错版本的写法），每个可能的起点都会扫到文本末尾，
-    /// `sk-` 连续重复时耗时随长度平方增长（实测 24 KB 0.8 s，96 KB 12 s）。屏幕 OCR 通常只有几 KB，实际风险低；
-    /// 整理提示词更长，也经过同一函数。没有这种前瞻的规则下本测试直接通过，所以标为 intermittent。
+    /// 性能保护：`sk-` 规则要求主体含数字。前瞻不设上界（`(?=body*[0-9])`）时每个可能的起点都会扫到文本末尾，
+    /// `sk-` 连续重复时耗时随长度平方增长（实测 24 KB 0.8 s，96 KB 12 s）。现在只在前 `skDigitWindow` 个字符里找数字。
     @Test("redaction stays fast on adversarial input")
     func adversarialInputPerformance() {
         let text = String(repeating: "sk-", count: 16_000) // 48 KB
         let start = Date()
         _ = SecretRedactor.redact(text)
         let elapsed = Date().timeIntervalSince(start)
-        withKnownIssue("quadratic backtracking in the sk- rule", isIntermittent: true) {
-            #expect(elapsed < 0.5, "took \(elapsed)s")
-        }
+        #expect(elapsed < 0.5, "took \(elapsed)s")
     }
 }

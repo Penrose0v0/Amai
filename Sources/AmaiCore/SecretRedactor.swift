@@ -16,6 +16,13 @@ public enum SecretRedactor {
     private static let dash = #"[\-\u2010-\u2015\u2212]"#
     /// 凭据主体允许的字符（含被认错的横线）。
     private static let body = #"[A-Za-z0-9_\-\u2010-\u2015\u2212]"#
+    /// `sk-` 规则在主体里找数字的范围（字符数）。已知最长的 `sk-` 密钥（`sk-proj-`、`sk-svcacct-`）主体约 160 个字符，
+    /// 整条密钥都在范围内，检出不受影响；同时让每个起点的检查有界，整体耗时保持线性。
+    static let skDigitWindow = 256
+    /// `body` 去掉数字：`sk-` 规则用它跳到主体里的第一个数字。
+    private static let bodyNonDigit = #"[A-Za-z_\-\u2010-\u2015\u2212]"#
+    /// 连接串规则允许的 scheme 最大长度（字符数）。
+    static let schemeMaxLength = 32
     /// 前面不能紧贴字母或数字：`desk-...`、`task-...` 里的 `sk-` 不是密钥前缀。
     private static let start = #"(?<![A-Za-z0-9])"#
 
@@ -35,7 +42,10 @@ public enum SecretRedactor {
         // Anthropic：前缀很特殊，大小写与横线都放宽。
         (#"\#(start)[sS5][kK]\#(dash)[aA@][nN][tT]\#(dash)\#(body){16,}"#, false, nil),
         // OpenAI 等 `sk-` 开头的密钥：只放宽首字母大小写，并要求主体里有数字，避免把长的连字符单词当成密钥。
-        (#"\#(start)[sS]k\#(dash)(?:proj\#(dash))?(?=\#(body)*[0-9])\#(body){20,}"#, false, nil),
+        // 数字只在主体的前 `skDigitWindow` 个字符里找，且用占有量词跳过非数字、不回溯：不设上界时每个起点都会扫到
+        // 连续字符的末尾，`sk-` 大量重复的文本耗时随长度平方增长（48 KB 约 3 秒）。检出条件：主体里第一个数字出现在
+        // 前 `skDigitWindow` 个字符之内（原写法不限位置，但真实密钥远短于这个范围）。
+        (#"\#(start)[sS]k\#(dash)(?:proj\#(dash))?(?=\#(bodyNonDigit){0,\#(skDigitWindow)}+[0-9])\#(body){20,}"#, false, nil),
         // Stripe 的 secret / restricted key（publishable key `pk_` 本来就公开，不处理）。
         (#"\#(start)[sSrR]k_(?:live|test)_[A-Za-z0-9]{16,}"#, false, nil),
         (#"\#(start)[gG]h[pousr]_[A-Za-z0-9]{20,}"#, false, nil),
@@ -53,7 +63,9 @@ public enum SecretRedactor {
         (#"\#(start)A[I1l|]za[0-9A-Za-z_\-]{35}"#, false, nil),
         (#"\#(start)[eE]y[Jj][A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}"#, false, nil),
         // 连接串里的密码 `scheme://user:password@host`：只换密码，用户名与主机保留（判断连的是哪里仍有用）。
-        (#"(\b[A-Za-z][A-Za-z0-9+.\-]*://[^\s:/@]+:)[^\s/@]+(@)"#, false, "$1" + placeholderTemplate + "$2"),
+        // scheme 最长 `schemeMaxLength` 个字符（postgresql、mongodb+srv 等都很短）：不设上界时每个单词开头都会扫到
+        // 连续字符的末尾去找 `://`，长的连字符文本耗时随长度平方增长。
+        (#"(\b[A-Za-z][A-Za-z0-9+.\-]{0,\#(schemeMaxLength - 1)}://[^\s:/@]+:)[^\s/@]+(@)"#, false, "$1" + placeholderTemplate + "$2"),
     ].compactMap { (pattern: String, caseInsensitive: Bool, template: String?) -> Rule? in
         guard let regex = try? NSRegularExpression(pattern: pattern, options: caseInsensitive ? [.caseInsensitive] : []) else {
             assertionFailure("invalid redaction pattern: \(pattern)")
